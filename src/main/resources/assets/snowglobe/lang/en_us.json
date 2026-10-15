@@ -1,6 +1,7 @@
 {
   "block.snowglobe.snow_globe": "Snow Globe",
+  "block.snowglobe.terrarium": "Terrarium",
   "block.snowglobe.globe_wall": "Globe Wall",
-  "snowglobe.message.entered": "You're inside the snow globe! Build anything you like. To leave, right-click the glass wall with an empty hand.",
-  "snowglobe.message.nested": "You can't open a snow globe from inside another one."
+  "snowglobe.message.entered": "You're inside! Build anything you like. To leave, right-click the glass wall with an empty hand.",
+  "snowglobe.message.nested": "You can't open a globe from inside another one."
 }

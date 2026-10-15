@@ -11,7 +11,6 @@ import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.Block;
-import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraftforge.event.TickEvent;
 
@@ -33,7 +32,7 @@ public final class GlobeSpace
 
     private GlobeSpace() {}
 
-    /** Lowest corner of globe {@code id}'s build space (the walls sit one block outside it). */
+    /** Lowest corner of globe {@code id}'s build space (the walls sit just outside it). */
     public static BlockPos interiorMin(int id)
     {
         return new BlockPos(id * SPACING + 1, BASE_Y + 1, 1);
@@ -44,30 +43,38 @@ public final class GlobeSpace
         return Math.floorDiv(pos.getX(), SPACING);
     }
 
-    /** Builds a new globe's walls and grass floor, and returns its id. */
-    public static int create(MinecraftServer server)
+    /** True for cells outside the build space that touch it, even diagonally: together they seal it in. */
+    private static boolean shell(GlobeKind kind, int x, int y, int z)
+    {
+        if (kind.inside(x, y, z))
+            return false;
+        for (int dx = -1; dx <= 1; dx++)
+            for (int dy = -1; dy <= 1; dy++)
+                for (int dz = -1; dz <= 1; dz++)
+                    if (kind.inside(x + dx, y + dy, z + dz))
+                        return true;
+        return false;
+    }
+
+    /** Builds a new globe's glass walls and starter scene, and returns its id. */
+    public static int create(MinecraftServer server, GlobeKind kind)
     {
         GlobeSavedData data = GlobeSavedData.get(server);
-        int id = data.allocateId();
+        int id = data.allocateId(kind);
         ServerLevel level = server.getLevel(LEVEL);
         if (level == null)
             return id;
 
         BlockPos min = interiorMin(id);
         BlockState wall = SnowGlobeMod.GLOBE_WALL.get().defaultBlockState();
-        BlockState floor = Blocks.GRASS_BLOCK.defaultBlockState();
         for (int x = -1; x <= SIZE; x++)
             for (int y = -1; y <= SIZE; y++)
                 for (int z = -1; z <= SIZE; z++)
-                {
-                    boolean shell = x < 0 || y < 0 || z < 0 || x == SIZE || y == SIZE || z == SIZE;
-                    if (shell)
+                    if (shell(kind, x, y, z))
                         level.setBlock(min.offset(x, y, z), wall, Block.UPDATE_CLIENTS);
-                    else if (y == 0)
-                        level.setBlock(min.offset(x, y, z), floor, Block.UPDATE_CLIENTS);
-                }
+        GlobeScenes.build(level, min, kind);
 
-        data.storeSnapshot(id, GlobeSnapshot.capture(level, min));
+        data.storeSnapshot(id, GlobeSnapshot.capture(level, min, kind));
         return id;
     }
 
@@ -118,24 +125,48 @@ public final class GlobeSpace
         player.teleportTo(target, back.getDouble("X"), back.getDouble("Y"), back.getDouble("Z"), back.getFloat("Yaw"), back.getFloat("Pitch"));
     }
 
-    /** Stands the player on top of whatever is built in the middle of the globe. */
+    /** Finds a free spot to stand, starting from the middle of the globe and working outwards. */
     private static BlockPos findSpawn(ServerLevel level, int id)
     {
         BlockPos min = interiorMin(id);
-        for (int y = SIZE - 2; y >= 0; y--)
+        for (int ring = 0; ring < SIZE / 2; ring++)
+            for (int dx = -ring; dx <= ring; dx++)
+                for (int dz = -ring; dz <= ring; dz++)
+                {
+                    if (Math.max(Math.abs(dx), Math.abs(dz)) != ring)
+                        continue;
+                    BlockPos spot = standingSpot(level, min.offset(SIZE / 2 + dx, 0, SIZE / 2 + dz));
+                    if (spot != null)
+                        return spot;
+                }
+        return min.offset(SIZE / 2, SIZE / 2, SIZE / 2);
+    }
+
+    /** The lowest spot in this column with ground below and two free blocks above, if there is one. */
+    private static BlockPos standingSpot(ServerLevel level, BlockPos bottom)
+    {
+        for (int y = 1; y < SIZE - 1; y++)
         {
-            BlockPos pos = min.offset(SIZE / 2, y, SIZE / 2);
-            if (!level.getBlockState(pos).getCollisionShape(level, pos).isEmpty())
-                return pos.above();
+            BlockPos feet = bottom.above(y);
+            if (solid(level, feet.below()) && !solid(level, feet) && !solid(level, feet.above())
+                    && level.getBlockState(feet.above()).getBlock() != SnowGlobeMod.GLOBE_WALL.get())
+                return feet;
         }
-        return min.offset(SIZE / 2, 0, SIZE / 2);
+        return null;
+    }
+
+    private static boolean solid(ServerLevel level, BlockPos pos)
+    {
+        return !level.getBlockState(pos).getCollisionShape(level, pos).isEmpty();
     }
 
     private static void refreshSnapshot(MinecraftServer server, int id)
     {
         ServerLevel level = server.getLevel(LEVEL);
-        if (level != null && id >= 0)
-            GlobeSavedData.get(server).storeSnapshot(id, GlobeSnapshot.capture(level, interiorMin(id)));
+        if (level == null || id < 0)
+            return;
+        GlobeSavedData data = GlobeSavedData.get(server);
+        data.storeSnapshot(id, GlobeSnapshot.capture(level, interiorMin(id), data.kindOf(id)));
     }
 
     /** Once a second, re-captures every globe someone is building in, so the miniature follows along live. */

@@ -19,26 +19,29 @@ import net.minecraft.world.level.block.entity.BlockEntityType;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.phys.BlockHitResult;
 import net.minecraft.world.phys.shapes.CollisionContext;
-import net.minecraft.world.phys.shapes.Shapes;
 import net.minecraft.world.phys.shapes.VoxelShape;
 import org.jetbrains.annotations.Nullable;
 
-/** The snow globe itself. Right-click to step inside and build. */
+/** A snow globe or terrarium. Right-click to step inside and build. */
 public class GlobeBlock extends BaseEntityBlock
 {
-    private static final VoxelShape SHAPE = Shapes.or(
-            Block.box(1, 0, 1, 15, 3, 15),   // wooden base
-            Block.box(2, 3, 2, 14, 15, 14)); // glass case
+    private final GlobeKind kind;
 
-    public GlobeBlock(Properties properties)
+    public GlobeBlock(GlobeKind kind, Properties properties)
     {
         super(properties);
+        this.kind = kind;
+    }
+
+    public GlobeKind kind()
+    {
+        return kind;
     }
 
     @Override
     public VoxelShape getShape(BlockState state, BlockGetter level, BlockPos pos, CollisionContext context)
     {
-        return SHAPE;
+        return kind.shape;
     }
 
     @Override

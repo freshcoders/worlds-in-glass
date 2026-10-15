@@ -34,7 +34,7 @@ public final class GlobeSnapshot
         this.cells = cells;
     }
 
-    public static GlobeSnapshot capture(Level level, BlockPos min)
+    public static GlobeSnapshot capture(Level level, BlockPos min, GlobeKind kind)
     {
         List<BlockState> palette = new ArrayList<>();
         Map<BlockState, Integer> index = new HashMap<>();
@@ -45,7 +45,10 @@ public final class GlobeSnapshot
             for (int z = 0; z < SIZE; z++)
                 for (int x = 0; x < SIZE; x++)
                 {
-                    BlockState state = level.getBlockState(pos.set(min.getX() + x, min.getY() + y, min.getZ() + z));
+                    // Only the build space belongs in the miniature (not the walls in a dome's corners).
+                    BlockState state = kind.inside(x, y, z)
+                            ? level.getBlockState(pos.set(min.getX() + x, min.getY() + y, min.getZ() + z))
+                            : Blocks.AIR.defaultBlockState();
                     cells[i++] = index.computeIfAbsent(state, s -> {
                         palette.add(s);
                         return palette.size() - 1;

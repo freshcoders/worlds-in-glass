@@ -1,0 +1,11 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "category": "misc",
+  "pattern": ["GGG", "GMG", "PPP"],
+  "key": {
+    "G": { "item": "minecraft:glass" },
+    "M": { "item": "minecraft:moss_block" },
+    "P": { "tag": "minecraft:planks" }
+  },
+  "result": { "item": "snowglobe:terrarium" }
+}

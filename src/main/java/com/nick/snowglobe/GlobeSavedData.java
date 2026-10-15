@@ -20,16 +20,23 @@ public class GlobeSavedData extends SavedData
 
     private int nextId;
     private final Map<Integer, Entry> globes = new HashMap<>();
+    private final Map<Integer, GlobeKind> kinds = new HashMap<>();
 
     public static GlobeSavedData get(MinecraftServer server)
     {
         return server.overworld().getDataStorage().computeIfAbsent(GlobeSavedData::load, GlobeSavedData::new, NAME);
     }
 
-    public int allocateId()
+    public int allocateId(GlobeKind kind)
     {
+        kinds.put(nextId, kind);
         setDirty();
         return nextId++;
+    }
+
+    public GlobeKind kindOf(int id)
+    {
+        return kinds.getOrDefault(id, GlobeKind.SNOW_GLOBE);
     }
 
     @Nullable
@@ -60,6 +67,9 @@ public class GlobeSavedData extends SavedData
             list.add(globe);
         });
         tag.put("Globes", list);
+        CompoundTag kindsTag = new CompoundTag();
+        kinds.forEach((id, kind) -> kindsTag.putString(Integer.toString(id), kind.getName()));
+        tag.put("Kinds", kindsTag);
         return tag;
     }
 
@@ -74,6 +84,17 @@ public class GlobeSavedData extends SavedData
             GlobeSnapshot snapshot = GlobeSnapshot.fromTag(globe.getCompound("Snapshot"));
             if (snapshot != null)
                 data.globes.put(globe.getInt("Id"), new Entry(snapshot, globe.getLong("Version")));
+        }
+        CompoundTag kindsTag = tag.getCompound("Kinds");
+        for (String key : kindsTag.getAllKeys())
+        {
+            try
+            {
+                data.kinds.put(Integer.parseInt(key), GlobeKind.byName(kindsTag.getString(key)));
+            }
+            catch (NumberFormatException ignored)
+            {
+            }
         }
         return data;
     }

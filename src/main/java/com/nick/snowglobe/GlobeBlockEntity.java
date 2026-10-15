@@ -31,12 +31,17 @@ public class GlobeBlockEntity extends BlockEntity
         return snapshot;
     }
 
+    public GlobeKind kind()
+    {
+        return getBlockState().getBlock() instanceof GlobeBlock block ? block.kind() : GlobeKind.SNOW_GLOBE;
+    }
+
     /** Gives this globe its own build space if it has none yet, and returns the globe id. */
     public int ensureGlobe(MinecraftServer server)
     {
         if (globeId < 0)
         {
-            globeId = GlobeSpace.create(server);
+            globeId = GlobeSpace.create(server, kind());
             pullSnapshot(server);
             setChanged();
         }
