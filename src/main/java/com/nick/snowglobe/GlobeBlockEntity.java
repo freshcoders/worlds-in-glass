@@ -33,6 +33,8 @@ public class GlobeBlockEntity extends BlockEntity
     private ListTag entities;
     /** Client: whatever the renderer keeps per globe (the miniature mobs). Not touched on the server. */
     public Object renderState;
+    /** Client: game time this globe was last shaken. */
+    public long shakeStart = Long.MIN_VALUE;
 
     public GlobeBlockEntity(BlockPos pos, BlockState state)
     {
@@ -93,10 +95,24 @@ public class GlobeBlockEntity extends BlockEntity
         {
             globe.blocksChanged = true;
             globe.setChanged();
+            globe.updateDisplaySize();
             send = true;
         }
         if (send)
             level.sendBlockUpdated(pos, state, state, Block.UPDATE_CLIENTS);
+    }
+
+    /** Server: makes the globe look small, medium or large to match how big its build space is now. */
+    void updateDisplaySize()
+    {
+        if (globeId < 0 || level == null || level.getServer() == null)
+            return;
+        BlockState state = getBlockState();
+        if (!state.hasProperty(GlobeBlock.DISPLAY))
+            return;
+        DisplaySize wanted = DisplaySize.forGlobeSize(GlobeSavedData.get(level.getServer()).sizeOf(globeId));
+        if (state.getValue(GlobeBlock.DISPLAY) != wanted)
+            level.setBlock(worldPosition, state.setValue(GlobeBlock.DISPLAY, wanted), Block.UPDATE_ALL);
     }
 
     /** Mob positions received since the renderer last looked, or null if none came in. Client side. */

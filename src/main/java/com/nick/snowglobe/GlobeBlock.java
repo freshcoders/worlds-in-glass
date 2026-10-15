@@ -2,44 +2,105 @@ package com.nick.snowglobe;
 
 import com.mojang.serialization.MapCodec;
 import net.minecraft.core.BlockPos;
+import net.minecraft.core.Direction;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.sounds.SoundEvents;
+import net.minecraft.sounds.SoundSource;
 import net.minecraft.world.InteractionHand;
 import net.minecraft.world.InteractionResult;
 import net.minecraft.world.ItemInteractionResult;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.context.BlockPlaceContext;
 import net.minecraft.world.level.BlockGetter;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.BaseEntityBlock;
 import net.minecraft.world.level.block.Block;
+import net.minecraft.world.level.block.Mirror;
 import net.minecraft.world.level.block.RenderShape;
+import net.minecraft.world.level.block.Rotation;
 import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.world.level.block.entity.BlockEntityTicker;
 import net.minecraft.world.level.block.entity.BlockEntityType;
 import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.level.block.state.StateDefinition;
+import net.minecraft.world.level.block.state.properties.BlockStateProperties;
+import net.minecraft.world.level.block.state.properties.DirectionProperty;
+import net.minecraft.world.level.block.state.properties.EnumProperty;
+import net.minecraft.world.phys.AABB;
 import net.minecraft.world.phys.BlockHitResult;
 import net.minecraft.world.phys.shapes.CollisionContext;
+import net.minecraft.world.phys.shapes.Shapes;
 import net.minecraft.world.phys.shapes.VoxelShape;
 import org.jetbrains.annotations.Nullable;
 
-/** A snow globe, terrarium, storm globe or ship in a bottle. Right-click to step inside and build. */
+import java.util.EnumMap;
+import java.util.Map;
+
+/**
+ * A snow globe, terrarium, storm globe or ship in a bottle. Right-click to step inside and build;
+ * right-click its base to turn it; sneak and right-click with an empty hand to shake it.
+ */
 public class GlobeBlock extends BaseEntityBlock
 {
+    public static final DirectionProperty FACING = BlockStateProperties.HORIZONTAL_FACING;
+    public static final EnumProperty<DisplaySize> DISPLAY = EnumProperty.create("display", DisplaySize.class);
+    /** Block event id for a shake, sent to everyone watching so they see it too. */
+    public static final int EVENT_SHAKE = 1;
+
     private final GlobeKind kind;
     private final MapCodec<GlobeBlock> codec;
+    private final Map<Direction, VoxelShape> shapes = new EnumMap<>(Direction.class);
 
     public GlobeBlock(GlobeKind kind, Properties properties)
     {
         super(properties);
         this.kind = kind;
         this.codec = simpleCodec(p -> new GlobeBlock(kind, p));
+        for (Direction facing : Direction.Plane.HORIZONTAL)
+            shapes.put(facing, rotate(kind.shape, facing));
+        registerDefaultState(stateDefinition.any().setValue(FACING, Direction.EAST).setValue(DISPLAY, DisplaySize.SMALL));
     }
 
     public GlobeKind kind()
     {
         return kind;
+    }
+
+    /** Quarter turns clockwise (seen from above) from facing east, the way the models are made. */
+    public static int quarterTurns(Direction facing)
+    {
+        return switch (facing)
+        {
+            case SOUTH -> 1;
+            case WEST -> 2;
+            case NORTH -> 3;
+            default -> 0;
+        };
+    }
+
+    /** Turns a shape made facing east to face the given way. */
+    private static VoxelShape rotate(VoxelShape shape, Direction facing)
+    {
+        VoxelShape result = Shapes.empty();
+        int turns = quarterTurns(facing);
+        for (AABB box : shape.toAabbs())
+        {
+            double x0 = box.minX - 0.5, x1 = box.maxX - 0.5, z0 = box.minZ - 0.5, z1 = box.maxZ - 0.5;
+            for (int i = 0; i < turns; i++)
+            {
+                // A quarter turn clockwise: east goes to south, (x, z) -> (-z, x).
+                double nx0 = -z1, nx1 = -z0, nz0 = x0, nz1 = x1;
+                x0 = nx0;
+                x1 = nx1;
+                z0 = nz0;
+                z1 = nz1;
+            }
+            result = Shapes.or(result, Shapes.box(x0 + 0.5, box.minY, z0 + 0.5, x1 + 0.5, box.maxY, z1 + 0.5));
+        }
+        return result.optimize();
     }
 
     @Override
@@ -49,9 +110,36 @@ public class GlobeBlock extends BaseEntityBlock
     }
 
     @Override
+    protected void createBlockStateDefinition(StateDefinition.Builder<Block, BlockState> builder)
+    {
+        builder.add(FACING, DISPLAY);
+    }
+
+    @Nullable
+    @Override
+    public BlockState getStateForPlacement(BlockPlaceContext context)
+    {
+        // Side-on to you: a bottle lies across your view, its cork to your right.
+        return defaultBlockState().setValue(FACING, context.getHorizontalDirection().getClockWise());
+    }
+
+    @Override
+    protected BlockState rotate(BlockState state, Rotation rotation)
+    {
+        return state.setValue(FACING, rotation.rotate(state.getValue(FACING)));
+    }
+
+    @Override
+    protected BlockState mirror(BlockState state, Mirror mirror)
+    {
+        return state.rotate(mirror.getRotation(state.getValue(FACING)));
+    }
+
+    @Override
     protected VoxelShape getShape(BlockState state, BlockGetter level, BlockPos pos, CollisionContext context)
     {
-        return kind.shape;
+        // Medium and large globes are drawn bigger than their block; the block itself stays one block.
+        return state.getValue(DISPLAY) == DisplaySize.SMALL ? shapes.get(state.getValue(FACING)) : Shapes.block();
     }
 
     @Override
@@ -81,6 +169,7 @@ public class GlobeBlock extends BaseEntityBlock
         if (level instanceof ServerLevel serverLevel && level.getBlockEntity(pos) instanceof GlobeBlockEntity globe)
         {
             globe.ensureGlobe(serverLevel.getServer());
+            globe.updateDisplaySize();
             level.sendBlockUpdated(pos, state, state, Block.UPDATE_CLIENTS);
         }
     }
@@ -97,13 +186,56 @@ public class GlobeBlock extends BaseEntityBlock
         return ItemInteractionResult.sidedSuccess(level.isClientSide);
     }
 
+    /** Height of the base or stand, as a fraction of the drawn globe: clicking below this turns the globe. */
+    private double baseHeight()
+    {
+        return switch (kind)
+        {
+            case TERRARIUM -> 1.5 / 16;
+            case SHIP_BOTTLE -> 2.5 / 16;
+            default -> 2.75 / 16;
+        };
+    }
+
     @Override
     protected InteractionResult useWithoutItem(BlockState state, Level level, BlockPos pos, Player player, BlockHitResult hit)
     {
+        if (player.isSecondaryUseActive())
+        {
+            if (!level.isClientSide)
+                level.blockEvent(pos, this, EVENT_SHAKE, 0);
+            return InteractionResult.sidedSuccess(level.isClientSide);
+        }
+        double hitHeight = hit.getLocation().y - pos.getY();
+        if (hitHeight < baseHeight() * state.getValue(DISPLAY).scale)
+        {
+            // Twist the base: a quarter turn, to see the other side.
+            if (!level.isClientSide)
+            {
+                level.setBlock(pos, state.setValue(FACING, state.getValue(FACING).getClockWise()), Block.UPDATE_ALL);
+                level.playSound(null, pos, SoundEvents.WOOD_HIT, SoundSource.BLOCKS, 0.6f, 1.4f);
+            }
+            return InteractionResult.sidedSuccess(level.isClientSide);
+        }
         if (level.isClientSide)
             return InteractionResult.SUCCESS;
         if (player instanceof ServerPlayer serverPlayer && level.getBlockEntity(pos) instanceof GlobeBlockEntity globe)
             GlobeSpace.enter(serverPlayer, globe);
         return InteractionResult.CONSUME;
+    }
+
+    @Override
+    protected boolean triggerEvent(BlockState state, Level level, BlockPos pos, int id, int param)
+    {
+        if (id != EVENT_SHAKE)
+            return super.triggerEvent(state, level, pos, id, param);
+        if (level.isClientSide && level.getBlockEntity(pos) instanceof GlobeBlockEntity globe)
+        {
+            globe.shakeStart = level.getGameTime();
+            level.playLocalSound(pos, SoundEvents.AMETHYST_BLOCK_CHIME, SoundSource.BLOCKS, 1.0f, 1.3f, false);
+            if (kind == GlobeKind.STORM_GLOBE)
+                level.playLocalSound(pos, SoundEvents.LIGHTNING_BOLT_THUNDER, SoundSource.WEATHER, 0.3f, 1.9f, false);
+        }
+        return true;
     }
 }

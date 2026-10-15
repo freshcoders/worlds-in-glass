@@ -1,1 +1,49 @@
-{ "variants": { "": { "model": "snowglobe:block/storm_globe" } } }
+{
+  "variants": {
+    "display=s,facing=east": {
+      "model": "snowglobe:block/storm_globe"
+    },
+    "display=m,facing=east": {
+      "model": "snowglobe:block/storm_globe_hidden"
+    },
+    "display=l,facing=east": {
+      "model": "snowglobe:block/storm_globe_hidden"
+    },
+    "display=s,facing=south": {
+      "model": "snowglobe:block/storm_globe",
+      "y": 90
+    },
+    "display=m,facing=south": {
+      "model": "snowglobe:block/storm_globe_hidden",
+      "y": 90
+    },
+    "display=l,facing=south": {
+      "model": "snowglobe:block/storm_globe_hidden",
+      "y": 90
+    },
+    "display=s,facing=west": {
+      "model": "snowglobe:block/storm_globe",
+      "y": 180
+    },
+    "display=m,facing=west": {
+      "model": "snowglobe:block/storm_globe_hidden",
+      "y": 180
+    },
+    "display=l,facing=west": {
+      "model": "snowglobe:block/storm_globe_hidden",
+      "y": 180
+    },
+    "display=s,facing=north": {
+      "model": "snowglobe:block/storm_globe",
+      "y": 270
+    },
+    "display=m,facing=north": {
+      "model": "snowglobe:block/storm_globe_hidden",
+      "y": 270
+    },
+    "display=l,facing=north": {
+      "model": "snowglobe:block/storm_globe_hidden",
+      "y": 270
+    }
+  }
+}

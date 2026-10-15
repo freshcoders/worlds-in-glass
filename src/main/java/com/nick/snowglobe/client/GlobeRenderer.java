@@ -1,6 +1,12 @@
 package com.nick.snowglobe.client;
 
 import com.mojang.blaze3d.vertex.PoseStack;
+import net.neoforged.neoforge.client.model.data.ModelData;
+import net.minecraft.world.phys.AABB;
+import net.minecraft.core.Direction;
+import com.nick.snowglobe.GlobeBlock;
+import com.nick.snowglobe.DisplaySize;
+import com.mojang.math.Axis;
 import com.mojang.blaze3d.vertex.VertexConsumer;
 import com.nick.snowglobe.GlobeBlockEntity;
 import com.nick.snowglobe.GlobeKind;
@@ -67,6 +73,8 @@ public class GlobeRenderer implements BlockEntityRenderer<GlobeBlockEntity>
     private static final float[][] CLOUDS = seeds(10, 4242);
     /** Ticks between possible lightning strikes; about one in three slots actually strikes. */
     private static final int STRIKE_SLOT = 50;
+    /** How long a shake takes to settle, in ticks. */
+    private static final float SHAKE_TICKS = 70;
 
     private final BlockRenderDispatcher blocks;
 
@@ -109,13 +117,50 @@ public class GlobeRenderer implements BlockEntityRenderer<GlobeBlockEntity>
         if (update != null)
             state.mobs.update(update, level);
 
-        // Where the camera is, relative to the glass's centre, so the glass can catch the light at its edges.
         BlockPos pos = globe.getBlockPos();
+        BlockState blockState = globe.getBlockState();
+        int turns = blockState.hasProperty(GlobeBlock.FACING) ? GlobeBlock.quarterTurns(blockState.getValue(GlobeBlock.FACING)) : 0;
+        int scale = blockState.hasProperty(GlobeBlock.DISPLAY) ? blockState.getValue(GlobeBlock.DISPLAY).scale : 1;
+        float turnRadians = (float) Math.toRadians(-90 * turns);
+
+        // Where the camera is, seen from the glass's centre in the globe's own (turned) frame, so the glass
+        // can catch the light at its edges.
+        Vec3 center = glassCenter(globe.kind()).subtract(0.5, 0, 0.5).scale(scale).yRot(turnRadians).add(0.5, 0, 0.5);
         Vec3 camera = Minecraft.getInstance().gameRenderer.getMainCamera().getPosition();
-        Vec3 eye = camera.subtract(Vec3.atLowerCornerOf(pos).add(glassCenter(globe.kind()))).normalize();
+        Vec3 eye = camera.subtract(Vec3.atLowerCornerOf(pos).add(center)).normalize().yRot(-turnRadians);
+
+        // A shake: a wobble that dies down over a couple of seconds, and the contents stirred up.
+        float shaken = (level.getGameTime() - globe.shakeStart + partialTick) / SHAKE_TICKS;
+        float stir = shaken >= 0 && shaken < 1 ? (1 - shaken) * (1 - shaken) : 0;
+
+        poseStack.pushPose();
+        poseStack.translate(0.5f, 0, 0.5f);
+        poseStack.scale(scale, scale, scale);
+        if (stir > 0)
+        {
+            float wobble = (float) Math.sin(shaken * 38) * 9 * stir;
+            poseStack.mulPose(Axis.ZP.rotationDegrees(wobble));
+            poseStack.mulPose(Axis.XP.rotationDegrees(wobble * 0.6f));
+        }
+        poseStack.mulPose(Axis.YP.rotationDegrees(-90 * turns));
+        poseStack.translate(-0.5f, 0, -0.5f);
+        // A small globe's base is part of the world's block model; bigger globes draw theirs here, scaled up.
+        if (scale > 1)
+            blocks.renderSingleBlock(blockState.setValue(GlobeBlock.DISPLAY, DisplaySize.SMALL).setValue(GlobeBlock.FACING, Direction.EAST),
+                    poseStack, buffers, light, OverlayTexture.NO_OVERLAY, ModelData.EMPTY, null);
 
         float ticks = level.getGameTime() % 240000 + partialTick;
-        renderGlobe(globe.kind(), globe.getSnapshot(), poseStack, buffers, light, ticks, blocks, eye, state, pos.asLong(), level, pos);
+        renderGlobe(globe.kind(), globe.getSnapshot(), poseStack, buffers, light, ticks, blocks, eye, state, pos.asLong(), level, pos, stir);
+        poseStack.popPose();
+    }
+
+    /** Medium and large globes are drawn bigger than their block; keep drawing them while any of that is in view. */
+    @Override
+    public AABB getRenderBoundingBox(GlobeBlockEntity globe)
+    {
+        BlockState state = globe.getBlockState();
+        int scale = state.hasProperty(GlobeBlock.DISPLAY) ? state.getValue(GlobeBlock.DISPLAY).scale : 1;
+        return new AABB(globe.getBlockPos()).inflate(scale - 1, 0, scale - 1).expandTowards(0, scale - 1, 0);
     }
 
     /**
@@ -125,8 +170,10 @@ public class GlobeRenderer implements BlockEntityRenderer<GlobeBlockEntity>
      */
     public static void renderGlobe(GlobeKind kind, @Nullable GlobeSnapshot snapshot, PoseStack poseStack, MultiBufferSource buffers,
                                    int light, float ticks, BlockRenderDispatcher blocks, @Nullable Vec3 eye,
-                                   @Nullable ClientGlobeState state, long seed, @Nullable ClientLevel level, BlockPos where)
+                                   @Nullable ClientGlobeState state, long seed, @Nullable ClientLevel level, BlockPos where, float stir)
     {
+        // Placed globes (which know where you are) queue their glass to draw after the world; items draw it straight away.
+        boolean inWorld = eye != null;
         Vec3 view = eye != null ? eye : ITEM_EYE;
         float partialTick = ticks - (float) Math.floor(ticks);
         // Bigger globes hold more blocks in the same glass, so each block is drawn smaller.
@@ -143,24 +190,24 @@ public class GlobeRenderer implements BlockEntityRenderer<GlobeBlockEntity>
                 pushMiniature(poseStack, 0.5f, BALL_CENTER_Y, ballCell, size, half);
                 renderContents(snapshot, state, level, where, partialTick, poseStack, buffers, light, blocks);
                 poseStack.popPose();
-                renderSnow(poseStack, buffers, light, ticks / 20f);
-                renderBall(poseStack, buffers, light, view, 255, 255, 255, 0);
+                renderSnow(poseStack, buffers, light, ticks / 20f, stir);
+                renderBall(poseStack, buffers, inWorld, light, view, 255, 255, 255, 0);
             }
             case STORM_GLOBE ->
             {
                 pushMiniature(poseStack, 0.5f, BALL_CENTER_Y, ballCell, size, half);
                 renderContents(snapshot, state, level, where, partialTick, poseStack, buffers, light, blocks);
                 poseStack.popPose();
-                float flash = renderStorm(poseStack, buffers, light, ticks, seed, state, level, where);
+                float flash = renderStorm(poseStack, buffers, light, ticks, seed, state, level, where, stir);
                 int grey = (int) (150 + 105 * flash);
-                renderBall(poseStack, buffers, light, view, grey, grey + (int) (10 * (1 - flash)), grey + (int) (30 * (1 - flash)), flash * 0.35f);
+                renderBall(poseStack, buffers, inWorld, light, view, grey, grey + (int) (10 * (1 - flash)), grey + (int) (30 * (1 - flash)), flash * 0.35f);
             }
             case SHIP_BOTTLE ->
             {
                 pushMiniature(poseStack, BOTTLE_MID_X, BOTTLE_Y, BOTTLE_CELL * GlobeSpace.DEFAULT_SIZE / size, size, half);
                 renderContents(snapshot, state, level, where, partialTick, poseStack, buffers, light, blocks);
                 poseStack.popPose();
-                renderBottle(poseStack, buffers, light, view);
+                renderBottle(poseStack, buffers, inWorld, light, view);
             }
             default ->
             {
@@ -220,7 +267,7 @@ public class GlobeRenderer implements BlockEntityRenderer<GlobeBlockEntity>
     // ---- Snow ----
 
     /** Little flakes drifting down through the ball, swaying as they fall, and starting over at the top. */
-    private static void renderSnow(PoseStack poseStack, MultiBufferSource buffers, int light, float seconds)
+    private static void renderSnow(PoseStack poseStack, MultiBufferSource buffers, int light, float seconds, float stir)
     {
         VertexConsumer out = buffers.getBuffer(RenderType.entityTranslucent(WHITE));
         PoseStack.Pose pose = poseStack.last();
@@ -232,9 +279,15 @@ public class GlobeRenderer implements BlockEntityRenderer<GlobeBlockEntity>
             float h = 0.85f - fall * 1.3f;
             float spread = (float) Math.sqrt(Math.max(0, 1 - h * h)) * 0.8f;
             float sway = (float) Math.sin(seconds * 1.3f + seed[4]) * 0.06f;
-            float x = 0.5f + (seed[0] * spread + sway) * BALL_RADIUS;
+            // Shaken: flakes thrown up through the whole ball, whirling round, then settling back as the stir fades.
+            h += stir * ((0.75f - seed[2] * 1.3f) - h);
+            spread += stir * (0.85f * (float) Math.sqrt(Math.max(0, 1 - h * h)) - spread);
+            double whirl = stir * seconds * 7;
+            float sx = (float) (seed[0] * Math.cos(whirl) - seed[1] * Math.sin(whirl));
+            float sz = (float) (seed[0] * Math.sin(whirl) + seed[1] * Math.cos(whirl));
+            float x = 0.5f + (sx * spread + sway) * BALL_RADIUS;
             float y = BALL_CENTER_Y + h * BALL_RADIUS;
-            float z = 0.5f + (seed[1] * spread) * BALL_RADIUS;
+            float z = 0.5f + (sz * spread) * BALL_RADIUS;
             box(out, pose, x, y, z, half, half, half, light, 255, 255, 255, 255);
         }
     }
@@ -243,7 +296,7 @@ public class GlobeRenderer implements BlockEntityRenderer<GlobeBlockEntity>
 
     /** Draws the storm and returns how bright a lightning flash is right now (0 to 1). */
     private static float renderStorm(PoseStack poseStack, MultiBufferSource buffers, int light, float ticks, long seed,
-                                     @Nullable ClientGlobeState state, @Nullable ClientLevel level, BlockPos where)
+                                     @Nullable ClientGlobeState state, @Nullable ClientLevel level, BlockPos where, float stir)
     {
         VertexConsumer out = buffers.getBuffer(RenderType.entityTranslucent(WHITE));
         PoseStack.Pose pose = poseStack.last();
@@ -268,6 +321,15 @@ public class GlobeRenderer implements BlockEntityRenderer<GlobeBlockEntity>
             float spread = (float) Math.sqrt(Math.max(0, 1 - h * h)) * 0.85f;
             box(out, pose, 0.5f + d[0] * spread * BALL_RADIUS, BALL_CENTER_Y + h * BALL_RADIUS, 0.5f + d[1] * spread * BALL_RADIUS,
                     0.035f / 16f, 0.3f / 16f, 0.035f / 16f, light, 175, 195, 225, 170);
+        }
+
+        // Shaken: a strike right away, flickering as the shake starts.
+        if (stir > 0.6f)
+        {
+            boolean lit = stir > 0.85f || (stir > 0.68f && stir < 0.75f);
+            if (lit)
+                renderBolt(out, pose, mix(seed * 7 + 1));
+            return lit ? 1 : 0;
         }
 
         // Lightning: some slots strike, at a random moment in the slot, flickering for a few ticks.
@@ -339,20 +401,20 @@ public class GlobeRenderer implements BlockEntityRenderer<GlobeBlockEntity>
         return (int) (255 * Math.min(1, opacity));
     }
 
-    /** The glass ball, tinted (r, g, b). Drawn in the translucent block sheet, after the miniature, so it doesn't hide it. */
-    private static void renderBall(PoseStack poseStack, MultiBufferSource buffers, int light, Vec3 eye, int r, int g, int b, float extra)
+    /** The glass ball, tinted (r, g, b). */
+    private static void renderBall(PoseStack poseStack, MultiBufferSource buffers, boolean inWorld, int light, Vec3 eye,
+                                   int r, int g, int b, float extra)
     {
-        VertexConsumer out = buffers.getBuffer(Sheets.translucentCullBlockSheet());
         TextureAtlasSprite glass = Minecraft.getInstance().getTextureAtlas(TextureAtlas.LOCATION_BLOCKS).apply(GLASS);
         float u = glass.getU(0.5f), v = glass.getV(0.5f);
-        PoseStack.Pose pose = poseStack.last();
-        float[][] ring = new float[BALL_LONGITUDES + 1][];
-        for (int lat = 0; lat < BALL_LATITUDES; lat++)
-            for (int lon = 0; lon < BALL_LONGITUDES; lon++)
-            {
-                float[] a = ballPoint(lat, lon), bb = ballPoint(lat + 1, lon), c = ballPoint(lat + 1, lon + 1), d = ballPoint(lat, lon + 1);
-                glassQuad(out, pose, a, bb, c, d, eye, light, u, v, r, g, b, extra);
-            }
+        GlassRenderer.draw(poseStack.last(), buffers, inWorld, (out, pose) -> {
+            for (int lat = 0; lat < BALL_LATITUDES; lat++)
+                for (int lon = 0; lon < BALL_LONGITUDES; lon++)
+                {
+                    float[] a = ballPoint(lat, lon), bb = ballPoint(lat + 1, lon), c = ballPoint(lat + 1, lon + 1), d = ballPoint(lat, lon + 1);
+                    glassQuad(out, pose, a, bb, c, d, eye, light, u, v, r, g, b, extra);
+                }
+        });
     }
 
     /** A point on the ball: x, y, z in the block, then its outward normal. */
@@ -364,23 +426,23 @@ public class GlobeRenderer implements BlockEntityRenderer<GlobeBlockEntity>
     }
 
     /** The green glass bottle lying on its side: its profile turned round the bottle's axis. */
-    private static void renderBottle(PoseStack poseStack, MultiBufferSource buffers, int light, Vec3 eye)
+    private static void renderBottle(PoseStack poseStack, MultiBufferSource buffers, boolean inWorld, int light, Vec3 eye)
     {
-        VertexConsumer out = buffers.getBuffer(Sheets.translucentCullBlockSheet());
         TextureAtlasSprite glass = Minecraft.getInstance().getTextureAtlas(TextureAtlas.LOCATION_BLOCKS).apply(GLASS);
         float u = glass.getU(0.5f), v = glass.getV(0.5f);
-        PoseStack.Pose pose = poseStack.last();
-        for (int i = 0; i + 1 < BOTTLE_PROFILE.length; i++)
-        {
-            float x0 = BOTTLE_PROFILE[i][0], r0 = BOTTLE_PROFILE[i][1], x1 = BOTTLE_PROFILE[i + 1][0], r1 = BOTTLE_PROFILE[i + 1][1];
-            for (int s = 0; s < BOTTLE_SEGMENTS; s++)
+        GlassRenderer.draw(poseStack.last(), buffers, inWorld, (out, pose) -> {
+            for (int i = 0; i + 1 < BOTTLE_PROFILE.length; i++)
             {
-                float[] a = bottlePoint(x0, r0, x1, r1, s, false), b = bottlePoint(x0, r0, x1, r1, s, true);
-                float[] c = bottlePoint(x0, r0, x1, r1, s + 1, true), d = bottlePoint(x0, r0, x1, r1, s + 1, false);
-                // Green bottle glass, and a bit more of it than the ball: a long cylinder has less outline to catch the eye.
-                glassQuad(out, pose, a, b, c, d, eye, light, u, v, 165, 222, 180, 0.14f);
+                float x0 = BOTTLE_PROFILE[i][0], r0 = BOTTLE_PROFILE[i][1], x1 = BOTTLE_PROFILE[i + 1][0], r1 = BOTTLE_PROFILE[i + 1][1];
+                for (int s = 0; s < BOTTLE_SEGMENTS; s++)
+                {
+                    float[] a = bottlePoint(x0, r0, x1, r1, s, false), b = bottlePoint(x0, r0, x1, r1, s, true);
+                    float[] c = bottlePoint(x0, r0, x1, r1, s + 1, true), d = bottlePoint(x0, r0, x1, r1, s + 1, false);
+                    // Green bottle glass, and a bit more of it than the ball: a long cylinder has less outline to catch the eye.
+                    glassQuad(out, pose, a, b, c, d, eye, light, u, v, 165, 222, 180, 0.14f);
+                }
             }
-        }
+        });
     }
 
     /** A point on one band of the bottle (at its start or end), with the band's outward normal. */
