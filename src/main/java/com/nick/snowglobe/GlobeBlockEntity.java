@@ -58,12 +58,18 @@ public class GlobeBlockEntity extends BlockEntity
         return getBlockState().getBlock() instanceof GlobeBlock block ? block.kind() : GlobeKind.SNOW_GLOBE;
     }
 
-    /** Gives this globe its own build space if it has none yet, and returns the globe id. */
+    /** Gives this globe its own build space if it has none yet (empty), and returns the globe id. */
     public int ensureGlobe(MinecraftServer server)
+    {
+        return ensureGlobe(server, false);
+    }
+
+    /** As above; a new build space gets the kind's starter scene if {@code withScene}. */
+    public int ensureGlobe(MinecraftServer server, boolean withScene)
     {
         if (globeId < 0)
         {
-            globeId = GlobeSpace.create(server, kind());
+            globeId = GlobeSpace.create(server, kind(), withScene);
             pullSnapshot(server);
             setChanged();
         }

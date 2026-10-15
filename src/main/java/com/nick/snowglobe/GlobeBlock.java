@@ -168,7 +168,8 @@ public class GlobeBlock extends BaseEntityBlock
         // A fresh globe gets its build space right away; a globe picked up and placed again keeps its old one.
         if (level instanceof ServerLevel serverLevel && level.getBlockEntity(pos) instanceof GlobeBlockEntity globe)
         {
-            globe.ensureGlobe(serverLevel.getServer());
+            // Placed in creative, a new globe comes with a starter scene; in survival it starts empty.
+            globe.ensureGlobe(serverLevel.getServer(), placer instanceof Player player && player.getAbilities().instabuild);
             globe.updateDisplaySize();
             level.sendBlockUpdated(pos, state, state, Block.UPDATE_CLIENTS);
         }

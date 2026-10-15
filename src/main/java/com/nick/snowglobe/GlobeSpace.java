@@ -149,8 +149,11 @@ public final class GlobeSpace
 
     // ---- Making, resizing and emptying globes ----
 
-    /** Builds a new globe's glass walls and starter scene, and returns its id. */
-    public static int create(MinecraftServer server, GlobeKind kind)
+    /**
+     * Builds a new globe's glass walls, and its starter scene if asked (only for creative players: in survival a
+     * scene would be blocks and mobs out of nothing), and returns its id.
+     */
+    public static int create(MinecraftServer server, GlobeKind kind, boolean withScene)
     {
         GlobeSavedData data = GlobeSavedData.get(server);
         int id = data.allocateId(kind);
@@ -161,7 +164,8 @@ public final class GlobeSpace
 
         BlockPos min = interiorMin(server, id);
         buildShell(level, min, kind, DEFAULT_SIZE, SnowGlobeMod.GLOBE_WALL.get().defaultBlockState());
-        GlobeScenes.build(level, min, kind);
+        if (withScene)
+            GlobeScenes.build(level, min, kind);
 
         data.storeSnapshot(id, GlobeSnapshot.capture(level, min, kind, DEFAULT_SIZE));
         return id;
@@ -228,6 +232,48 @@ public final class GlobeSpace
 
         data.setSize(id, newSize);
         data.storeSnapshot(id, GlobeSnapshot.capture(level, min, kind, newSize));
+    }
+
+    /** Where a block of a globe ends up when it's resized: shifted to stay centred (a terrarium keeps its floor). */
+    private static BlockPos resizedCell(GlobeKind kind, int oldSize, int newSize, int x, int y, int z)
+    {
+        int shift = (newSize - oldSize) / 2;
+        return new BlockPos(x + shift, y + (kind.space == GlobeKind.Space.CUBE ? 0 : shift), z + shift);
+    }
+
+    /** How many blocks resizing to {@code newSize} would cut off (0 when growing). */
+    public static int blocksLostByResize(MinecraftServer server, int id, int newSize)
+    {
+        ServerLevel level = server.getLevel(LEVEL);
+        GlobeSavedData data = GlobeSavedData.get(server);
+        int oldSize = data.sizeOf(id);
+        if (level == null || newSize >= oldSize)
+            return 0;
+        GlobeKind kind = data.kindOf(id);
+        int[] lost = {0};
+        forEachBlock(level, interiorMin(server, id), oldSize, (x, y, z, state, pos) -> {
+            BlockPos to = resizedCell(kind, oldSize, newSize, x, y, z);
+            if (kind.inside(x, y, z, oldSize) && !kind.inside(to.getX(), to.getY(), to.getZ(), newSize))
+                lost[0]++;
+        });
+        return lost[0];
+    }
+
+    /** True if nothing has been built in a globe. */
+    public static boolean isEmpty(MinecraftServer server, int id)
+    {
+        ServerLevel level = server.getLevel(LEVEL);
+        GlobeSavedData data = GlobeSavedData.get(server);
+        if (level == null)
+            return true;
+        GlobeKind kind = data.kindOf(id);
+        int size = data.sizeOf(id);
+        boolean[] found = {false};
+        forEachBlock(level, interiorMin(server, id), size, (x, y, z, state, pos) -> {
+            if (kind.inside(x, y, z, size))
+                found[0] = true;
+        });
+        return !found[0];
     }
 
     static AABB spaceBox(BlockPos min, int size)
