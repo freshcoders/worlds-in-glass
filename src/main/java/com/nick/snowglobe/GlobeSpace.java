@@ -178,10 +178,26 @@ public final class GlobeSpace
      */
     public static void resize(MinecraftServer server, int id, int newSize)
     {
+        resize(server, id, newSize, false);
+    }
+
+    /**
+     * Moves a globe from before slots existed (only 64 blocks from its neighbours, so you could see them from
+     * inside) to a slot of its own, far from the others. Everything inside moves along.
+     */
+    static void giveOwnSlot(MinecraftServer server, int id)
+    {
+        GlobeSavedData data = GlobeSavedData.get(server);
+        if (data.capacity(id) < GlobeSavedData.SLOT_WIDTH - 2)
+            resize(server, id, data.sizeOf(id), true);
+    }
+
+    private static void resize(MinecraftServer server, int id, int newSize, boolean newSlot)
+    {
         ServerLevel level = server.getLevel(LEVEL);
         GlobeSavedData data = GlobeSavedData.get(server);
         int oldSize = data.sizeOf(id);
-        if (level == null || oldSize == newSize)
+        if (level == null || oldSize == newSize && !newSlot)
             return;
         GlobeKind kind = data.kindOf(id);
         BlockPos oldMin = interiorMin(server, id);
@@ -202,7 +218,7 @@ public final class GlobeSpace
         clearSpace(level, oldMin, kind, oldSize, false);
         buildShell(level, oldMin, kind, oldSize, Blocks.AIR.defaultBlockState());
 
-        if (newSize > data.capacity(id))
+        if (newSlot || newSize > data.capacity(id))
             data.giveSlot(id);
         BlockPos min = interiorMin(server, id);
 
@@ -314,6 +330,7 @@ public final class GlobeSpace
         if (level == null || !(player.level() instanceof ServerLevel outside))
             return;
         int id = globe.ensureGlobe(player.server);
+        giveOwnSlot(player.server, id);
 
         CompoundTag back = new CompoundTag();
         back.putString("Dim", player.level().dimension().location().toString());

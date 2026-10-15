@@ -1,6 +1,7 @@
 package com.nick.snowglobe.client;
 
 import com.mojang.authlib.GameProfile;
+import com.mojang.blaze3d.systems.RenderSystem;
 import com.mojang.blaze3d.vertex.PoseStack;
 import com.mojang.math.Axis;
 import com.nick.snowglobe.GlobeSpace;
@@ -33,6 +34,7 @@ import net.neoforged.neoforge.client.event.RenderLevelStageEvent;
 import net.neoforged.neoforge.client.event.ViewportEvent;
 import net.neoforged.neoforge.client.model.data.ModelData;
 import org.jetbrains.annotations.Nullable;
+import org.joml.Matrix4f;
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -204,6 +206,10 @@ public final class OutsideView
         BlockRenderDispatcher blocks = mc.getBlockRenderer();
 
         PoseStack poseStack = new PoseStack();
+        // At this stage the camera's turn isn't in the render system's model-view yet (the world's solid blocks
+        // get it passed in directly); add it ourselves, unless it's already there.
+        if (RenderSystem.getModelViewMatrix().equals(new Matrix4f(), 1e-5f))
+            poseStack.last().pose().mul(event.getModelViewMatrix());
         poseStack.translate(-camera.x, -camera.y, -camera.z);
         // The miniature's placement, run backwards: outside world -> globe block -> miniature cells -> build space.
         poseStack.translate(v.interiorMin().getX() + v.scale() * v.pivot().x, v.interiorMin().getY() + v.scale() * v.pivot().y,
