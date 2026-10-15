@@ -43,9 +43,10 @@ public final class GlobeSpace
 {
     public static final ResourceKey<Level> LEVEL = ResourceKey.create(Registries.DIMENSION, ResourceLocation.fromNamespaceAndPath(SnowGlobeMod.MODID, "globe"));
     /** Build space sizes (blocks along each axis). New globes start at the smallest; imports grow them to fit. */
-    public static final List<Integer> SIZES = List.of(16, 24, 32);
+    public static final List<Integer> SIZES = List.of(16, 24, 32, 48, 62);
     public static final int DEFAULT_SIZE = 16;
-    public static final int MAX_SIZE = 32;
+    /** The largest that fits between neighbouring globes (SPACING minus two walls). */
+    public static final int MAX_SIZE = 62;
     private static final int SPACING = 64;
     private static final int BASE_Y = 64;
     private static final String RETURN_KEY = SnowGlobeMod.MODID + ":return";

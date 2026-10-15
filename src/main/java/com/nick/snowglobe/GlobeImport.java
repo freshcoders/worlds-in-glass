@@ -198,7 +198,7 @@ public final class GlobeImport
         String dimsText = dims.getX() + "×" + dims.getY() + "×" + dims.getZ();
         Integer size = GlobeSpace.SIZES.stream().filter(s -> kind.fits(dims.getX(), dims.getY(), dims.getZ(), s)).findFirst().orElse(null);
         if (size == null)
-            return Component.translatable("snowglobe.import.too_big", fileName, dimsText);
+            return Component.translatable("snowglobe.import.too_big", fileName, dimsText, GlobeSpace.MAX_SIZE + "×" + GlobeSpace.MAX_SIZE + "×" + GlobeSpace.MAX_SIZE);
 
         BlockPos min = GlobeSpace.interiorMin(id);
         GlobeSpace.clearSpace(level, min, kind, data.sizeOf(id), true);
