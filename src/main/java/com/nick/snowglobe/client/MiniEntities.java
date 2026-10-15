@@ -13,6 +13,7 @@ import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.level.Level;
+import net.minecraftforge.fml.util.ObfuscationReflectionHelper;
 import net.minecraftforge.registries.ForgeRegistries;
 
 import java.util.HashMap;
@@ -35,6 +36,7 @@ public final class MiniEntities
         float pBody, cBody, pHead, cHead;
         long updatedAt;
         long lastTick = -1;
+        CompoundTag looks = new CompoundTag();
 
         Mini(Entity entity)
         {
@@ -88,6 +90,7 @@ public final class MiniEntities
             int id = tag.getInt("I");
             EntityType<?> type = ForgeRegistries.ENTITY_TYPES.getValue(ResourceLocation.tryParse(tag.getString("T")));
             Mini mini = minis.get(id);
+            CompoundTag looks = tag.getCompound("L");
             boolean fresh = mini == null || mini.entity.getType() != type;
             if (fresh)
             {
@@ -97,7 +100,16 @@ public final class MiniEntities
                 mini = new Mini(entity);
                 minis.put(id, mini);
             }
+            // Variants and colours: apply when new, and again if they change (a sheep sheared, a baby grown up).
+            if (fresh || !looks.equals(mini.looks))
+            {
+                mini.looks = looks;
+                if (!looks.isEmpty())
+                    mini.entity.load(looks);
+            }
             mini.moveTo(tag, now, fresh);
+            // Fish flop on their side when out of water; tell the copy whether the real one is swimming.
+            ObfuscationReflectionHelper.setPrivateValue(Entity.class, mini.entity, tag.getBoolean("W"), "f_19798_");
             seen.add(id);
         }
         minis.keySet().retainAll(seen);

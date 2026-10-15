@@ -5,6 +5,8 @@ import com.nick.snowglobe.GlobeBlock;
 import com.nick.snowglobe.GlobeKind;
 import com.nick.snowglobe.GlobeSnapshot;
 import net.minecraft.client.Minecraft;
+import net.minecraft.client.multiplayer.ClientLevel;
+import net.minecraft.core.BlockPos;
 import net.minecraft.client.renderer.BlockEntityWithoutLevelRenderer;
 import net.minecraft.client.renderer.MultiBufferSource;
 import net.minecraft.client.renderer.block.BlockRenderDispatcher;
@@ -46,19 +48,22 @@ public class GlobeItemRenderer extends BlockEntityWithoutLevelRenderer
             return;
         BlockRenderDispatcher blocks = Minecraft.getInstance().getBlockRenderer();
         BlockState state = block.defaultBlockState();
-        float seconds = (System.currentTimeMillis() % 1_200_000L) / 1000f;
+        float ticks = (System.currentTimeMillis() % 12_000_000L) / 50f;
         GlobeSnapshot snapshot = snapshotOf(stack);
+        // Water in the miniature needs a world for its colour; the player's surroundings will do.
+        ClientLevel level = Minecraft.getInstance().level;
+        BlockPos where = Minecraft.getInstance().player != null ? Minecraft.getInstance().player.blockPosition() : BlockPos.ZERO;
 
         // The terrarium's glass is part of its model, so draw it after the miniature or it would hide it.
         if (block.kind() == GlobeKind.TERRARIUM)
         {
-            GlobeRenderer.renderGlobe(block.kind(), snapshot, poseStack, buffers, light, seconds, blocks, null, null, null, 0);
+            GlobeRenderer.renderGlobe(block.kind(), snapshot, poseStack, buffers, light, ticks, blocks, null, null, 0, level, where);
             blocks.renderSingleBlock(state, poseStack, buffers, light, overlay, ModelData.EMPTY, null);
         }
         else
         {
             blocks.renderSingleBlock(state, poseStack, buffers, light, overlay, ModelData.EMPTY, null);
-            GlobeRenderer.renderGlobe(block.kind(), snapshot, poseStack, buffers, light, seconds, blocks, null, null, null, 0);
+            GlobeRenderer.renderGlobe(block.kind(), snapshot, poseStack, buffers, light, ticks, blocks, null, null, 0, level, where);
         }
     }
 

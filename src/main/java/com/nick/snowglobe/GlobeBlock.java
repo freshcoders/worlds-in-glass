@@ -81,7 +81,8 @@ public class GlobeBlock extends BaseEntityBlock
     {
         if (level.isClientSide)
             return InteractionResult.SUCCESS;
-        if (player instanceof ServerPlayer serverPlayer && level.getBlockEntity(pos) instanceof GlobeBlockEntity globe)
+        if (player instanceof ServerPlayer serverPlayer && level.getBlockEntity(pos) instanceof GlobeBlockEntity globe
+                && !GlobeImport.tryImportHeldSchematic(serverPlayer, hand, globe))
             GlobeSpace.enter(serverPlayer, globe);
         return InteractionResult.CONSUME;
     }

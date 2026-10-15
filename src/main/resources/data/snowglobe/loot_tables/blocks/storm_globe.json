@@ -1,0 +1,26 @@
+{
+  "type": "minecraft:block",
+  "pools": [
+    {
+      "rolls": 1,
+      "entries": [
+        {
+          "type": "minecraft:item",
+          "name": "snowglobe:storm_globe",
+          "functions": [
+            {
+              "function": "minecraft:copy_nbt",
+              "source": "block_entity",
+              "ops": [
+                { "source": "GlobeId", "target": "BlockEntityTag.GlobeId", "op": "replace" },
+                { "source": "Snapshot", "target": "BlockEntityTag.Snapshot", "op": "replace" },
+                { "source": "SnapshotVersion", "target": "BlockEntityTag.SnapshotVersion", "op": "replace" }
+              ]
+            }
+          ]
+        }
+      ],
+      "conditions": [{ "condition": "minecraft:survives_explosion" }]
+    }
+  ]
+}

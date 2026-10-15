@@ -13,6 +13,7 @@ import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.nbt.ListTag;
+import net.minecraft.nbt.Tag;
 import net.minecraft.server.level.TicketType;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.player.Player;
@@ -162,6 +163,7 @@ public final class GlobeSpace
         {
             BlockPos feet = bottom.above(y);
             if (solid(level, feet.below()) && !solid(level, feet) && !solid(level, feet.above())
+                    && level.getFluidState(feet).isEmpty()
                     && level.getBlockState(feet.above()).getBlock() != SnowGlobeMod.GLOBE_WALL.get())
                 return feet;
         }
@@ -228,11 +230,37 @@ public final class GlobeSpace
             tag.putFloat("Z", (float) (entity.getZ() - min.getZ()));
             tag.putFloat("B", entity.yBodyRot);
             tag.putFloat("H", entity.yHeadRot);
+            if (entity.isInWater())
+                tag.putBoolean("W", true);
+            CompoundTag looks = looks(entity);
+            if (!looks.isEmpty())
+                tag.put("L", looks);
             list.add(tag);
         }
         EntityFrame old = frames.get(id);
         if (old == null || !old.entities().equals(list))
             frames.put(id, new EntityFrame(list, old == null ? 1 : old.version() + 1));
+    }
+
+    /** Saved-data keys that change how a mob looks (variants, colours, baby or not), for the client's copy. */
+    private static final Set<String> LOOK_KEYS = Set.of(
+            "Type", "variant", "Variant", "RabbitType", "Pumpkin", "Color", "CollarColor", "Sheared",
+            "Saddle", "IsBaby", "Age", "CustomName", "ArmorItems", "HandItems");
+
+    private static CompoundTag looks(LivingEntity entity)
+    {
+        CompoundTag all = entity.saveWithoutId(new CompoundTag());
+        CompoundTag looks = new CompoundTag();
+        for (String key : LOOK_KEYS)
+        {
+            Tag value = all.get(key);
+            // Age counts up while growing; only whether it's a baby matters for looks.
+            if (key.equals("Age") && value != null)
+                looks.putInt(key, all.getInt(key) < 0 ? -24000 : 0);
+            else if (value != null)
+                looks.put(key, value);
+        }
+        return looks;
     }
 
     private static void setTickets(ServerLevel level, int id, boolean add)

@@ -3,5 +3,13 @@
   "block.snowglobe.terrarium": "Terrarium",
   "block.snowglobe.globe_wall": "Globe Wall",
   "snowglobe.message.entered": "You're inside! Build anything you like. To leave, right-click the glass wall with an empty hand.",
-  "snowglobe.message.nested": "You can't open a globe from inside another one."
+  "snowglobe.message.nested": "You can't open a globe from inside another one.",
+  "block.snowglobe.storm_globe": "Storm Globe",
+  "block.snowglobe.ship_bottle": "Ship in a Bottle",
+  "snowglobe.import.done": "Imported %s (%s blocks) into the globe.",
+  "snowglobe.import.too_big": "%s is %s blocks; a globe holds at most %s.",
+  "snowglobe.import.not_found": "Couldn't find schematic %s.",
+  "snowglobe.import.failed": "Couldn't import %s: %s",
+  "snowglobe.import.no_globe": "Look at a globe, or stand inside one, to import into it.",
+  "snowglobe.import.no_player": "Only a player can import into a globe."
 }

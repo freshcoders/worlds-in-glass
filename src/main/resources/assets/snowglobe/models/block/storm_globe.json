@@ -1,0 +1,31 @@
+{
+  "parent": "minecraft:block/block",
+  "textures": {
+    "particle": "minecraft:block/polished_deepslate",
+    "wood": "minecraft:block/polished_deepslate",
+    "gold": "minecraft:block/oxidized_copper"
+  },
+  "elements": [
+    {
+      "from": [4, 0, 4], "to": [12, 2, 12],
+      "faces": {
+        "down":  { "uv": [4, 4, 12, 12], "texture": "#wood", "cullface": "down" },
+        "up":    { "uv": [4, 4, 12, 12], "texture": "#wood" },
+        "north": { "uv": [4, 14, 12, 16], "texture": "#wood" },
+        "south": { "uv": [4, 14, 12, 16], "texture": "#wood" },
+        "west":  { "uv": [4, 14, 12, 16], "texture": "#wood" },
+        "east":  { "uv": [4, 14, 12, 16], "texture": "#wood" }
+      }
+    },
+    {
+      "from": [4.5, 2, 4.5], "to": [11.5, 2.75, 11.5],
+      "faces": {
+        "up":    { "uv": [4.5, 4.5, 11.5, 11.5], "texture": "#gold" },
+        "north": { "uv": [4.5, 13, 11.5, 13.75], "texture": "#gold" },
+        "south": { "uv": [4.5, 13, 11.5, 13.75], "texture": "#gold" },
+        "west":  { "uv": [4.5, 13, 11.5, 13.75], "texture": "#gold" },
+        "east":  { "uv": [4.5, 13, 11.5, 13.75], "texture": "#gold" }
+      }
+    }
+  ]
+}

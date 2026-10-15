@@ -6,6 +6,7 @@ import net.minecraft.server.level.ServerLevel;
 import net.minecraft.util.RandomSource;
 import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.entity.Mob;
+import net.minecraft.world.entity.MobSpawnType;
 import net.minecraft.world.entity.animal.Fox;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.Blocks;
@@ -26,10 +27,13 @@ final class GlobeScenes
     static void build(ServerLevel level, BlockPos min, GlobeKind kind)
     {
         Scene scene = new Scene(level, min, kind);
-        if (kind == GlobeKind.TERRARIUM)
-            mossyGarden(scene);
-        else
-            snowyCabin(scene);
+        switch (kind)
+        {
+            case TERRARIUM -> mossyGarden(scene);
+            case STORM_GLOBE -> stormyLighthouse(scene);
+            case SHIP_BOTTLE -> shipInBottle(scene);
+            default -> snowyCabin(scene);
+        }
     }
 
     /** Writes blocks in globe-local coordinates, ignoring anything outside the build space. */
@@ -218,13 +222,122 @@ final class GlobeScenes
         spawn(s, EntityType.RABBIT, 11.5, ground[11][7] + 1, 7.5, mob -> {});
     }
 
-    /** Puts a mob in the globe that stays for good (it never despawns). */
+    // ---- Storm globe: a lighthouse on a rocky island in a dark sea, with cod swimming round it ----
+
+    private static void stormyLighthouse(Scene s)
+    {
+        RandomSource random = RandomSource.create(1987L);
+        final int sea = 5; // water surface
+        int size = GlobeSpace.SIZE;
+        for (int x = 0; x < size; x++)
+            for (int z = 0; z < size; z++)
+            {
+                double d = Math.hypot(x + 0.5 - 8, z + 0.5 - 8);
+                int island = d < 2.5 ? 7 : d < 3.5 ? 6 : d < 4.6 ? sea : -1;
+                for (int y = 0; y < size; y++)
+                {
+                    BlockState state;
+                    if (y <= island)
+                        state = y < island ? (random.nextInt(4) == 0 ? Blocks.COBBLESTONE : Blocks.STONE).defaultBlockState()
+                                : d < 3.5 ? Blocks.GRASS_BLOCK.defaultBlockState() : Blocks.SAND.defaultBlockState();
+                    else if (y <= 2)
+                        state = (random.nextBoolean() ? Blocks.SAND : Blocks.GRAVEL).defaultBlockState();
+                    else if (y <= sea)
+                        state = Blocks.WATER.defaultBlockState();
+                    else
+                        continue;
+                    s.set(x, y, z, state);
+                }
+            }
+
+        // Striped lighthouse: a plus-shaped tower, a lamp room with a sea lantern, and a red cap.
+        int[][] plus = {{0, 0}, {1, 0}, {-1, 0}, {0, 1}, {0, -1}};
+        for (int y = 8; y <= 13; y++)
+        {
+            Block stripe = (y - 8) / 2 % 2 == 0 ? Blocks.WHITE_CONCRETE : Blocks.RED_CONCRETE;
+            for (int[] p : plus)
+                s.set(8 + p[0], y, 8 + p[1], stripe.defaultBlockState());
+        }
+        for (int[] p : plus)
+            s.set(8 + p[0], 14, 8 + p[1], (p[0] == 0 && p[1] == 0 ? Blocks.SEA_LANTERN : Blocks.GLASS).defaultBlockState());
+        s.set(8, 15, 8, Blocks.RED_CONCRETE.defaultBlockState());
+
+        // A few rocks sticking out of the water.
+        s.set(3, sea + 1, 6, Blocks.MOSSY_COBBLESTONE.defaultBlockState());
+        s.set(12, sea + 1, 11, Blocks.COBBLESTONE.defaultBlockState());
+
+        spawn(s, EntityType.COD, 3.5, 3, 9.5, mob -> {});
+        spawn(s, EntityType.COD, 12.5, 3, 5.5, mob -> {});
+        spawn(s, EntityType.COD, 8.5, 3, 13.5, mob -> {});
+    }
+
+    // ---- Ship in a bottle: a sailing ship on a strip of sea, with tropical fish below ----
+
+    private static void shipInBottle(Scene s)
+    {
+        int size = GlobeSpace.SIZE;
+        for (int x = 0; x < size; x++)
+            for (int z = 0; z < size; z++)
+                for (int y = 0; y <= 6; y++)
+                    s.set(x, y, z, (y <= 3 ? Blocks.SAND : Blocks.WATER).defaultBlockState());
+
+        BlockState hull = Blocks.SPRUCE_PLANKS.defaultBlockState();
+        BlockState keel = Blocks.DARK_OAK_PLANKS.defaultBlockState();
+        // Keel in the water, then the deck, pointed at bow (east) and stern (west).
+        for (int x = 4; x <= 11; x++)
+        {
+            s.set(x, 6, 8, keel);
+            if (x >= 5 && x <= 10)
+            {
+                s.set(x, 6, 7, keel);
+                s.set(x, 6, 9, keel);
+            }
+            for (int z = 7; z <= 9; z++)
+                s.set(x, 7, z, hull);
+            s.set(x, 8, 7, Blocks.SPRUCE_SLAB.defaultBlockState());
+            s.set(x, 8, 9, Blocks.SPRUCE_SLAB.defaultBlockState());
+        }
+        s.set(3, 7, 8, hull);
+        s.set(12, 7, 8, hull);
+        s.set(13, 8, 8, Blocks.SPRUCE_FENCE.defaultBlockState()); // bowsprit
+        // Stern cabin.
+        for (int z = 7; z <= 9; z++)
+        {
+            s.set(4, 8, z, hull);
+            s.set(5, 8, z, hull);
+            s.set(4, 9, z, Blocks.DARK_OAK_SLAB.defaultBlockState());
+            s.set(5, 9, z, Blocks.DARK_OAK_SLAB.defaultBlockState());
+        }
+
+        // Two masts with white sails across the ship, and a red flag on top of the main mast.
+        BlockState mast = Blocks.SPRUCE_FENCE.defaultBlockState();
+        BlockState sail = Blocks.WHITE_WOOL.defaultBlockState();
+        for (int y = 8; y <= 12; y++)
+            s.set(8, y, 8, mast);
+        for (int y = 8; y <= 11; y++)
+            s.set(11, y, 8, mast);
+        for (int z = 6; z <= 10; z++)
+            if (z != 8)
+            {
+                for (int y = 9; y <= 11; y++)
+                    s.set(8, y, z, sail);
+                for (int y = 9; y <= 10; y++)
+                    s.set(11, y, z, sail);
+            }
+        s.set(8, 12, 8, Blocks.RED_WOOL.defaultBlockState());
+
+        spawn(s, EntityType.TROPICAL_FISH, 2.5, 4.2, 8.5, mob -> {});
+        spawn(s, EntityType.TROPICAL_FISH, 13.5, 4.2, 7.5, mob -> {});
+    }
+
+    /** Puts a mob in the globe that stays for good (it never despawns), with a natural look (variant, colours). */
     private static void spawn(Scene s, EntityType<? extends Mob> type, double x, double y, double z, Consumer<Mob> setup)
     {
         Mob mob = type.create(s.level());
         if (mob == null)
             return;
         mob.moveTo(s.min().getX() + x, s.min().getY() + y, s.min().getZ() + z, s.level().random.nextFloat() * 360, 0);
+        mob.finalizeSpawn(s.level(), s.level().getCurrentDifficultyAt(mob.blockPosition()), MobSpawnType.EVENT, null, null);
         mob.setPersistenceRequired();
         setup.accept(mob);
         s.level().addFreshEntity(mob);

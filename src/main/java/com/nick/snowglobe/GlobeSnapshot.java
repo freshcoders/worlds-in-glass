@@ -11,6 +11,7 @@ import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.RenderShape;
 import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.level.material.FluidState;
 import org.jetbrains.annotations.Nullable;
 
 import java.util.ArrayList;
@@ -27,6 +28,7 @@ public final class GlobeSnapshot
     private final List<BlockState> palette;
     private final int[] cells;
     private List<BlockPos> visible;
+    private List<BlockPos> fluids;
 
     private GlobeSnapshot(List<BlockState> palette, int[] cells)
     {
@@ -76,6 +78,34 @@ public final class GlobeSnapshot
             visible = list;
         }
         return visible;
+    }
+
+    /** Water and lava worth drawing: fluid cells with at least one side not touching the same fluid. */
+    public List<BlockPos> fluidCells()
+    {
+        if (fluids == null)
+        {
+            List<BlockPos> list = new ArrayList<>();
+            for (int y = 0; y < SIZE; y++)
+                for (int z = 0; z < SIZE; z++)
+                    for (int x = 0; x < SIZE; x++)
+                    {
+                        FluidState fluid = get(x, y, z).getFluidState();
+                        if (!fluid.isEmpty() && (!sameFluid(fluid, x - 1, y, z) || !sameFluid(fluid, x + 1, y, z)
+                                || !sameFluid(fluid, x, y - 1, z) || !sameFluid(fluid, x, y + 1, z)
+                                || !sameFluid(fluid, x, y, z - 1) || !sameFluid(fluid, x, y, z + 1)))
+                            list.add(new BlockPos(x, y, z));
+                    }
+            fluids = list;
+        }
+        return fluids;
+    }
+
+    private boolean sameFluid(FluidState fluid, int x, int y, int z)
+    {
+        if (x < 0 || y < 0 || z < 0 || x >= SIZE || y >= SIZE || z >= SIZE)
+            return false;
+        return get(x, y, z).getFluidState().getType().isSame(fluid.getType());
     }
 
     private boolean buried(int x, int y, int z)
