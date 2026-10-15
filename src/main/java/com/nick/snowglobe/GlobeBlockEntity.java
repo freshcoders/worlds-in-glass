@@ -91,12 +91,16 @@ public class GlobeBlockEntity extends BlockEntity
             send = true;
         }
         // Blocks: about once a second, spread out over ticks so many globes don't all update at once.
-        if (Math.floorMod(level.getGameTime() + pos.asLong(), 20) == 0 && globe.pullSnapshot(server))
+        if (Math.floorMod(level.getGameTime() + pos.asLong(), 20) == 0)
         {
-            globe.blocksChanged = true;
-            globe.setChanged();
+            if (globe.pullSnapshot(server))
+            {
+                globe.blocksChanged = true;
+                globe.setChanged();
+                send = true;
+            }
+            // Checked every time, not only on changes: globes from before display sizes existed need it too.
             globe.updateDisplaySize();
-            send = true;
         }
         if (send)
             level.sendBlockUpdated(pos, state, state, Block.UPDATE_CLIENTS);
