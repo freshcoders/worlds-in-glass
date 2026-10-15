@@ -1,6 +1,8 @@
 package com.nick.snowglobe.net;
 
+import com.nick.snowglobe.GlobeImport;
 import com.nick.snowglobe.SnowGlobeMod;
+import net.minecraft.core.BlockPos;
 import com.nick.snowglobe.client.ClientNetwork;
 import io.netty.buffer.ByteBuf;
 import net.minecraft.nbt.CompoundTag;
@@ -71,9 +73,30 @@ public final class GlobeNetwork
         }
     }
 
+    /**
+     * From a player: import the schematic in my hand into the globe at this spot. (Create keeps right-clicks
+     * with a schematic to itself, so the globe never hears about them otherwise.)
+     */
+    public record ImportHeld(BlockPos globePos) implements CustomPacketPayload
+    {
+        public static final Type<ImportHeld> TYPE = new Type<>(ResourceLocation.fromNamespaceAndPath(SnowGlobeMod.MODID, "import_held"));
+        public static final StreamCodec<ByteBuf, ImportHeld> CODEC = StreamCodec.composite(
+                BlockPos.STREAM_CODEC, ImportHeld::globePos, ImportHeld::new);
+
+        @Override
+        public Type<? extends CustomPacketPayload> type()
+        {
+            return TYPE;
+        }
+    }
+
     public static void register(RegisterPayloadHandlersEvent event)
     {
         PayloadRegistrar registrar = event.registrar("1");
+        registrar.playToServer(ImportHeld.TYPE, ImportHeld.CODEC, (payload, context) -> {
+            if (context.player() instanceof ServerPlayer player)
+                GlobeImport.importHeldAt(player, payload.globePos());
+        });
         // The client side lives in ClientNetwork; the lambdas only touch it when a message arrives on a client.
         registrar.playToClient(OutsideView.TYPE, OutsideView.CODEC, (payload, context) -> ClientNetwork.onOutsideView(payload));
         registrar.playToClient(OutsidePlayers.TYPE, OutsidePlayers.CODEC, (payload, context) -> ClientNetwork.onOutsidePlayers(payload));

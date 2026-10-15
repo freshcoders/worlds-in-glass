@@ -19,6 +19,7 @@ import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.world.InteractionHand;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.LevelReader;
 import net.minecraft.world.level.block.Block;
@@ -171,6 +172,24 @@ public final class GlobeImport
         DataComponentType<?> type = BuiltInRegistries.DATA_COMPONENT_TYPE.get(name);
         Object value = type == null ? null : stack.get(type);
         return value == null ? null : value.toString();
+    }
+
+    /** A player asked to import the schematic in their hand into the globe at {@code pos}: check it's real and in reach. */
+    public static void importHeldAt(ServerPlayer player, BlockPos pos)
+    {
+        if (!player.level().isLoaded(pos) || player.distanceToSqr(pos.getCenter()) > 8 * 8
+                || !(player.level().getBlockEntity(pos) instanceof GlobeBlockEntity globe))
+            return;
+        for (InteractionHand hand : InteractionHand.values())
+        {
+            ItemStack stack = player.getItemInHand(hand);
+            if (isCreateSchematic(stack))
+            {
+                player.swing(hand, true);
+                importHeldSchematic(player, stack, globe);
+                return;
+            }
+        }
     }
 
     /** Right-clicking a globe with a Create schematic in hand: import that schematic. */
