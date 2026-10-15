@@ -207,7 +207,14 @@ public class GlobeRenderer implements BlockEntityRenderer<GlobeBlockEntity>
             }
         }
         if (state != null && level != null)
+        {
+            // Mob positions are in blocks; a downsampled snapshot has several blocks per cell.
+            float perCell = snapshot != null ? 1f / snapshot.scale() : 1f;
+            poseStack.pushPose();
+            poseStack.scale(perCell, perCell, perCell);
             state.mobs.render(poseStack, buffers, light, partialTick, level);
+            poseStack.popPose();
+        }
     }
 
     // ---- Snow ----

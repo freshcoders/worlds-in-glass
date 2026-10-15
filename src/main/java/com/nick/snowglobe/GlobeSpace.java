@@ -23,10 +23,13 @@ import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.phys.AABB;
+import net.minecraft.world.level.chunk.LevelChunkSection;
+import net.minecraft.world.level.chunk.LevelChunk;
 import net.neoforged.neoforge.event.server.ServerStoppedEvent;
 import net.neoforged.neoforge.event.tick.ServerTickEvent;
 import org.jetbrains.annotations.Nullable;
 
+import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -37,37 +40,95 @@ import java.util.Set;
 
 /**
  * The globe dimension: an empty world where every globe gets its own walled-in build space.
- * Globe n's space sits at x = n * SPACING, so the globe a player is in follows from their position.
+ * Each globe has a slot along the x axis (see {@link GlobeSavedData}), so the globe a player is in follows
+ * from their position.
  */
 public final class GlobeSpace
 {
     public static final ResourceKey<Level> LEVEL = ResourceKey.create(Registries.DIMENSION, ResourceLocation.fromNamespaceAndPath(SnowGlobeMod.MODID, "globe"));
     /** Build space sizes (blocks along each axis). New globes start at the smallest; imports grow them to fit. */
-    public static final List<Integer> SIZES = List.of(16, 24, 32, 48, 62);
+    public static final List<Integer> SIZES = List.of(16, 24, 32, 48, 64, 96, 128, 192, 256);
     public static final int DEFAULT_SIZE = 16;
-    /** The largest that fits between neighbouring globes (SPACING minus two walls). */
-    public static final int MAX_SIZE = 62;
-    private static final int SPACING = 64;
+    public static final int MAX_SIZE = 256;
     private static final int BASE_Y = 64;
     private static final String RETURN_KEY = SnowGlobeMod.MODID + ":return";
 
     private GlobeSpace() {}
 
     /** Lowest corner of globe {@code id}'s build space (the walls sit just outside it). */
-    public static BlockPos interiorMin(int id)
+    public static BlockPos interiorMin(MinecraftServer server, int id)
     {
-        return new BlockPos(id * SPACING + 1, BASE_Y + 1, 1);
+        return new BlockPos(GlobeSavedData.get(server).slotStart(id) + 1, BASE_Y + 1, 1);
     }
 
-    public static int idAt(BlockPos pos)
+    /** The globe whose space holds this position, or -1. */
+    public static int idAt(MinecraftServer server, BlockPos pos)
     {
-        return Math.floorDiv(pos.getX(), SPACING);
+        return GlobeSavedData.get(server).idAt(pos.getX());
+    }
+
+    // ---- Walking a globe's blocks quickly ----
+
+    @FunctionalInterface
+    public interface BlockVisitor
+    {
+        /** (x, y, z) relative to the build space's corner. */
+        void visit(int x, int y, int z, BlockState state, BlockPos worldPos);
+    }
+
+    /**
+     * Visits every non-air block in the size³ cube from {@code min}, skipping empty chunk sections entirely,
+     * so even a 256-block globe that's mostly air is quick.
+     */
+    public static void forEachBlock(ServerLevel level, BlockPos min, int size, BlockVisitor visitor)
+    {
+        BlockPos.MutableBlockPos pos = new BlockPos.MutableBlockPos();
+        int maxX = min.getX() + size - 1, maxY = min.getY() + size - 1, maxZ = min.getZ() + size - 1;
+        for (int cx = min.getX() >> 4; cx <= maxX >> 4; cx++)
+            for (int cz = min.getZ() >> 4; cz <= maxZ >> 4; cz++)
+            {
+                LevelChunk chunk = level.getChunk(cx, cz);
+                LevelChunkSection[] sections = chunk.getSections();
+                for (int sy = min.getY() >> 4; sy <= maxY >> 4; sy++)
+                {
+                    int index = level.getSectionIndexFromSectionY(sy);
+                    if (index < 0 || index >= sections.length || sections[index].hasOnlyAir())
+                        continue;
+                    LevelChunkSection section = sections[index];
+                    int x0 = Math.max(cx << 4, min.getX()), x1 = Math.min((cx << 4) + 15, maxX);
+                    int y0 = Math.max(sy << 4, min.getY()), y1 = Math.min((sy << 4) + 15, maxY);
+                    int z0 = Math.max(cz << 4, min.getZ()), z1 = Math.min((cz << 4) + 15, maxZ);
+                    for (int y = y0; y <= y1; y++)
+                        for (int z = z0; z <= z1; z++)
+                            for (int x = x0; x <= x1; x++)
+                            {
+                                BlockState state = section.getBlockState(x & 15, y & 15, z & 15);
+                                if (!state.isAir())
+                                    visitor.visit(x - min.getX(), y - min.getY(), z - min.getZ(), state, pos.set(x, y, z));
+                            }
+                }
+            }
+    }
+
+    // ---- Walls ----
+
+    /** Quick test for cells that could be part of the wall: those within two blocks of the space's edge. */
+    private static boolean nearEdge(GlobeKind kind, int size, int x, int y, int z)
+    {
+        double c = size / 2.0;
+        double dx = x + 0.5 - c, dy = y + 0.5 - c, dz = z + 0.5 - c;
+        return switch (kind.space)
+        {
+            case CUBE -> x < 1 || y < 1 || z < 1 || x >= size - 1 || y >= size - 1 || z >= size - 1;
+            case SPHERE -> Math.abs(Math.sqrt(dx * dx + dy * dy + dz * dz) - c) < 2;
+            case BOTTLE -> Math.abs(Math.sqrt(dy * dy + dz * dz) - GlobeKind.bottleRadius(size)) < 2 || x < 1 || x >= size - 1;
+        };
     }
 
     /** True for cells outside the build space that touch it, even diagonally: together they seal it in. */
     private static boolean shell(GlobeKind kind, int size, int x, int y, int z)
     {
-        if (kind.inside(x, y, z, size))
+        if (!nearEdge(kind, size, x, y, z) || kind.inside(x, y, z, size))
             return false;
         for (int dx = -1; dx <= 1; dx++)
             for (int dy = -1; dy <= 1; dy++)
@@ -86,6 +147,8 @@ public final class GlobeSpace
                         level.setBlock(min.offset(x, y, z), state, Block.UPDATE_CLIENTS);
     }
 
+    // ---- Making, resizing and emptying globes ----
+
     /** Builds a new globe's glass walls and starter scene, and returns its id. */
     public static int create(MinecraftServer server, GlobeKind kind)
     {
@@ -96,7 +159,7 @@ public final class GlobeSpace
         if (level == null)
             return id;
 
-        BlockPos min = interiorMin(id);
+        BlockPos min = interiorMin(server, id);
         buildShell(level, min, kind, DEFAULT_SIZE, SnowGlobeMod.GLOBE_WALL.get().defaultBlockState());
         GlobeScenes.build(level, min, kind);
 
@@ -106,7 +169,8 @@ public final class GlobeSpace
 
     /**
      * Gives a globe a new size: new walls, and everything inside (blocks, their contents, mobs, players)
-     * moved so it stays centred. Shrinking cuts off what no longer fits.
+     * moved so it stays centred. A globe that outgrows its slot moves to a new, roomier one.
+     * Shrinking cuts off what no longer fits.
      */
     public static void resize(MinecraftServer server, int id, int newSize)
     {
@@ -116,29 +180,27 @@ public final class GlobeSpace
         if (level == null || oldSize == newSize)
             return;
         GlobeKind kind = data.kindOf(id);
-        BlockPos min = interiorMin(id);
+        BlockPos oldMin = interiorMin(server, id);
 
         // Take everything out: blocks with their data, and the entities in the space.
         Map<BlockPos, BlockState> states = new HashMap<>();
         Map<BlockPos, CompoundTag> blockData = new HashMap<>();
-        for (int x = 0; x < oldSize; x++)
-            for (int y = 0; y < oldSize; y++)
-                for (int z = 0; z < oldSize; z++)
-                {
-                    if (!kind.inside(x, y, z, oldSize))
-                        continue;
-                    BlockPos pos = min.offset(x, y, z);
-                    BlockState state = level.getBlockState(pos);
-                    if (state.isAir())
-                        continue;
-                    states.put(new BlockPos(x, y, z), state);
-                    BlockEntity be = level.getBlockEntity(pos);
-                    if (be != null)
-                        blockData.put(new BlockPos(x, y, z), be.saveWithoutMetadata(level.registryAccess()));
-                }
-        List<Entity> entities = level.getEntitiesOfClass(Entity.class, new AABB(min.getCenter(), min.getCenter()).inflate(MAX_SIZE * 2), e -> idAt(e.blockPosition()) == id);
-        clearSpace(level, min, kind, oldSize, false);
-        buildShell(level, min, kind, oldSize, Blocks.AIR.defaultBlockState());
+        forEachBlock(level, oldMin, oldSize, (x, y, z, state, pos) -> {
+            if (!kind.inside(x, y, z, oldSize))
+                return;
+            BlockPos cell = new BlockPos(x, y, z);
+            states.put(cell, state);
+            BlockEntity be = state.hasBlockEntity() ? level.getBlockEntity(pos) : null;
+            if (be != null)
+                blockData.put(cell, be.saveWithoutMetadata(level.registryAccess()));
+        });
+        List<Entity> entities = level.getEntitiesOfClass(Entity.class, spaceBox(oldMin, oldSize));
+        clearSpace(level, oldMin, kind, oldSize, false);
+        buildShell(level, oldMin, kind, oldSize, Blocks.AIR.defaultBlockState());
+
+        if (newSize > data.capacity(id))
+            data.giveSlot(id);
+        BlockPos min = interiorMin(server, id);
 
         // Put it back, shifted so it stays in the middle (a terrarium keeps its floor where it is).
         int shift = (newSize - oldSize) / 2;
@@ -155,32 +217,45 @@ public final class GlobeSpace
             if (be != null)
                 be.loadWithComponents(tag, level.registryAccess());
         });
+        int moveX = min.getX() - oldMin.getX() + shift, moveY = shiftY, moveZ = min.getZ() - oldMin.getZ() + shift;
         for (Entity entity : entities)
-            entity.teleportTo(entity.getX() + shift, entity.getY() + shiftY, entity.getZ() + shift);
+        {
+            if (entity instanceof ServerPlayer player)
+                player.teleportTo(level, player.getX() + moveX, player.getY() + moveY, player.getZ() + moveZ, player.getYRot(), player.getXRot());
+            else
+                entity.teleportTo(entity.getX() + moveX, entity.getY() + moveY, entity.getZ() + moveZ);
+        }
 
         data.setSize(id, newSize);
         data.storeSnapshot(id, GlobeSnapshot.capture(level, min, kind, newSize));
+    }
+
+    static AABB spaceBox(BlockPos min, int size)
+    {
+        return new AABB(min.getX(), min.getY(), min.getZ(), min.getX() + size, min.getY() + size, min.getZ() + size);
     }
 
     /** Empties a globe's build space: its blocks, and (unless asked to keep them) the mobs in it. */
     static void clearSpace(ServerLevel level, BlockPos min, GlobeKind kind, int size, boolean removeEntities)
     {
         if (removeEntities)
-            for (Entity entity : level.getEntitiesOfClass(Entity.class, new AABB(min.getCenter(), min.getCenter()).inflate(size + 2),
-                    e -> !(e instanceof Player) && idAt(e.blockPosition()) == idAt(min)))
+            for (Entity entity : level.getEntitiesOfClass(Entity.class, spaceBox(min, size), e -> !(e instanceof Player)))
                 entity.discard();
-        for (int x = 0; x < size; x++)
-            for (int y = 0; y < size; y++)
-                for (int z = 0; z < size; z++)
-                    if (kind.inside(x, y, z, size))
-                    {
-                        BlockPos pos = min.offset(x, y, z);
-                        // Empty containers first, so clearing doesn't spill their items into the globe.
-                        if (level.getBlockEntity(pos) != null)
-                            level.removeBlockEntity(pos);
-                        level.setBlock(pos, Blocks.AIR.defaultBlockState(), Block.UPDATE_CLIENTS | Block.UPDATE_SUPPRESS_DROPS);
-                    }
+        List<BlockPos> filled = new ArrayList<>();
+        forEachBlock(level, min, size, (x, y, z, state, pos) -> {
+            if (kind.inside(x, y, z, size))
+                filled.add(pos.immutable());
+        });
+        for (BlockPos pos : filled)
+        {
+            // Empty containers first, so clearing doesn't spill their items into the globe.
+            if (level.getBlockEntity(pos) != null)
+                level.removeBlockEntity(pos);
+            level.setBlock(pos, Blocks.AIR.defaultBlockState(), Block.UPDATE_CLIENTS | Block.UPDATE_SUPPRESS_DROPS);
+        }
     }
+
+    // ---- Going in and out ----
 
     public static void enter(ServerPlayer player, GlobeBlockEntity globe)
     {
@@ -203,7 +278,7 @@ public final class GlobeSpace
         back.putFloat("Pitch", player.getXRot());
         player.getPersistentData().put(RETURN_KEY, back);
 
-        BlockPos spawn = findSpawn(level, id, GlobeSavedData.get(player.server).sizeOf(id));
+        BlockPos spawn = findSpawn(level, interiorMin(player.server, id), GlobeSavedData.get(player.server).sizeOf(id));
         player.teleportTo(level, spawn.getX() + 0.5, spawn.getY(), spawn.getZ() + 0.5, player.getYRot(), player.getXRot());
         player.displayClientMessage(Component.translatable("snowglobe.message.entered"), false);
     }
@@ -212,7 +287,7 @@ public final class GlobeSpace
     {
         MinecraftServer server = player.server;
         if (player.level().dimension() == LEVEL)
-            refreshSnapshot(server, idAt(player.blockPosition()));
+            refreshSnapshot(server, idAt(server, player.blockPosition()));
 
         CompoundTag back = player.getPersistentData().getCompound(RETURN_KEY);
         player.getPersistentData().remove(RETURN_KEY);
@@ -230,10 +305,10 @@ public final class GlobeSpace
     }
 
     /** Finds a free spot to stand, starting from the middle of the globe and working outwards. */
-    private static BlockPos findSpawn(ServerLevel level, int id, int size)
+    private static BlockPos findSpawn(ServerLevel level, BlockPos min, int size)
     {
-        BlockPos min = interiorMin(id);
-        for (int ring = 0; ring < size / 2; ring++)
+        // Look near the middle first; a big empty globe would otherwise mean checking every column.
+        for (int ring = 0; ring < Math.min(size / 2, 24); ring++)
             for (int dx = -ring; dx <= ring; dx++)
                 for (int dz = -ring; dz <= ring; dz++)
                 {
@@ -272,7 +347,7 @@ public final class GlobeSpace
         if (level == null || id < 0)
             return;
         GlobeSavedData data = GlobeSavedData.get(server);
-        data.storeSnapshot(id, GlobeSnapshot.capture(level, interiorMin(id), data.kindOf(id), data.sizeOf(id)));
+        data.storeSnapshot(id, GlobeSnapshot.capture(level, interiorMin(server, id), data.kindOf(id), data.sizeOf(id)));
     }
 
     // ---- Live globes: while a globe block is loaded near a player, its space keeps running so its mobs move ----
@@ -287,7 +362,7 @@ public final class GlobeSpace
     public record EntityFrame(ListTag entities, long version) {}
 
     private static final Map<Integer, Integer> lastSeen = new HashMap<>();
-    private static final Map<Integer, Integer> ticketed = new HashMap<>();
+    private static final Map<Integer, Ticketed> ticketed = new HashMap<>();
     private static final Map<Integer, EntityFrame> frames = new HashMap<>();
 
     /** Called every tick by each loaded globe block: its space should keep running for now. */
@@ -303,12 +378,10 @@ public final class GlobeSpace
     }
 
     /** Positions of the living things in a globe (not players), relative to the build space. */
-    private static void captureEntities(ServerLevel level, int id, int size)
+    private static void captureEntities(ServerLevel level, int id, BlockPos min, int size)
     {
-        BlockPos min = interiorMin(id);
-        AABB box = new AABB(min.getX(), min.getY(), min.getZ(), min.getX() + size, min.getY() + size, min.getZ() + size);
         ListTag list = new ListTag();
-        for (LivingEntity entity : level.getEntitiesOfClass(LivingEntity.class, box, e -> e.isAlive() && !(e instanceof Player)))
+        for (LivingEntity entity : level.getEntitiesOfClass(LivingEntity.class, spaceBox(min, size), e -> e.isAlive() && !(e instanceof Player)))
         {
             ResourceLocation type = BuiltInRegistries.ENTITY_TYPE.getKey(entity.getType());
             CompoundTag tag = new CompoundTag();
@@ -352,11 +425,14 @@ public final class GlobeSpace
         return looks;
     }
 
-    private static void setTickets(ServerLevel level, int id, int size, boolean add)
+    /** Where a live globe's tickets are, so they can be taken back exactly (even after it grows or moves). */
+    private record Ticketed(BlockPos min, int size) {}
+
+    private static void setTickets(ServerLevel level, Ticketed area, boolean add)
     {
-        BlockPos min = interiorMin(id);
-        for (int cx = min.getX() >> 4; cx <= (min.getX() + size - 1) >> 4; cx++)
-            for (int cz = min.getZ() >> 4; cz <= (min.getZ() + size - 1) >> 4; cz++)
+        BlockPos min = area.min();
+        for (int cx = min.getX() >> 4; cx <= (min.getX() + area.size() - 1) >> 4; cx++)
+            for (int cz = min.getZ() >> 4; cz <= (min.getZ() + area.size() - 1) >> 4; cz++)
             {
                 ChunkPos chunk = new ChunkPos(cx, cz);
                 // Distance 2 gives ticket level 31: the chunk's entities tick.
@@ -367,9 +443,13 @@ public final class GlobeSpace
             }
     }
 
+    /** Globes this size or smaller re-capture their blocks every second; bigger ones only while someone builds inside. */
+    private static final int LIVE_CAPTURE_SIZE = 64;
+
     /**
      * Runs the live globes: keeps their chunks ticking, captures their mobs a few times a second
-     * and their blocks once a second, so the miniatures follow along.
+     * and their blocks once a second (big globes: every 5 seconds while someone is inside), so the miniatures
+     * follow along.
      */
     static void onServerTick(ServerTickEvent.Post event)
     {
@@ -380,31 +460,36 @@ public final class GlobeSpace
         int now = server.getTickCount();
         GlobeSavedData data = GlobeSavedData.get(server);
 
-        Set<Integer> active = new HashSet<>();
+        Set<Integer> occupied = new HashSet<>();
+        for (ServerPlayer player : level.players())
+        {
+            int id = idAt(server, player.blockPosition());
+            if (id >= 0)
+                occupied.add(id);
+        }
+        Set<Integer> active = new HashSet<>(occupied);
         lastSeen.entrySet().removeIf(e -> now - e.getValue() > ACTIVE_TICKS);
         active.addAll(lastSeen.keySet());
-        for (ServerPlayer player : level.players())
-            active.add(idAt(player.blockPosition()));
 
         for (int id : active)
         {
-            // (Re)ticket when a globe becomes active or changes size.
-            int size = data.sizeOf(id);
-            Integer had = ticketed.get(id);
-            if (had == null || had != size)
+            // (Re)ticket when a globe becomes active, grows, or moves to a new slot.
+            Ticketed area = new Ticketed(interiorMin(server, id), data.sizeOf(id));
+            Ticketed had = ticketed.get(id);
+            if (!area.equals(had))
             {
                 if (had != null)
-                    setTickets(level, id, had, false);
-                setTickets(level, id, size, true);
-                ticketed.put(id, size);
+                    setTickets(level, had, false);
+                setTickets(level, area, true);
+                ticketed.put(id, area);
             }
         }
-        for (Iterator<Map.Entry<Integer, Integer>> it = ticketed.entrySet().iterator(); it.hasNext(); )
+        for (Iterator<Map.Entry<Integer, Ticketed>> it = ticketed.entrySet().iterator(); it.hasNext(); )
         {
-            Map.Entry<Integer, Integer> entry = it.next();
+            Map.Entry<Integer, Ticketed> entry = it.next();
             if (!active.contains(entry.getKey()))
             {
-                setTickets(level, entry.getKey(), entry.getValue(), false);
+                setTickets(level, entry.getValue(), false);
                 frames.remove(entry.getKey());
                 it.remove();
             }
@@ -416,10 +501,13 @@ public final class GlobeSpace
         level.resetEmptyTime();
         if (now % ENTITY_INTERVAL == 0)
             for (int id : active)
-                captureEntities(level, id, data.sizeOf(id));
-        if (now % 20 == 0)
-            for (int id : active)
+                captureEntities(level, id, ticketed.get(id).min(), data.sizeOf(id));
+        for (int id : active)
+        {
+            boolean big = data.sizeOf(id) > LIVE_CAPTURE_SIZE;
+            if (!big && now % 20 == 0 || big && occupied.contains(id) && now % 100 == 0)
                 refreshSnapshot(server, id);
+        }
     }
 
     /** Forget live globes when a world closes, so they don't leak into the next one opened. */

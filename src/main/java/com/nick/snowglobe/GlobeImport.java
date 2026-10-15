@@ -127,8 +127,8 @@ public final class GlobeImport
         ServerPlayer player = source.getPlayer();
         if (player == null)
             source.sendFailure(Component.translatable("snowglobe.import.no_player"));
-        else if (player.level().dimension() == GlobeSpace.LEVEL)
-            return GlobeSpace.idAt(player.blockPosition());
+        else if (player.level().dimension() == GlobeSpace.LEVEL && GlobeSpace.idAt(player.server, player.blockPosition()) >= 0)
+            return GlobeSpace.idAt(player.server, player.blockPosition());
         else if (player.pick(6, 0, false) instanceof BlockHitResult hit && hit.getType() == HitResult.Type.BLOCK
                 && player.level().getBlockEntity(hit.getBlockPos()) instanceof GlobeBlockEntity globe)
             return globe.ensureGlobe(player.server);
@@ -200,9 +200,10 @@ public final class GlobeImport
         if (size == null)
             return Component.translatable("snowglobe.import.too_big", fileName, dimsText, GlobeSpace.MAX_SIZE + "×" + GlobeSpace.MAX_SIZE + "×" + GlobeSpace.MAX_SIZE);
 
-        BlockPos min = GlobeSpace.interiorMin(id);
-        GlobeSpace.clearSpace(level, min, kind, data.sizeOf(id), true);
+        GlobeSpace.clearSpace(level, GlobeSpace.interiorMin(server, id), kind, data.sizeOf(id), true);
         GlobeSpace.resize(server, id, size);
+        // Only now: growing may have moved the globe to a roomier slot.
+        BlockPos min = GlobeSpace.interiorMin(server, id);
 
         // Centre it; a terrarium stands it on the floor, round globes and bottles float it in the middle.
         int y = kind.space == GlobeKind.Space.CUBE ? 0 : (size - dims.getY()) / 2;

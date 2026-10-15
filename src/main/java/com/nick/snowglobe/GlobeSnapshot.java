@@ -7,7 +7,7 @@ import net.minecraft.nbt.ListTag;
 import net.minecraft.nbt.NbtUtils;
 import net.minecraft.nbt.Tag;
 import net.minecraft.world.level.EmptyBlockGetter;
-import net.minecraft.world.level.Level;
+import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.RenderShape;
 import net.minecraft.world.level.block.entity.BlockEntity;
@@ -27,7 +27,13 @@ import java.util.Map;
  */
 public final class GlobeSnapshot
 {
+    /** The most cells a snapshot has along each axis. Bigger globes are shown downsampled to fit. */
+    public static final int MAX_GRID = 64;
+
+    /** Cells along each axis. */
     private final int size;
+    /** Blocks of the globe per cell along each axis: 1 normally, more for globes bigger than {@link #MAX_GRID}. */
+    private final int scale;
     private final List<BlockState> palette;
     private final int[] cells;
     /** Block entity data by cell index, for the cells that have one. */
@@ -38,53 +44,77 @@ public final class GlobeSnapshot
     /** Client: whatever the renderer builds from this snapshot (its block entities). Not touched on the server. */
     public Object clientCache;
 
-    private GlobeSnapshot(int size, List<BlockState> palette, int[] cells, Map<Integer, CompoundTag> blockEntities)
+    private GlobeSnapshot(int size, int scale, List<BlockState> palette, int[] cells, Map<Integer, CompoundTag> blockEntities)
     {
         this.size = size;
+        this.scale = scale;
         this.palette = palette;
         this.cells = cells;
         this.blockEntities = blockEntities;
     }
 
-    public static GlobeSnapshot capture(Level level, BlockPos min, GlobeKind kind, int size)
+    /**
+     * Captures a globe of {@code globeSize} blocks. Up to {@link #MAX_GRID} that's block for block; bigger
+     * globes are downsampled: each cell stands for a cube of blocks and shows the most common block in it.
+     */
+    public static GlobeSnapshot capture(ServerLevel level, BlockPos min, GlobeKind kind, int globeSize)
     {
+        int scale = (globeSize + MAX_GRID - 1) / MAX_GRID;
+        int size = (globeSize + scale - 1) / scale;
+        BlockState[] chosen = new BlockState[size * size * size];
+        int[] votes = new int[chosen.length];
+        Map<Integer, CompoundTag> blockEntities = new HashMap<>();
+        GlobeSpace.forEachBlock(level, min, globeSize, (x, y, z, state, pos) -> {
+            // Only the build space belongs in the miniature (not the walls in a dome's corners).
+            if (!kind.inside(x, y, z, globeSize))
+                return;
+            int i = ((y / scale) * size + z / scale) * size + x / scale;
+            // Majority vote: keeps the most common block of each cube without counting them all.
+            if (votes[i] == 0)
+            {
+                chosen[i] = state;
+                votes[i] = 1;
+            }
+            else
+                votes[i] += chosen[i] == state ? 1 : -1;
+            if (scale == 1 && state.hasBlockEntity())
+            {
+                BlockEntity be = level.getBlockEntity(pos);
+                if (be != null)
+                {
+                    CompoundTag data = be.saveWithFullMetadata(level.registryAccess());
+                    // Mods' extra data (energy, fluids, ...) never changes a block's looks, and data from
+                    // mods that aren't installed would only fill the log with warnings on every client.
+                    data.remove("neoforge:attachments");
+                    blockEntities.put(i, data);
+                }
+            }
+        });
+
         List<BlockState> palette = new ArrayList<>();
         Map<BlockState, Integer> index = new HashMap<>();
-        Map<Integer, CompoundTag> blockEntities = new HashMap<>();
-        int[] cells = new int[size * size * size];
-        BlockPos.MutableBlockPos pos = new BlockPos.MutableBlockPos();
-        int i = 0;
-        for (int y = 0; y < size; y++)
-            for (int z = 0; z < size; z++)
-                for (int x = 0; x < size; x++)
-                {
-                    // Only the build space belongs in the miniature (not the walls in a dome's corners).
-                    BlockState state = Blocks.AIR.defaultBlockState();
-                    if (kind.inside(x, y, z, size))
-                    {
-                        pos.set(min.getX() + x, min.getY() + y, min.getZ() + z);
-                        state = level.getBlockState(pos);
-                        BlockEntity be = state.hasBlockEntity() ? level.getBlockEntity(pos) : null;
-                        if (be != null)
-                        {
-                            CompoundTag data = be.saveWithFullMetadata(level.registryAccess());
-                            // Mods' extra data (energy, fluids, ...) never changes a block's looks, and data from
-                            // mods that aren't installed would only fill the log with warnings on every client.
-                            data.remove("neoforge:attachments");
-                            blockEntities.put(i, data);
-                        }
-                    }
-                    cells[i++] = index.computeIfAbsent(state, s -> {
-                        palette.add(s);
-                        return palette.size() - 1;
-                    });
-                }
-        return new GlobeSnapshot(size, palette, cells, blockEntities);
+        int[] cells = new int[chosen.length];
+        for (int i = 0; i < chosen.length; i++)
+        {
+            BlockState state = chosen[i] != null ? chosen[i] : Blocks.AIR.defaultBlockState();
+            cells[i] = index.computeIfAbsent(state, s -> {
+                palette.add(s);
+                return palette.size() - 1;
+            });
+        }
+        return new GlobeSnapshot(size, scale, palette, cells, blockEntities);
     }
 
+    /** Cells along each axis (the globe's size, divided by {@link #scale()}). */
     public int size()
     {
         return size;
+    }
+
+    /** Blocks of the globe per cell along each axis. */
+    public int scale()
+    {
+        return scale;
     }
 
     public BlockState get(int x, int y, int z)
@@ -190,6 +220,7 @@ public final class GlobeSnapshot
             paletteTag.add(NbtUtils.writeBlockState(state));
         CompoundTag tag = new CompoundTag();
         tag.putInt("Size", size);
+        tag.putInt("Scale", scale);
         tag.put("Palette", paletteTag);
         // Most globes use under 256 kinds of block: one byte per cell then, a quarter of the size.
         if (palette.size() <= 256)
@@ -218,6 +249,7 @@ public final class GlobeSnapshot
     public static GlobeSnapshot fromTag(CompoundTag tag)
     {
         int size = tag.contains("Size") ? tag.getInt("Size") : GlobeSpace.DEFAULT_SIZE;
+        int scale = Math.max(1, tag.getInt("Scale"));
         if (size <= 0 || size > GlobeSpace.MAX_SIZE)
             return null;
         ListTag paletteTag = tag.getList("Palette", Tag.TAG_COMPOUND);
@@ -252,13 +284,13 @@ public final class GlobeSnapshot
             if (cell >= 0 && cell < cells.length)
                 blockEntities.put(cell, entry);
         }
-        return new GlobeSnapshot(size, palette, cells, blockEntities);
+        return new GlobeSnapshot(size, scale, palette, cells, blockEntities);
     }
 
     @Override
     public boolean equals(Object o)
     {
-        return o instanceof GlobeSnapshot other && size == other.size && palette.equals(other.palette)
+        return o instanceof GlobeSnapshot other && size == other.size && scale == other.scale && palette.equals(other.palette)
                 && Arrays.equals(cells, other.cells) && blockEntities.equals(other.blockEntities);
     }
 
