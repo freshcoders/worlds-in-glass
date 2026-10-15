@@ -3,7 +3,6 @@ package com.nick.snowglobe.client;
 import com.mojang.blaze3d.vertex.PoseStack;
 import com.mojang.blaze3d.vertex.VertexConsumer;
 import com.nick.snowglobe.GlobeSnapshot;
-import com.nick.snowglobe.GlobeSpace;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.multiplayer.ClientLevel;
 import net.minecraft.client.renderer.LightTexture;
@@ -19,8 +18,6 @@ import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.lighting.LevelLightEngine;
 import net.minecraft.world.level.material.FluidState;
 import org.jetbrains.annotations.Nullable;
-import org.joml.Matrix3f;
-import org.joml.Matrix4f;
 
 /**
  * A snapshot seen as a tiny world, so Minecraft's own water renderer can draw the miniature's water:
@@ -46,7 +43,7 @@ final class SnapshotView implements BlockAndTintGetter
     @Override
     public BlockState getBlockState(BlockPos pos)
     {
-        int s = GlobeSpace.SIZE;
+        int s = snapshot.size();
         if (pos.getX() < 0 || pos.getY() < 0 || pos.getZ() < 0 || pos.getX() >= s || pos.getY() >= s || pos.getZ() >= s)
             return Blocks.AIR.defaultBlockState();
         return snapshot.get(pos.getX(), pos.getY(), pos.getZ());
@@ -68,7 +65,7 @@ final class SnapshotView implements BlockAndTintGetter
     @Override
     public int getHeight()
     {
-        return GlobeSpace.SIZE;
+        return snapshot.size();
     }
 
     @Override
@@ -109,35 +106,34 @@ final class SnapshotView implements BlockAndTintGetter
     }
 
     /**
-     * Takes the water renderer's vertices (block format, in miniature cell units) and passes them on in
-     * entity format through the current pose, so they can go in the same buffers as the rest of the globe.
+     * Takes the water renderer's vertices (in miniature cell units) and passes them on through the current pose,
+     * with the overlay the entity format needs, so they go in the same buffers as the rest of the globe.
+     * The water renderer sets the normal last, so that's when a vertex is complete.
      */
     static final class PosedConsumer implements VertexConsumer
     {
         private final VertexConsumer out;
-        private final Matrix4f pose;
-        private final Matrix3f normal;
-        private float x, y, z, u, v, nx, ny = 1, nz;
+        private final PoseStack.Pose pose;
+        private float x, y, z, u, v;
         private int r = 255, g = 255, b = 255, a = 255, light;
 
         PosedConsumer(VertexConsumer out, PoseStack.Pose pose)
         {
             this.out = out;
-            this.pose = pose.pose();
-            this.normal = pose.normal();
+            this.pose = pose;
         }
 
         @Override
-        public VertexConsumer vertex(double x, double y, double z)
+        public VertexConsumer addVertex(float x, float y, float z)
         {
-            this.x = (float) x;
-            this.y = (float) y;
-            this.z = (float) z;
+            this.x = x;
+            this.y = y;
+            this.z = z;
             return this;
         }
 
         @Override
-        public VertexConsumer color(int r, int g, int b, int a)
+        public VertexConsumer setColor(int r, int g, int b, int a)
         {
             this.r = r;
             this.g = g;
@@ -147,7 +143,7 @@ final class SnapshotView implements BlockAndTintGetter
         }
 
         @Override
-        public VertexConsumer uv(float u, float v)
+        public VertexConsumer setUv(float u, float v)
         {
             this.u = u;
             this.v = v;
@@ -155,42 +151,24 @@ final class SnapshotView implements BlockAndTintGetter
         }
 
         @Override
-        public VertexConsumer overlayCoords(int u, int v)
+        public VertexConsumer setUv1(int u, int v)
         {
             return this;
         }
 
         @Override
-        public VertexConsumer uv2(int u, int v)
+        public VertexConsumer setUv2(int u, int v)
         {
             this.light = (u & 0xFFFF) | (v & 0xFFFF) << 16;
             return this;
         }
 
         @Override
-        public VertexConsumer normal(float x, float y, float z)
+        public VertexConsumer setNormal(float nx, float ny, float nz)
         {
-            this.nx = x;
-            this.ny = y;
-            this.nz = z;
+            out.addVertex(pose, x, y, z).setColor(r, g, b, a).setUv(u, v).setOverlay(OverlayTexture.NO_OVERLAY)
+                    .setLight(light).setNormal(pose, nx, ny, nz);
             return this;
-        }
-
-        @Override
-        public void endVertex()
-        {
-            out.vertex(pose, x, y, z).color(r, g, b, a).uv(u, v).overlayCoords(OverlayTexture.NO_OVERLAY)
-                    .uv2(light).normal(normal, nx, ny, nz).endVertex();
-        }
-
-        @Override
-        public void defaultColor(int r, int g, int b, int a)
-        {
-        }
-
-        @Override
-        public void unsetDefaultColor()
-        {
         }
     }
 }

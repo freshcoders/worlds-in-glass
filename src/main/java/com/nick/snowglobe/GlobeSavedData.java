@@ -1,5 +1,6 @@
 package com.nick.snowglobe;
 
+import net.minecraft.core.HolderLookup;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.ListTag;
 import net.minecraft.nbt.Tag;
@@ -10,7 +11,7 @@ import org.jetbrains.annotations.Nullable;
 import java.util.HashMap;
 import java.util.Map;
 
-/** Per-world record of which globe ids exist and the latest snapshot of each. */
+/** Per-world record of which globes exist: their kind, size, and the latest snapshot of each. */
 public class GlobeSavedData extends SavedData
 {
     private static final String NAME = SnowGlobeMod.MODID + "_globes";
@@ -21,10 +22,12 @@ public class GlobeSavedData extends SavedData
     private int nextId;
     private final Map<Integer, Entry> globes = new HashMap<>();
     private final Map<Integer, GlobeKind> kinds = new HashMap<>();
+    private final Map<Integer, Integer> sizes = new HashMap<>();
 
     public static GlobeSavedData get(MinecraftServer server)
     {
-        return server.overworld().getDataStorage().computeIfAbsent(GlobeSavedData::load, GlobeSavedData::new, NAME);
+        return server.overworld().getDataStorage().computeIfAbsent(
+                new SavedData.Factory<>(GlobeSavedData::new, GlobeSavedData::load, null), NAME);
     }
 
     public int allocateId(GlobeKind kind)
@@ -37,6 +40,17 @@ public class GlobeSavedData extends SavedData
     public GlobeKind kindOf(int id)
     {
         return kinds.getOrDefault(id, GlobeKind.SNOW_GLOBE);
+    }
+
+    public int sizeOf(int id)
+    {
+        return sizes.getOrDefault(id, GlobeSpace.DEFAULT_SIZE);
+    }
+
+    public void setSize(int id, int size)
+    {
+        sizes.put(id, size);
+        setDirty();
     }
 
     @Nullable
@@ -55,7 +69,7 @@ public class GlobeSavedData extends SavedData
     }
 
     @Override
-    public CompoundTag save(CompoundTag tag)
+    public CompoundTag save(CompoundTag tag, HolderLookup.Provider registries)
     {
         tag.putInt("NextId", nextId);
         ListTag list = new ListTag();
@@ -70,10 +84,13 @@ public class GlobeSavedData extends SavedData
         CompoundTag kindsTag = new CompoundTag();
         kinds.forEach((id, kind) -> kindsTag.putString(Integer.toString(id), kind.getName()));
         tag.put("Kinds", kindsTag);
+        CompoundTag sizesTag = new CompoundTag();
+        sizes.forEach((id, size) -> sizesTag.putInt(Integer.toString(id), size));
+        tag.put("Sizes", sizesTag);
         return tag;
     }
 
-    private static GlobeSavedData load(CompoundTag tag)
+    private static GlobeSavedData load(CompoundTag tag, HolderLookup.Provider registries)
     {
         GlobeSavedData data = new GlobeSavedData();
         data.nextId = tag.getInt("NextId");
@@ -86,16 +103,22 @@ public class GlobeSavedData extends SavedData
                 data.globes.put(globe.getInt("Id"), new Entry(snapshot, globe.getLong("Version")));
         }
         CompoundTag kindsTag = tag.getCompound("Kinds");
+        CompoundTag sizesTag = tag.getCompound("Sizes");
         for (String key : kindsTag.getAllKeys())
-        {
-            try
-            {
-                data.kinds.put(Integer.parseInt(key), GlobeKind.byName(kindsTag.getString(key)));
-            }
-            catch (NumberFormatException ignored)
-            {
-            }
-        }
+            parseId(key, id -> data.kinds.put(id, GlobeKind.byName(kindsTag.getString(key))));
+        for (String key : sizesTag.getAllKeys())
+            parseId(key, id -> data.sizes.put(id, sizesTag.getInt(key)));
         return data;
+    }
+
+    private static void parseId(String key, java.util.function.IntConsumer action)
+    {
+        try
+        {
+            action.accept(Integer.parseInt(key));
+        }
+        catch (NumberFormatException ignored)
+        {
+        }
     }
 }

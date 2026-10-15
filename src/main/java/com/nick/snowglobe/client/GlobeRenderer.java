@@ -26,10 +26,7 @@ import net.minecraft.sounds.SoundEvents;
 import net.minecraft.sounds.SoundSource;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.phys.Vec3;
-import net.minecraftforge.client.model.data.ModelData;
 import org.jetbrains.annotations.Nullable;
-import org.joml.Matrix3f;
-import org.joml.Matrix4f;
 
 import java.util.Random;
 
@@ -40,8 +37,8 @@ import java.util.Random;
 public class GlobeRenderer implements BlockEntityRenderer<GlobeBlockEntity>
 {
     /** Plain white glass in the block atlas; the renderer sets its tint and how see-through each part is. */
-    private static final ResourceLocation GLASS = new ResourceLocation(SnowGlobeMod.MODID, "block/globe_ball");
-    private static final ResourceLocation WHITE = new ResourceLocation(SnowGlobeMod.MODID, "textures/entity/snowflake.png");
+    private static final ResourceLocation GLASS = ResourceLocation.fromNamespaceAndPath(SnowGlobeMod.MODID, "block/globe_ball");
+    private static final ResourceLocation WHITE = ResourceLocation.fromNamespaceAndPath(SnowGlobeMod.MODID, "textures/entity/snowflake.png");
 
     // Ball (snow and storm globes), in block units: sits on the pedestal's rim.
     private static final float BALL_RADIUS = 4.5f / 16f;
@@ -132,12 +129,16 @@ public class GlobeRenderer implements BlockEntityRenderer<GlobeBlockEntity>
     {
         Vec3 view = eye != null ? eye : ITEM_EYE;
         float partialTick = ticks - (float) Math.floor(ticks);
+        // Bigger globes hold more blocks in the same glass, so each block is drawn smaller.
+        int size = snapshot != null ? snapshot.size() : GlobeSpace.DEFAULT_SIZE;
+        float half = size / 2f;
+        // A dome's cells reach about 1.11 half-sizes from its centre; fit that just inside the ball.
+        float ballCell = BALL_RADIUS * 0.94f / (half * 1.1125f);
         switch (kind)
         {
             case SNOW_GLOBE ->
             {
-                // The dome's cells reach about 8.9 cells from the centre; fit that just inside the glass.
-                pushMiniature(poseStack, 0.5f, BALL_CENTER_Y, BALL_RADIUS * 0.94f / 8.9f, GlobeSpace.SIZE / 2f);
+                pushMiniature(poseStack, 0.5f, BALL_CENTER_Y, ballCell, size, half);
                 renderContents(snapshot, state, level, where, partialTick, poseStack, buffers, light, blocks);
                 poseStack.popPose();
                 renderSnow(poseStack, buffers, light, ticks / 20f);
@@ -145,7 +146,7 @@ public class GlobeRenderer implements BlockEntityRenderer<GlobeBlockEntity>
             }
             case STORM_GLOBE ->
             {
-                pushMiniature(poseStack, 0.5f, BALL_CENTER_Y, BALL_RADIUS * 0.94f / 8.9f, GlobeSpace.SIZE / 2f);
+                pushMiniature(poseStack, 0.5f, BALL_CENTER_Y, ballCell, size, half);
                 renderContents(snapshot, state, level, where, partialTick, poseStack, buffers, light, blocks);
                 poseStack.popPose();
                 float flash = renderStorm(poseStack, buffers, light, ticks, seed, state, level, where);
@@ -154,27 +155,27 @@ public class GlobeRenderer implements BlockEntityRenderer<GlobeBlockEntity>
             }
             case SHIP_BOTTLE ->
             {
-                pushMiniature(poseStack, BOTTLE_MID_X, BOTTLE_Y, BOTTLE_CELL, GlobeSpace.SIZE / 2f);
+                pushMiniature(poseStack, BOTTLE_MID_X, BOTTLE_Y, BOTTLE_CELL * GlobeSpace.DEFAULT_SIZE / size, size, half);
                 renderContents(snapshot, state, level, where, partialTick, poseStack, buffers, light, blocks);
                 poseStack.popPose();
                 renderBottle(poseStack, buffers, light, view);
             }
             default ->
             {
-                pushMiniature(poseStack, 0.5f, CASE_FLOOR + 0.002f, CASE_WIDTH / GlobeSpace.SIZE, 0);
+                pushMiniature(poseStack, 0.5f, CASE_FLOOR + 0.002f, CASE_WIDTH / size, size, 0);
                 renderContents(snapshot, state, level, where, partialTick, poseStack, buffers, light, blocks);
                 poseStack.popPose();
             }
         }
     }
 
-    /** Switches to globe-space units scaled by {@code cell}, with grid point (8, pivotY, 8) placed at (x, y, 0.5). */
-    private static void pushMiniature(PoseStack poseStack, float x, float y, float cell, float pivotY)
+    /** Switches to globe-space units scaled by {@code cell}, with the grid's middle column at (x, y, 0.5), raised by pivotY. */
+    private static void pushMiniature(PoseStack poseStack, float x, float y, float cell, int size, float pivotY)
     {
         poseStack.pushPose();
         poseStack.translate(x, y, 0.5f);
         poseStack.scale(cell, cell, cell);
-        poseStack.translate(-GlobeSpace.SIZE / 2f, -pivotY, -GlobeSpace.SIZE / 2f);
+        poseStack.translate(-size / 2f, -pivotY, -size / 2f);
     }
 
     private static void renderContents(@Nullable GlobeSnapshot snapshot, @Nullable ClientGlobeState state, @Nullable ClientLevel level,
@@ -183,12 +184,12 @@ public class GlobeRenderer implements BlockEntityRenderer<GlobeBlockEntity>
     {
         if (snapshot != null)
         {
+            MiniBlockEntities blockEntities = MiniBlockEntities.of(snapshot, level);
             for (BlockPos pos : snapshot.visibleBlocks())
             {
                 poseStack.pushPose();
                 poseStack.translate(pos.getX(), pos.getY(), pos.getZ());
-                blocks.renderSingleBlock(snapshot.get(pos.getX(), pos.getY(), pos.getZ()), poseStack, buffers, light,
-                        OverlayTexture.NO_OVERLAY, ModelData.EMPTY, null);
+                blockEntities.render(pos, snapshot.get(pos.getX(), pos.getY(), pos.getZ()), poseStack, buffers, light, partialTick, blocks);
                 poseStack.popPose();
             }
             if (level != null && !snapshot.fluidCells().isEmpty())
@@ -334,7 +335,7 @@ public class GlobeRenderer implements BlockEntityRenderer<GlobeBlockEntity>
     {
         VertexConsumer out = buffers.getBuffer(Sheets.translucentCullBlockSheet());
         TextureAtlasSprite glass = Minecraft.getInstance().getTextureAtlas(TextureAtlas.LOCATION_BLOCKS).apply(GLASS);
-        float u = glass.getU(8), v = glass.getV(8);
+        float u = glass.getU(0.5f), v = glass.getV(0.5f);
         PoseStack.Pose pose = poseStack.last();
         float[][] ring = new float[BALL_LONGITUDES + 1][];
         for (int lat = 0; lat < BALL_LATITUDES; lat++)
@@ -358,7 +359,7 @@ public class GlobeRenderer implements BlockEntityRenderer<GlobeBlockEntity>
     {
         VertexConsumer out = buffers.getBuffer(Sheets.translucentCullBlockSheet());
         TextureAtlasSprite glass = Minecraft.getInstance().getTextureAtlas(TextureAtlas.LOCATION_BLOCKS).apply(GLASS);
-        float u = glass.getU(8), v = glass.getV(8);
+        float u = glass.getU(0.5f), v = glass.getV(0.5f);
         PoseStack.Pose pose = poseStack.last();
         for (int i = 0; i + 1 < BOTTLE_PROFILE.length; i++)
         {
@@ -408,7 +409,7 @@ public class GlobeRenderer implements BlockEntityRenderer<GlobeBlockEntity>
         float nx = a[3] + b[3] + c[3] + d[3], ny = a[4] + b[4] + c[4] + d[4], nz = a[5] + b[5] + c[5] + d[5];
         float[][] order = cx * nx + cy * ny + cz * nz >= 0 ? new float[][] {a, b, c, d} : new float[][] {a, d, c, b};
         for (float[] p : order)
-            vertex(out, pose.pose(), pose.normal(), p[0], p[1], p[2], u, v, p[3], p[4], p[5], light,
+            vertex(out, pose, p[0], p[1], p[2], u, v, p[3], p[4], p[5], light,
                     r, g, bl, glassAlpha(p[3], p[4], p[5], eye, extra));
     }
 
@@ -417,32 +418,31 @@ public class GlobeRenderer implements BlockEntityRenderer<GlobeBlockEntity>
     private static void box(VertexConsumer out, PoseStack.Pose pose, float x, float y, float z, float hx, float hy, float hz,
                             int light, int r, int g, int b, int a)
     {
-        Matrix4f m = pose.pose();
-        Matrix3f n = pose.normal();
+        PoseStack.Pose m = pose;
         float x0 = x - hx, x1 = x + hx, y0 = y - hy, y1 = y + hy, z0 = z - hz, z1 = z + hz;
         int[] c = {r, g, b, a};
-        quad(out, m, n, light, c, 0, 1, 0, x0, y1, z0, x0, y1, z1, x1, y1, z1, x1, y1, z0);
-        quad(out, m, n, light, c, 0, -1, 0, x0, y0, z0, x1, y0, z0, x1, y0, z1, x0, y0, z1);
-        quad(out, m, n, light, c, 0, 0, -1, x0, y0, z0, x0, y1, z0, x1, y1, z0, x1, y0, z0);
-        quad(out, m, n, light, c, 0, 0, 1, x0, y0, z1, x1, y0, z1, x1, y1, z1, x0, y1, z1);
-        quad(out, m, n, light, c, -1, 0, 0, x0, y0, z0, x0, y0, z1, x0, y1, z1, x0, y1, z0);
-        quad(out, m, n, light, c, 1, 0, 0, x1, y0, z0, x1, y1, z0, x1, y1, z1, x1, y0, z1);
+        quad(out, m, light, c, 0, 1, 0, x0, y1, z0, x0, y1, z1, x1, y1, z1, x1, y1, z0);
+        quad(out, m, light, c, 0, -1, 0, x0, y0, z0, x1, y0, z0, x1, y0, z1, x0, y0, z1);
+        quad(out, m, light, c, 0, 0, -1, x0, y0, z0, x0, y1, z0, x1, y1, z0, x1, y0, z0);
+        quad(out, m, light, c, 0, 0, 1, x0, y0, z1, x1, y0, z1, x1, y1, z1, x0, y1, z1);
+        quad(out, m, light, c, -1, 0, 0, x0, y0, z0, x0, y0, z1, x0, y1, z1, x0, y1, z0);
+        quad(out, m, light, c, 1, 0, 0, x1, y0, z0, x1, y1, z0, x1, y1, z1, x1, y0, z1);
     }
 
-    private static void quad(VertexConsumer out, Matrix4f m, Matrix3f n, int light, int[] c, float nx, float ny, float nz,
+    private static void quad(VertexConsumer out, PoseStack.Pose m, int light, int[] c, float nx, float ny, float nz,
                              float ax, float ay, float az, float bx, float by, float bz,
                              float cx, float cy, float cz, float dx, float dy, float dz)
     {
-        vertex(out, m, n, ax, ay, az, 0, 0, nx, ny, nz, light, c[0], c[1], c[2], c[3]);
-        vertex(out, m, n, bx, by, bz, 0, 1, nx, ny, nz, light, c[0], c[1], c[2], c[3]);
-        vertex(out, m, n, cx, cy, cz, 1, 1, nx, ny, nz, light, c[0], c[1], c[2], c[3]);
-        vertex(out, m, n, dx, dy, dz, 1, 0, nx, ny, nz, light, c[0], c[1], c[2], c[3]);
+        vertex(out, m, ax, ay, az, 0, 0, nx, ny, nz, light, c[0], c[1], c[2], c[3]);
+        vertex(out, m, bx, by, bz, 0, 1, nx, ny, nz, light, c[0], c[1], c[2], c[3]);
+        vertex(out, m, cx, cy, cz, 1, 1, nx, ny, nz, light, c[0], c[1], c[2], c[3]);
+        vertex(out, m, dx, dy, dz, 1, 0, nx, ny, nz, light, c[0], c[1], c[2], c[3]);
     }
 
-    private static void vertex(VertexConsumer out, Matrix4f m, Matrix3f n, float x, float y, float z, float u, float v,
+    private static void vertex(VertexConsumer out, PoseStack.Pose pose, float x, float y, float z, float u, float v,
                                float nx, float ny, float nz, int light, int r, int g, int b, int a)
     {
-        out.vertex(m, x, y, z).color(r, g, b, a).uv(u, v).overlayCoords(OverlayTexture.NO_OVERLAY)
-                .uv2(light).normal(n, nx, ny, nz).endVertex();
+        out.addVertex(pose, x, y, z).setColor(r, g, b, a).setUv(u, v).setOverlay(OverlayTexture.NO_OVERLAY)
+                .setLight(light).setNormal(pose, nx, ny, nz);
     }
 }

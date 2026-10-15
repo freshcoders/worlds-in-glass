@@ -13,8 +13,8 @@ import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.level.Level;
-import net.minecraftforge.fml.util.ObfuscationReflectionHelper;
-import net.minecraftforge.registries.ForgeRegistries;
+import net.neoforged.fml.util.ObfuscationReflectionHelper;
+import net.minecraft.core.registries.BuiltInRegistries;
 
 import java.util.HashMap;
 import java.util.HashSet;
@@ -80,6 +80,12 @@ public final class MiniEntities
         }
     }
 
+    private static EntityType<?> typeOf(String id)
+    {
+        ResourceLocation name = ResourceLocation.tryParse(id);
+        return name == null || !BuiltInRegistries.ENTITY_TYPE.containsKey(name) ? null : BuiltInRegistries.ENTITY_TYPE.get(name);
+    }
+
     public void update(ListTag list, Level level)
     {
         long now = level.getGameTime();
@@ -88,7 +94,7 @@ public final class MiniEntities
         {
             CompoundTag tag = list.getCompound(i);
             int id = tag.getInt("I");
-            EntityType<?> type = ForgeRegistries.ENTITY_TYPES.getValue(ResourceLocation.tryParse(tag.getString("T")));
+            EntityType<?> type = typeOf(tag.getString("T"));
             Mini mini = minis.get(id);
             CompoundTag looks = tag.getCompound("L");
             boolean fresh = mini == null || mini.entity.getType() != type;
@@ -109,7 +115,7 @@ public final class MiniEntities
             }
             mini.moveTo(tag, now, fresh);
             // Fish flop on their side when out of water; tell the copy whether the real one is swimming.
-            ObfuscationReflectionHelper.setPrivateValue(Entity.class, mini.entity, tag.getBoolean("W"), "f_19798_");
+            ObfuscationReflectionHelper.setPrivateValue(Entity.class, mini.entity, tag.getBoolean("W"), "wasTouchingWater");
             seen.add(id);
         }
         minis.keySet().retainAll(seen);

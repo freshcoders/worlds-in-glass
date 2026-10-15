@@ -1,6 +1,8 @@
 package com.nick.snowglobe;
 
 import net.minecraft.core.BlockPos;
+import net.minecraft.core.HolderLookup;
+import net.minecraft.core.component.DataComponentMap;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.ListTag;
 import net.minecraft.nbt.Tag;
@@ -8,6 +10,7 @@ import net.minecraft.network.protocol.Packet;
 import net.minecraft.network.protocol.game.ClientGamePacketListener;
 import net.minecraft.network.protocol.game.ClientboundBlockEntityDataPacket;
 import net.minecraft.server.MinecraftServer;
+import net.minecraft.world.item.component.CustomData;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.entity.BlockEntity;
@@ -105,10 +108,8 @@ public class GlobeBlockEntity extends BlockEntity
         return update;
     }
 
-    @Override
-    public void load(CompoundTag tag)
+    private void readGlobe(CompoundTag tag)
     {
-        super.load(tag);
         // Update packets carry only what changed, so leave out fields alone.
         if (tag.contains("GlobeId"))
             globeId = tag.getInt("GlobeId");
@@ -121,10 +122,8 @@ public class GlobeBlockEntity extends BlockEntity
             entities = tag.getList("Entities", Tag.TAG_COMPOUND);
     }
 
-    @Override
-    protected void saveAdditional(CompoundTag tag)
+    private CompoundTag writeGlobe(CompoundTag tag)
     {
-        super.saveAdditional(tag);
         if (globeId >= 0)
             tag.putInt("GlobeId", globeId);
         if (snapshot != null)
@@ -132,27 +131,76 @@ public class GlobeBlockEntity extends BlockEntity
             tag.put("Snapshot", snapshot.toTag());
             tag.putLong("SnapshotVersion", snapshotVersion);
         }
+        return tag;
     }
 
     @Override
-    public CompoundTag getUpdateTag()
+    protected void loadAdditional(CompoundTag tag, HolderLookup.Provider registries)
     {
-        CompoundTag tag = saveWithoutMetadata();
+        super.loadAdditional(tag, registries);
+        readGlobe(tag);
+    }
+
+    @Override
+    protected void saveAdditional(CompoundTag tag, HolderLookup.Provider registries)
+    {
+        super.saveAdditional(tag, registries);
+        writeGlobe(tag);
+    }
+
+    // The item keeps the globe's id and contents: picked up and placed again, it opens the same space.
+
+    @Override
+    protected void collectImplicitComponents(DataComponentMap.Builder components)
+    {
+        super.collectImplicitComponents(components);
+        if (globeId >= 0)
+            components.set(SnowGlobeMod.GLOBE_DATA.get(), CustomData.of(writeGlobe(new CompoundTag())));
+    }
+
+    @Override
+    protected void applyImplicitComponents(DataComponentInput components)
+    {
+        super.applyImplicitComponents(components);
+        CustomData data = components.get(SnowGlobeMod.GLOBE_DATA.get());
+        if (data != null)
+            readGlobe(data.copyTag());
+    }
+
+    @Override
+    public void removeComponentsFromTag(CompoundTag tag)
+    {
+        super.removeComponentsFromTag(tag);
+        tag.remove("GlobeId");
+        tag.remove("Snapshot");
+        tag.remove("SnapshotVersion");
+    }
+
+    @Override
+    public CompoundTag getUpdateTag(HolderLookup.Provider registries)
+    {
+        CompoundTag tag = writeGlobe(new CompoundTag());
         GlobeSpace.EntityFrame frame = GlobeSpace.entityFrame(globeId);
         if (frame != null)
             tag.put("Entities", frame.entities());
         return tag;
     }
 
+    @Override
+    public void handleUpdateTag(CompoundTag tag, HolderLookup.Provider registries)
+    {
+        readGlobe(tag);
+    }
+
     /** Sends the mob positions, plus the blocks only when those changed (they're much bigger). */
     @Override
     public Packet<ClientGamePacketListener> getUpdatePacket()
     {
-        return ClientboundBlockEntityDataPacket.create(this, be -> {
+        return ClientboundBlockEntityDataPacket.create(this, (be, registries) -> {
             CompoundTag tag = new CompoundTag();
             if (blocksChanged)
             {
-                saveAdditional(tag);
+                writeGlobe(tag);
                 blocksChanged = false;
             }
             GlobeSpace.EntityFrame frame = GlobeSpace.entityFrame(globeId);
@@ -160,5 +208,11 @@ public class GlobeBlockEntity extends BlockEntity
                 tag.put("Entities", frame.entities());
             return tag;
         });
+    }
+
+    @Override
+    public void onDataPacket(net.minecraft.network.Connection connection, ClientboundBlockEntityDataPacket packet, HolderLookup.Provider registries)
+    {
+        readGlobe(packet.getTag());
     }
 }

@@ -41,7 +41,7 @@ final class GlobeScenes
     {
         void set(int x, int y, int z, BlockState state)
         {
-            if (kind.inside(x, y, z))
+            if (kind.inside(x, y, z, GlobeSpace.DEFAULT_SIZE))
                 level.setBlock(min.offset(x, y, z), state, Block.UPDATE_CLIENTS);
         }
 
@@ -52,7 +52,7 @@ final class GlobeScenes
 
         boolean empty(int x, int y, int z)
         {
-            return kind.inside(x, y, z) && get(x, y, z).isAir();
+            return kind.inside(x, y, z, GlobeSpace.DEFAULT_SIZE) && get(x, y, z).isAir();
         }
     }
 
@@ -62,8 +62,8 @@ final class GlobeScenes
     {
         final int g = 3; // ground level
         BlockState snowyGrass = Blocks.GRASS_BLOCK.defaultBlockState().setValue(SnowyDirtBlock.SNOWY, true);
-        for (int x = 0; x < GlobeSpace.SIZE; x++)
-            for (int z = 0; z < GlobeSpace.SIZE; z++)
+        for (int x = 0; x < GlobeSpace.DEFAULT_SIZE; x++)
+            for (int z = 0; z < GlobeSpace.DEFAULT_SIZE; z++)
                 for (int y = 0; y <= g; y++)
                     s.set(x, y, z, y == g ? snowyGrass : Blocks.DIRT.defaultBlockState());
 
@@ -125,8 +125,8 @@ final class GlobeScenes
         s.set(7, g + 3, 11, Blocks.LANTERN.defaultBlockState());
 
         // A thin blanket of snow on all open grass.
-        for (int x = 0; x < GlobeSpace.SIZE; x++)
-            for (int z = 0; z < GlobeSpace.SIZE; z++)
+        for (int x = 0; x < GlobeSpace.DEFAULT_SIZE; x++)
+            for (int z = 0; z < GlobeSpace.DEFAULT_SIZE; z++)
                 if (s.get(x, g, z).is(Blocks.GRASS_BLOCK) && s.empty(x, g + 1, z))
                     s.set(x, g + 1, z, Blocks.SNOW.defaultBlockState());
     }
@@ -157,7 +157,7 @@ final class GlobeScenes
     private static void mossyGarden(Scene s)
     {
         RandomSource random = RandomSource.create(20261015L);
-        int size = GlobeSpace.SIZE;
+        int size = GlobeSpace.DEFAULT_SIZE;
         int[][] ground = new int[size][size];
         for (int x = 0; x < size; x++)
             for (int z = 0; z < size; z++)
@@ -203,7 +203,7 @@ final class GlobeScenes
 
         // Scatter plants over the open moss.
         BlockState[] plants = {
-                Blocks.GRASS.defaultBlockState(), Blocks.GRASS.defaultBlockState(), Blocks.FERN.defaultBlockState(),
+                Blocks.SHORT_GRASS.defaultBlockState(), Blocks.SHORT_GRASS.defaultBlockState(), Blocks.FERN.defaultBlockState(),
                 Blocks.MOSS_CARPET.defaultBlockState(), Blocks.AZALEA.defaultBlockState(), Blocks.FLOWERING_AZALEA.defaultBlockState(),
                 Blocks.BLUE_ORCHID.defaultBlockState(), Blocks.AZURE_BLUET.defaultBlockState(), Blocks.ALLIUM.defaultBlockState(),
                 Blocks.PINK_PETALS.defaultBlockState().setValue(BlockStateProperties.FLOWER_AMOUNT, 4),
@@ -228,7 +228,7 @@ final class GlobeScenes
     {
         RandomSource random = RandomSource.create(1987L);
         final int sea = 5; // water surface
-        int size = GlobeSpace.SIZE;
+        int size = GlobeSpace.DEFAULT_SIZE;
         for (int x = 0; x < size; x++)
             for (int z = 0; z < size; z++)
             {
@@ -275,7 +275,7 @@ final class GlobeScenes
 
     private static void shipInBottle(Scene s)
     {
-        int size = GlobeSpace.SIZE;
+        int size = GlobeSpace.DEFAULT_SIZE;
         for (int x = 0; x < size; x++)
             for (int z = 0; z < size; z++)
                 for (int y = 0; y <= 6; y++)
@@ -337,7 +337,7 @@ final class GlobeScenes
         if (mob == null)
             return;
         mob.moveTo(s.min().getX() + x, s.min().getY() + y, s.min().getZ() + z, s.level().random.nextFloat() * 360, 0);
-        mob.finalizeSpawn(s.level(), s.level().getCurrentDifficultyAt(mob.blockPosition()), MobSpawnType.EVENT, null, null);
+        mob.finalizeSpawn(s.level(), s.level().getCurrentDifficultyAt(mob.blockPosition()), MobSpawnType.EVENT, null);
         mob.setPersistenceRequired();
         setup.accept(mob);
         s.level().addFreshEntity(mob);

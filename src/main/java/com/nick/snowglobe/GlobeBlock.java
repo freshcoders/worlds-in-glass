@@ -1,10 +1,12 @@
 package com.nick.snowglobe;
 
+import com.mojang.serialization.MapCodec;
 import net.minecraft.core.BlockPos;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.InteractionHand;
 import net.minecraft.world.InteractionResult;
+import net.minecraft.world.ItemInteractionResult;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.ItemStack;
@@ -22,15 +24,17 @@ import net.minecraft.world.phys.shapes.CollisionContext;
 import net.minecraft.world.phys.shapes.VoxelShape;
 import org.jetbrains.annotations.Nullable;
 
-/** A snow globe or terrarium. Right-click to step inside and build. */
+/** A snow globe, terrarium, storm globe or ship in a bottle. Right-click to step inside and build. */
 public class GlobeBlock extends BaseEntityBlock
 {
     private final GlobeKind kind;
+    private final MapCodec<GlobeBlock> codec;
 
     public GlobeBlock(GlobeKind kind, Properties properties)
     {
         super(properties);
         this.kind = kind;
+        this.codec = simpleCodec(p -> new GlobeBlock(kind, p));
     }
 
     public GlobeKind kind()
@@ -39,13 +43,19 @@ public class GlobeBlock extends BaseEntityBlock
     }
 
     @Override
-    public VoxelShape getShape(BlockState state, BlockGetter level, BlockPos pos, CollisionContext context)
+    protected MapCodec<? extends BaseEntityBlock> codec()
+    {
+        return codec;
+    }
+
+    @Override
+    protected VoxelShape getShape(BlockState state, BlockGetter level, BlockPos pos, CollisionContext context)
     {
         return kind.shape;
     }
 
     @Override
-    public RenderShape getRenderShape(BlockState state)
+    protected RenderShape getRenderShape(BlockState state)
     {
         return RenderShape.MODEL;
     }
@@ -75,14 +85,24 @@ public class GlobeBlock extends BaseEntityBlock
         }
     }
 
+    /** Holding a Create schematic: import it into the globe instead of stepping inside. */
     @Override
-    @SuppressWarnings("deprecation")
-    public InteractionResult use(BlockState state, Level level, BlockPos pos, Player player, InteractionHand hand, BlockHitResult hit)
+    protected ItemInteractionResult useItemOn(ItemStack stack, BlockState state, Level level, BlockPos pos, Player player,
+                                              InteractionHand hand, BlockHitResult hit)
+    {
+        if (!GlobeImport.isCreateSchematic(stack))
+            return ItemInteractionResult.PASS_TO_DEFAULT_BLOCK_INTERACTION;
+        if (player instanceof ServerPlayer serverPlayer && level.getBlockEntity(pos) instanceof GlobeBlockEntity globe)
+            GlobeImport.importHeldSchematic(serverPlayer, stack, globe);
+        return ItemInteractionResult.sidedSuccess(level.isClientSide);
+    }
+
+    @Override
+    protected InteractionResult useWithoutItem(BlockState state, Level level, BlockPos pos, Player player, BlockHitResult hit)
     {
         if (level.isClientSide)
             return InteractionResult.SUCCESS;
-        if (player instanceof ServerPlayer serverPlayer && level.getBlockEntity(pos) instanceof GlobeBlockEntity globe
-                && !GlobeImport.tryImportHeldSchematic(serverPlayer, hand, globe))
+        if (player instanceof ServerPlayer serverPlayer && level.getBlockEntity(pos) instanceof GlobeBlockEntity globe)
             GlobeSpace.enter(serverPlayer, globe);
         return InteractionResult.CONSUME;
     }

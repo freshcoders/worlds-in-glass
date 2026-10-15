@@ -12,14 +12,14 @@ public enum GlobeKind
     STORM_GLOBE("storm_globe", Space.SPHERE, ballOnPedestal()),
     SHIP_BOTTLE("ship_bottle", Space.BOTTLE, Block.box(1.5, 0, 3.5, 15.6, 9.3, 12.5));
 
-    /** The shape of the build space inside the 16³ cube. */
+    /** The shape of the build space inside its size³ cube. */
     public enum Space
     {
         /** A ball touching the cube's sides. */
         SPHERE,
         /** The whole cube. */
         CUBE,
-        /** A bottle lying along the x axis: a cylinder 11 blocks across. */
+        /** A bottle lying along the x axis: a cylinder about two thirds as wide as it is long. */
         BOTTLE
     }
 
@@ -54,13 +54,15 @@ public enum GlobeKind
         return SNOW_GLOBE;
     }
 
-    /** Radius of the bottle's build space, in blocks. */
-    public static final double BOTTLE_RADIUS = 5.5;
-
-    /** True for the cells of the SIZE³ cube that belong to this kind's build space. */
-    public boolean inside(int x, int y, int z)
+    /** Radius of a bottle's build space, in blocks, for a globe of the given size (5.5 at size 16). */
+    public static double bottleRadius(int size)
     {
-        int size = GlobeSpace.SIZE;
+        return size * 11 / 32.0;
+    }
+
+    /** True for the cells of the size³ cube that belong to this kind's build space. */
+    public boolean inside(int x, int y, int z, int size)
+    {
         if (x < 0 || y < 0 || z < 0 || x >= size || y >= size || z >= size)
             return false;
         double c = size / 2.0;
@@ -69,7 +71,18 @@ public enum GlobeKind
         {
             case CUBE -> true;
             case SPHERE -> dx * dx + dy * dy + dz * dz <= c * c;
-            case BOTTLE -> dy * dy + dz * dz <= BOTTLE_RADIUS * BOTTLE_RADIUS;
+            case BOTTLE -> dy * dy + dz * dz <= bottleRadius(size) * bottleRadius(size);
+        };
+    }
+
+    /** True if a box of this many blocks fits in this kind's build space at the given size. */
+    public boolean fits(int sx, int sy, int sz, int size)
+    {
+        return switch (space)
+        {
+            case CUBE -> sx <= size && sy <= size && sz <= size;
+            case SPHERE -> Math.sqrt(sx * sx + sy * sy + sz * sz) / 2 <= size / 2.0;
+            case BOTTLE -> sx <= size && Math.sqrt(sy * sy + sz * sz) / 2 <= bottleRadius(size);
         };
     }
 }
