@@ -107,10 +107,16 @@ final class GlobeScenes
         spruce(s, 4, g + 1, 10, 5);
         spruce(s, 12, g + 1, 11, 3);
 
-        // Snowman looking at the cabin.
-        s.set(5, g + 1, 5, Blocks.SNOW_BLOCK.defaultBlockState());
-        s.set(5, g + 2, 5, Blocks.SNOW_BLOCK.defaultBlockState());
-        s.set(5, g + 3, 5, Blocks.CARVED_PUMPKIN.defaultBlockState().setValue(CarvedPumpkinBlock.FACING, Direction.EAST));
+        // A big round snowman looking at the cabin: chunky enough to stand out at miniature size.
+        BlockState snow = Blocks.SNOW_BLOCK.defaultBlockState();
+        int sx = 4, sz = 5;
+        for (int y = g + 1; y <= g + 2; y++)
+            for (int dx = -1; dx <= 1; dx++)
+                for (int dz = -1; dz <= 1; dz++)
+                    if (Math.abs(dx) + Math.abs(dz) <= 1)
+                        s.set(sx + dx, y, sz + dz, snow);
+        s.set(sx, g + 3, sz, snow);
+        s.set(sx, g + 4, sz, Blocks.CARVED_PUMPKIN.defaultBlockState().setValue(CarvedPumpkinBlock.FACING, Direction.EAST));
 
         // Lamp post by the path.
         s.set(7, g + 1, 11, Blocks.SPRUCE_FENCE.defaultBlockState());

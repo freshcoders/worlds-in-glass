@@ -52,13 +52,13 @@ public class GlobeItemRenderer extends BlockEntityWithoutLevelRenderer
         // The terrarium's glass is part of its model, so draw it after the miniature or it would hide it.
         if (block.kind() == GlobeKind.TERRARIUM)
         {
-            GlobeRenderer.renderGlobe(block.kind(), snapshot, poseStack, buffers, light, seconds, blocks);
+            GlobeRenderer.renderGlobe(block.kind(), snapshot, poseStack, buffers, light, seconds, blocks, null);
             blocks.renderSingleBlock(state, poseStack, buffers, light, overlay, ModelData.EMPTY, null);
         }
         else
         {
             blocks.renderSingleBlock(state, poseStack, buffers, light, overlay, ModelData.EMPTY, null);
-            GlobeRenderer.renderGlobe(block.kind(), snapshot, poseStack, buffers, light, seconds, blocks);
+            GlobeRenderer.renderGlobe(block.kind(), snapshot, poseStack, buffers, light, seconds, blocks, null);
         }
     }
 

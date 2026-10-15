@@ -7,6 +7,7 @@ import com.nick.snowglobe.GlobeKind;
 import com.nick.snowglobe.GlobeSnapshot;
 import com.nick.snowglobe.GlobeSpace;
 import com.nick.snowglobe.SnowGlobeMod;
+import net.minecraft.client.Minecraft;
 import net.minecraft.client.renderer.MultiBufferSource;
 import net.minecraft.client.renderer.RenderType;
 import net.minecraft.client.renderer.block.BlockRenderDispatcher;
@@ -15,6 +16,7 @@ import net.minecraft.client.renderer.blockentity.BlockEntityRendererProvider;
 import net.minecraft.client.renderer.texture.OverlayTexture;
 import net.minecraft.core.BlockPos;
 import net.minecraft.resources.ResourceLocation;
+import net.minecraft.world.phys.Vec3;
 import net.minecraftforge.client.model.data.ModelData;
 import org.jetbrains.annotations.Nullable;
 import org.joml.Matrix3f;
@@ -33,12 +35,18 @@ public class GlobeRenderer implements BlockEntityRenderer<GlobeBlockEntity>
     private static final float BALL_CENTER_Y = 6.5f / 16f;
     private static final int BALL_LATITUDES = 14;
     private static final int BALL_LONGITUDES = 28;
+    /** Direction the light comes from, for the glint on the glass. */
+    private static final Vec3 LIGHT = new Vec3(0.35, 1, 0.25).normalize();
+    /** Items don't know where the viewer is; this matches how they're usually seen (front, slightly above). */
+    private static final Vec3 ITEM_EYE = new Vec3(0.6, 0.45, 0.65).normalize();
 
     // Terrarium: the miniature fills the glass case above the wooden base.
     private static final float CASE_WIDTH = 10f / 16f;
     private static final float CASE_FLOOR = 1f / 16f;
 
-    private static final int FLAKES = 36;
+    private static final int FLAKES = 70;
+    /** Half the width of a snowflake: about a quarter of a miniature block. */
+    private static final float FLAKE_HALF = 0.06f / 16f;
     private static final float[][] FLAKE_SEEDS = new float[FLAKES][];
 
     static
@@ -63,12 +71,19 @@ public class GlobeRenderer implements BlockEntityRenderer<GlobeBlockEntity>
     public void render(GlobeBlockEntity globe, float partialTick, PoseStack poseStack, MultiBufferSource buffers, int light, int overlay)
     {
         float seconds = globe.getLevel() == null ? 0 : (globe.getLevel().getGameTime() % 24000 + partialTick) / 20f;
-        renderGlobe(globe.kind(), globe.getSnapshot(), poseStack, buffers, light, seconds, blocks);
+        // Where the camera is, relative to the ball's centre, so the glass can catch the light at its edges.
+        Vec3 camera = Minecraft.getInstance().gameRenderer.getMainCamera().getPosition();
+        BlockPos pos = globe.getBlockPos();
+        Vec3 eye = camera.subtract(pos.getX() + 0.5, pos.getY() + BALL_CENTER_Y, pos.getZ() + 0.5);
+        renderGlobe(globe.kind(), globe.getSnapshot(), poseStack, buffers, light, seconds, blocks, eye);
     }
 
-    /** Shared by the placed block and the item, so a globe looks the same in your hand as on a shelf. */
+    /**
+     * Shared by the placed block and the item, so a globe looks the same in your hand as on a shelf.
+     * {@code eye} is the viewer's position relative to the ball's centre, or null when unknown (items).
+     */
     public static void renderGlobe(GlobeKind kind, @Nullable GlobeSnapshot snapshot, PoseStack poseStack, MultiBufferSource buffers,
-                                   int light, float seconds, BlockRenderDispatcher blocks)
+                                   int light, float seconds, BlockRenderDispatcher blocks, @Nullable Vec3 eye)
     {
         if (kind == GlobeKind.SNOW_GLOBE)
         {
@@ -77,7 +92,7 @@ public class GlobeRenderer implements BlockEntityRenderer<GlobeBlockEntity>
             if (snapshot != null)
                 renderMiniature(snapshot, poseStack, buffers, light, blocks, 0.5f, BALL_CENTER_Y, 0.5f, cell, GlobeSpace.SIZE / 2f);
             renderSnow(poseStack, buffers, light, seconds);
-            renderBall(poseStack, buffers, light);
+            renderBall(poseStack, buffers, light, eye == null ? null : eye.normalize());
         }
         else if (snapshot != null)
         {
@@ -110,7 +125,6 @@ public class GlobeRenderer implements BlockEntityRenderer<GlobeBlockEntity>
     {
         VertexConsumer out = buffers.getBuffer(RenderType.entityTranslucent(SNOW));
         PoseStack.Pose pose = poseStack.last();
-        float half = 0.22f / 16f;
         for (float[] seed : FLAKE_SEEDS)
         {
             // Height runs from near the top of the ball down to the ground (about half-way down).
@@ -121,34 +135,50 @@ public class GlobeRenderer implements BlockEntityRenderer<GlobeBlockEntity>
             float fx = 0.5f + (seed[0] * spread + sway) * BALL_RADIUS;
             float fy = BALL_CENTER_Y + h * BALL_RADIUS;
             float fz = 0.5f + (seed[1] * spread) * BALL_RADIUS;
-            cube(out, pose, fx, fy, fz, half, light);
+            cube(out, pose, fx, fy, fz, FLAKE_HALF, light);
         }
     }
 
-    /** The glass ball: a sphere with a faint tint and a highlight, seen from both inside and out. */
-    private static void renderBall(PoseStack poseStack, MultiBufferSource buffers, int light)
+    /**
+     * The glass ball: nearly clear where you look straight through it, brighter towards its outline
+     * (like real glass), so its round shape reads from any angle. Seen from both inside and out.
+     */
+    private static void renderBall(PoseStack poseStack, MultiBufferSource buffers, int light, @Nullable Vec3 eye)
     {
         VertexConsumer out = buffers.getBuffer(RenderType.entityTranslucent(GLASS));
         PoseStack.Pose pose = poseStack.last();
         for (int lat = 0; lat < BALL_LATITUDES; lat++)
             for (int lon = 0; lon < BALL_LONGITUDES; lon++)
             {
-                ballVertex(out, pose, lat, lon, light);
-                ballVertex(out, pose, lat + 1, lon, light);
-                ballVertex(out, pose, lat + 1, lon + 1, light);
-                ballVertex(out, pose, lat, lon + 1, light);
+                ballVertex(out, pose, lat, lon, light, eye);
+                ballVertex(out, pose, lat + 1, lon, light, eye);
+                ballVertex(out, pose, lat + 1, lon + 1, light, eye);
+                ballVertex(out, pose, lat, lon + 1, light, eye);
             }
     }
 
-    private static void ballVertex(VertexConsumer out, PoseStack.Pose pose, int lat, int lon, int light)
+    private static void ballVertex(VertexConsumer out, PoseStack.Pose pose, int lat, int lon, int light, @Nullable Vec3 eye)
     {
         double theta = Math.PI * lat / BALL_LATITUDES;
         double phi = Math.PI * 2 * lon / BALL_LONGITUDES;
         float nx = (float) (Math.sin(theta) * Math.cos(phi));
         float ny = (float) Math.cos(theta);
         float nz = (float) (Math.sin(theta) * Math.sin(phi));
+        Vec3 e = eye != null ? eye : ITEM_EYE;
+        // Edge glow: 0 where you look straight through the glass, 1 at its outline.
+        double facing = nx * e.x + ny * e.y + nz * e.z;
+        double edge = 1 - Math.abs(facing);
+        double opacity = 0.12 + 0.8 * edge * edge * edge;
+        // One small glint, on the side facing you, where the light from above would reflect towards you.
+        if (facing > 0)
+        {
+            Vec3 half = e.add(LIGHT).normalize();
+            double shine = Math.max(0, nx * half.x + ny * half.y + nz * half.z);
+            opacity += Math.pow(shine, 60) * 1.5;
+        }
+        int alpha = (int) (255 * Math.min(1, opacity));
         vertex(out, pose.pose(), pose.normal(), 0.5f + nx * BALL_RADIUS, BALL_CENTER_Y + ny * BALL_RADIUS, 0.5f + nz * BALL_RADIUS,
-                (float) lon / BALL_LONGITUDES, (float) lat / BALL_LATITUDES, nx, ny, nz, light);
+                (float) lon / BALL_LONGITUDES, (float) lat / BALL_LATITUDES, nx, ny, nz, light, alpha);
     }
 
     private static void cube(VertexConsumer out, PoseStack.Pose pose, float x, float y, float z, float h, int light)
@@ -168,16 +198,16 @@ public class GlobeRenderer implements BlockEntityRenderer<GlobeBlockEntity>
                              float ax, float ay, float az, float bx, float by, float bz,
                              float cx, float cy, float cz, float dx, float dy, float dz)
     {
-        vertex(out, m, n, ax, ay, az, 0, 0, nx, ny, nz, light);
-        vertex(out, m, n, bx, by, bz, 0, 1, nx, ny, nz, light);
-        vertex(out, m, n, cx, cy, cz, 1, 1, nx, ny, nz, light);
-        vertex(out, m, n, dx, dy, dz, 1, 0, nx, ny, nz, light);
+        vertex(out, m, n, ax, ay, az, 0, 0, nx, ny, nz, light, 255);
+        vertex(out, m, n, bx, by, bz, 0, 1, nx, ny, nz, light, 255);
+        vertex(out, m, n, cx, cy, cz, 1, 1, nx, ny, nz, light, 255);
+        vertex(out, m, n, dx, dy, dz, 1, 0, nx, ny, nz, light, 255);
     }
 
     private static void vertex(VertexConsumer out, Matrix4f m, Matrix3f n, float x, float y, float z, float u, float v,
-                               float nx, float ny, float nz, int light)
+                               float nx, float ny, float nz, int light, int alpha)
     {
-        out.vertex(m, x, y, z).color(255, 255, 255, 255).uv(u, v).overlayCoords(OverlayTexture.NO_OVERLAY)
+        out.vertex(m, x, y, z).color(255, 255, 255, alpha).uv(u, v).overlayCoords(OverlayTexture.NO_OVERLAY)
                 .uv2(light).normal(n, nx, ny, nz).endVertex();
     }
 }
