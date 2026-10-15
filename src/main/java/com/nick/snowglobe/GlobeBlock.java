@@ -40,8 +40,8 @@ import java.util.EnumMap;
 import java.util.Map;
 
 /**
- * A snow globe, terrarium, storm globe or ship in a bottle. Right-click to step inside and build;
- * right-click its base to turn it; sneak and right-click with an empty hand to shake it.
+ * A snow globe, terrarium, storm globe or ship in a bottle. Right-click to shake it; right-click its base to turn
+ * it; sneak and right-click (with an empty hand) to step inside and build.
  */
 public class GlobeBlock extends BaseEntityBlock
 {
@@ -200,16 +200,17 @@ public class GlobeBlock extends BaseEntityBlock
     @Override
     protected InteractionResult useWithoutItem(BlockState state, Level level, BlockPos pos, Player player, BlockHitResult hit)
     {
+        // Sneak + right-click: go inside, with a short zoom into the glass first.
         if (player.isSecondaryUseActive())
         {
-            if (!level.isClientSide)
-                level.blockEvent(pos, this, EVENT_SHAKE, 0);
+            if (player instanceof ServerPlayer serverPlayer && level instanceof ServerLevel serverLevel && level.getBlockEntity(pos) instanceof GlobeBlockEntity)
+                GlobeView.startEntering(serverPlayer, serverLevel, pos, kind);
             return InteractionResult.sidedSuccess(level.isClientSide);
         }
+        // Right-click the base: twist it a quarter turn, to see the other side.
         double hitHeight = hit.getLocation().y - pos.getY();
         if (hitHeight < baseHeight() * state.getValue(DISPLAY).scale)
         {
-            // Twist the base: a quarter turn, to see the other side.
             if (!level.isClientSide)
             {
                 level.setBlock(pos, state.setValue(FACING, state.getValue(FACING).getClockWise()), Block.UPDATE_ALL);
@@ -217,11 +218,14 @@ public class GlobeBlock extends BaseEntityBlock
             }
             return InteractionResult.sidedSuccess(level.isClientSide);
         }
-        if (level.isClientSide)
-            return InteractionResult.SUCCESS;
-        if (player instanceof ServerPlayer serverPlayer && level.getBlockEntity(pos) instanceof GlobeBlockEntity globe)
-            GlobeSpace.enter(serverPlayer, globe);
-        return InteractionResult.CONSUME;
+        // Right-click the glass: shake it. Everyone inside feels it too.
+        if (!level.isClientSide)
+        {
+            level.blockEvent(pos, this, EVENT_SHAKE, 0);
+            if (level.getBlockEntity(pos) instanceof GlobeBlockEntity globe && globe.globeId() >= 0)
+                GlobeView.notifyOccupants(level.getServer(), globe.globeId(), com.nick.snowglobe.net.GlobeNetwork.GlobeEvent.SHAKEN, kind);
+        }
+        return InteractionResult.sidedSuccess(level.isClientSide);
     }
 
     @Override

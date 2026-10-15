@@ -12,6 +12,8 @@ import com.nick.snowglobe.GlobeBlockEntity;
 import com.nick.snowglobe.GlobeKind;
 import com.nick.snowglobe.GlobeSnapshot;
 import com.nick.snowglobe.GlobeSpace;
+import com.nick.snowglobe.MiniatureLayout;
+import static com.nick.snowglobe.MiniatureLayout.*;
 import com.nick.snowglobe.SnowGlobeMod;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.multiplayer.ClientLevel;
@@ -46,20 +48,11 @@ public class GlobeRenderer implements BlockEntityRenderer<GlobeBlockEntity>
     private static final ResourceLocation GLASS = ResourceLocation.fromNamespaceAndPath(SnowGlobeMod.MODID, "block/globe_ball");
     private static final ResourceLocation WHITE = ResourceLocation.fromNamespaceAndPath(SnowGlobeMod.MODID, "textures/entity/snowflake.png");
 
-    // Ball (snow and storm globes), in block units: sits on the pedestal's rim.
-    private static final float BALL_RADIUS = 4.5f / 16f;
-    private static final float BALL_CENTER_Y = 6.5f / 16f;
     private static final int BALL_LATITUDES = 14;
     private static final int BALL_LONGITUDES = 28;
 
-    // Terrarium: the miniature fills the glass case above the wooden base.
-    private static final float CASE_WIDTH = 10f / 16f;
-    private static final float CASE_FLOOR = 1f / 16f;
 
     // Bottle, lying along x on its stand: a profile (x, radius) in pixels, turned round the bottle's axis.
-    private static final float BOTTLE_Y = 5.25f / 16f;
-    private static final float BOTTLE_MID_X = 6.75f / 16f;
-    private static final float BOTTLE_CELL = 0.6f / 16f;
     private static final float[][] BOTTLE_PROFILE = {{1.5f, 0}, {1.5f, 3.85f}, {12f, 3.85f}, {13.2f, 1.5f}, {15f, 1.5f}};
     private static final int BOTTLE_SEGMENTS = 24;
 
@@ -176,18 +169,12 @@ public class GlobeRenderer implements BlockEntityRenderer<GlobeBlockEntity>
         boolean inWorld = eye != null;
         Vec3 view = eye != null ? eye : ITEM_EYE;
         float partialTick = ticks - (float) Math.floor(ticks);
-        // Bigger globes hold more blocks in the same glass, so each block is drawn smaller.
-        int size = snapshot != null ? snapshot.size() : GlobeSpace.DEFAULT_SIZE;
-        float half = size / 2f;
-        // Fit what's inside just within the ball: a full dome reaches about 1.11 half-sizes from its centre,
-        // a smaller build less, so it's shown bigger. (Never zoom in further than an 8-block reach.)
-        double reach = snapshot != null ? Math.min(snapshot.contentRadius(), half * 1.1125) : half * 1.1125;
-        float ballCell = BALL_RADIUS * 0.94f / (float) Math.max(reach, 8);
+        MiniatureLayout layout = MiniatureLayout.of(kind, snapshot);
         switch (kind)
         {
             case SNOW_GLOBE ->
             {
-                pushMiniature(poseStack, 0.5f, BALL_CENTER_Y, ballCell, size, half);
+                pushMiniature(poseStack, layout);
                 renderContents(snapshot, state, level, where, partialTick, poseStack, buffers, light, blocks);
                 poseStack.popPose();
                 renderSnow(poseStack, buffers, light, ticks / 20f, stir);
@@ -195,7 +182,7 @@ public class GlobeRenderer implements BlockEntityRenderer<GlobeBlockEntity>
             }
             case STORM_GLOBE ->
             {
-                pushMiniature(poseStack, 0.5f, BALL_CENTER_Y, ballCell, size, half);
+                pushMiniature(poseStack, layout);
                 renderContents(snapshot, state, level, where, partialTick, poseStack, buffers, light, blocks);
                 poseStack.popPose();
                 float flash = renderStorm(poseStack, buffers, light, ticks, seed, state, level, where, stir);
@@ -204,27 +191,27 @@ public class GlobeRenderer implements BlockEntityRenderer<GlobeBlockEntity>
             }
             case SHIP_BOTTLE ->
             {
-                pushMiniature(poseStack, BOTTLE_MID_X, BOTTLE_Y, BOTTLE_CELL * GlobeSpace.DEFAULT_SIZE / size, size, half);
+                pushMiniature(poseStack, layout);
                 renderContents(snapshot, state, level, where, partialTick, poseStack, buffers, light, blocks);
                 poseStack.popPose();
                 renderBottle(poseStack, buffers, inWorld, light, view);
             }
             default ->
             {
-                pushMiniature(poseStack, 0.5f, CASE_FLOOR + 0.002f, CASE_WIDTH / size, size, 0);
+                pushMiniature(poseStack, layout);
                 renderContents(snapshot, state, level, where, partialTick, poseStack, buffers, light, blocks);
                 poseStack.popPose();
             }
         }
     }
 
-    /** Switches to globe-space units scaled by {@code cell}, with the grid's middle column at (x, y, 0.5), raised by pivotY. */
-    private static void pushMiniature(PoseStack poseStack, float x, float y, float cell, int size, float pivotY)
+    /** Switches to snapshot cell units, with the layout's pivot cell placed at its centre point. */
+    private static void pushMiniature(PoseStack poseStack, MiniatureLayout layout)
     {
         poseStack.pushPose();
-        poseStack.translate(x, y, 0.5f);
-        poseStack.scale(cell, cell, cell);
-        poseStack.translate(-size / 2f, -pivotY, -size / 2f);
+        poseStack.translate(layout.center().x, layout.center().y, layout.center().z);
+        poseStack.scale(layout.cell(), layout.cell(), layout.cell());
+        poseStack.translate(-layout.pivot().x, -layout.pivot().y, -layout.pivot().z);
     }
 
     private static void renderContents(@Nullable GlobeSnapshot snapshot, @Nullable ClientGlobeState state, @Nullable ClientLevel level,

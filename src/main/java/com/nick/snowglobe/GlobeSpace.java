@@ -265,7 +265,7 @@ public final class GlobeSpace
             return;
         }
         ServerLevel level = player.server.getLevel(LEVEL);
-        if (level == null)
+        if (level == null || !(player.level() instanceof ServerLevel outside))
             return;
         int id = globe.ensureGlobe(player.server);
 
@@ -281,6 +281,8 @@ public final class GlobeSpace
         BlockPos spawn = findSpawn(level, interiorMin(player.server, id), GlobeSavedData.get(player.server).sizeOf(id));
         player.teleportTo(level, spawn.getX() + 0.5, spawn.getY(), spawn.getZ() + 0.5, player.getYRot(), player.getXRot());
         player.displayClientMessage(Component.translatable("snowglobe.message.entered"), false);
+        GlobeView.rememberGlobe(player, outside, globe.getBlockPos(), id);
+        GlobeView.sendView(player);
     }
 
     public static void leave(ServerPlayer player)
@@ -291,6 +293,7 @@ public final class GlobeSpace
 
         CompoundTag back = player.getPersistentData().getCompound(RETURN_KEY);
         player.getPersistentData().remove(RETURN_KEY);
+        GlobeView.forgetGlobe(player);
         ResourceLocation dim = ResourceLocation.tryParse(back.getString("Dim"));
         ServerLevel target = dim == null ? null : server.getLevel(ResourceKey.create(Registries.DIMENSION, dim));
         if (target == null || target.dimension() == LEVEL)
@@ -454,6 +457,7 @@ public final class GlobeSpace
     static void onServerTick(ServerTickEvent.Post event)
     {
         MinecraftServer server = event.getServer();
+        GlobeView.tick(server);
         ServerLevel level = server.getLevel(LEVEL);
         if (level == null)
             return;
@@ -516,5 +520,6 @@ public final class GlobeSpace
         lastSeen.clear();
         ticketed.clear();
         frames.clear();
+        GlobeView.clear();
     }
 }

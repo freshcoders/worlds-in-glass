@@ -47,6 +47,12 @@ public class GlobeBlockEntity extends BlockEntity
         return snapshot;
     }
 
+    /** The id of this globe's build space, or -1 if it has none yet. */
+    public int globeId()
+    {
+        return globeId;
+    }
+
     public GlobeKind kind()
     {
         return getBlockState().getBlock() instanceof GlobeBlock block ? block.kind() : GlobeKind.SNOW_GLOBE;

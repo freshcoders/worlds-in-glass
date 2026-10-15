@@ -9,6 +9,7 @@ import net.minecraft.world.level.block.SoundType;
 import net.minecraft.world.level.block.entity.BlockEntityType;
 import net.minecraft.world.level.block.state.BlockBehaviour;
 import net.minecraft.world.level.material.MapColor;
+import com.nick.snowglobe.net.GlobeNetwork;
 import net.neoforged.bus.api.IEventBus;
 import net.neoforged.fml.ModContainer;
 import net.neoforged.fml.common.Mod;
@@ -67,10 +68,12 @@ public class SnowGlobeMod
         BLOCK_ENTITIES.register(modEventBus);
         COMPONENTS.register(modEventBus);
         modEventBus.addListener(this::addCreative);
+        modEventBus.addListener(GlobeNetwork::register);
 
         NeoForge.EVENT_BUS.addListener(GlobeSpace::onServerTick);
         NeoForge.EVENT_BUS.addListener(GlobeSpace::onServerStopped);
         NeoForge.EVENT_BUS.addListener(GlobeImport::registerCommands);
+        NeoForge.EVENT_BUS.addListener(GlobeView::onLeftClickBlock);
     }
 
     private void addCreative(BuildCreativeModeTabContentsEvent event)

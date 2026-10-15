@@ -40,8 +40,9 @@ public class GlobeWallBlock extends TransparentBlock
     @Override
     protected InteractionResult useWithoutItem(BlockState state, Level level, BlockPos pos, Player player, BlockHitResult hit)
     {
+        // A short zoom out first; the player is back outside a moment later.
         if (player instanceof ServerPlayer serverPlayer)
-            GlobeSpace.leave(serverPlayer);
+            GlobeView.startLeaving(serverPlayer);
         return InteractionResult.sidedSuccess(level.isClientSide);
     }
 }
