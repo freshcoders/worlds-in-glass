@@ -66,7 +66,13 @@ public final class GlobeSnapshot
                         state = level.getBlockState(pos);
                         BlockEntity be = state.hasBlockEntity() ? level.getBlockEntity(pos) : null;
                         if (be != null)
-                            blockEntities.put(i, be.saveWithFullMetadata(level.registryAccess()));
+                        {
+                            CompoundTag data = be.saveWithFullMetadata(level.registryAccess());
+                            // Mods' extra data (energy, fluids, ...) never changes a block's looks, and data from
+                            // mods that aren't installed would only fill the log with warnings on every client.
+                            data.remove("neoforge:attachments");
+                            blockEntities.put(i, data);
+                        }
                     }
                     cells[i++] = index.computeIfAbsent(state, s -> {
                         palette.add(s);
