@@ -132,8 +132,10 @@ public class GlobeRenderer implements BlockEntityRenderer<GlobeBlockEntity>
         // Bigger globes hold more blocks in the same glass, so each block is drawn smaller.
         int size = snapshot != null ? snapshot.size() : GlobeSpace.DEFAULT_SIZE;
         float half = size / 2f;
-        // A dome's cells reach about 1.11 half-sizes from its centre; fit that just inside the ball.
-        float ballCell = BALL_RADIUS * 0.94f / (half * 1.1125f);
+        // Fit what's inside just within the ball: a full dome reaches about 1.11 half-sizes from its centre,
+        // a smaller build less, so it's shown bigger. (Never zoom in further than an 8-block reach.)
+        double reach = snapshot != null ? Math.min(snapshot.contentRadius(), half * 1.1125) : half * 1.1125;
+        float ballCell = BALL_RADIUS * 0.94f / (float) Math.max(reach, 8);
         switch (kind)
         {
             case SNOW_GLOBE ->
@@ -368,7 +370,8 @@ public class GlobeRenderer implements BlockEntityRenderer<GlobeBlockEntity>
             {
                 float[] a = bottlePoint(x0, r0, x1, r1, s, false), b = bottlePoint(x0, r0, x1, r1, s, true);
                 float[] c = bottlePoint(x0, r0, x1, r1, s + 1, true), d = bottlePoint(x0, r0, x1, r1, s + 1, false);
-                glassQuad(out, pose, a, b, c, d, eye, light, u, v, 205, 238, 210, 0.04f);
+                // Green bottle glass, and a bit more of it than the ball: a long cylinder has less outline to catch the eye.
+                glassQuad(out, pose, a, b, c, d, eye, light, u, v, 165, 222, 180, 0.14f);
             }
         }
     }

@@ -34,6 +34,7 @@ public final class GlobeSnapshot
     private final Map<Integer, CompoundTag> blockEntities;
     private List<BlockPos> visible;
     private List<BlockPos> fluids;
+    private double contentRadius = -1;
     /** Client: whatever the renderer builds from this snapshot (its block entities). Not touched on the server. */
     public Object clientCache;
 
@@ -110,6 +111,28 @@ public final class GlobeSnapshot
             visible = list;
         }
         return visible;
+    }
+
+    /**
+     * How far the contents reach from the centre, in blocks (to the far corner of the farthest block).
+     * Lets a round globe zoom in on a build that doesn't fill it.
+     */
+    public double contentRadius()
+    {
+        if (contentRadius < 0)
+        {
+            double c = size / 2.0, max = 0;
+            for (int y = 0; y < size; y++)
+                for (int z = 0; z < size; z++)
+                    for (int x = 0; x < size; x++)
+                        if (!get(x, y, z).isAir())
+                        {
+                            double dx = Math.abs(x + 0.5 - c) + 0.5, dy = Math.abs(y + 0.5 - c) + 0.5, dz = Math.abs(z + 0.5 - c) + 0.5;
+                            max = Math.max(max, dx * dx + dy * dy + dz * dz);
+                        }
+            contentRadius = Math.sqrt(max);
+        }
+        return contentRadius;
     }
 
     /** Water and lava worth drawing: fluid cells with at least one side not touching the same fluid. */
