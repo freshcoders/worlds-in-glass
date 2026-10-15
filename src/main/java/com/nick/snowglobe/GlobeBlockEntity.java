@@ -2,6 +2,8 @@ package com.nick.snowglobe;
 
 import net.minecraft.core.BlockPos;
 import net.minecraft.nbt.CompoundTag;
+import net.minecraft.nbt.ListTag;
+import net.minecraft.nbt.Tag;
 import net.minecraft.network.protocol.Packet;
 import net.minecraft.network.protocol.game.ClientGamePacketListener;
 import net.minecraft.network.protocol.game.ClientboundBlockEntityDataPacket;
@@ -19,6 +21,15 @@ public class GlobeBlockEntity extends BlockEntity
     @Nullable
     private GlobeSnapshot snapshot;
     private long snapshotVersion;
+    /** Server: set when the next update packet must include the blocks. */
+    private boolean blocksChanged = true;
+    /** Server: version of the mob positions last sent. */
+    private long entityVersion;
+    /** Client: mob positions received and not yet taken by the renderer. */
+    @Nullable
+    private ListTag entities;
+    /** Client: whatever the renderer keeps per globe (the miniature mobs). Not touched on the server. */
+    public Object renderState;
 
     public GlobeBlockEntity(BlockPos pos, BlockState state)
     {
@@ -61,23 +72,53 @@ public class GlobeBlockEntity extends BlockEntity
 
     public static void serverTick(Level level, BlockPos pos, BlockState state, GlobeBlockEntity globe)
     {
-        // Check about once a second, spread out over ticks so many globes don't all update at once.
-        if (globe.globeId < 0 || level.getServer() == null || Math.floorMod(level.getGameTime() + pos.asLong(), 20) != 0)
+        MinecraftServer server = level.getServer();
+        if (globe.globeId < 0 || server == null)
             return;
-        if (globe.pullSnapshot(level.getServer()))
+        GlobeSpace.markSeen(server, globe.globeId);
+        boolean send = false;
+
+        // Mob positions: a few times a second, when they moved.
+        GlobeSpace.EntityFrame frame = GlobeSpace.entityFrame(globe.globeId);
+        if (frame != null && frame.version() != globe.entityVersion)
         {
-            globe.setChanged();
-            level.sendBlockUpdated(pos, state, state, Block.UPDATE_CLIENTS);
+            globe.entityVersion = frame.version();
+            send = true;
         }
+        // Blocks: about once a second, spread out over ticks so many globes don't all update at once.
+        if (Math.floorMod(level.getGameTime() + pos.asLong(), 20) == 0 && globe.pullSnapshot(server))
+        {
+            globe.blocksChanged = true;
+            globe.setChanged();
+            send = true;
+        }
+        if (send)
+            level.sendBlockUpdated(pos, state, state, Block.UPDATE_CLIENTS);
+    }
+
+    /** Mob positions received since the renderer last looked, or null if none came in. Client side. */
+    @Nullable
+    public ListTag takeEntityUpdate()
+    {
+        ListTag update = entities;
+        entities = null;
+        return update;
     }
 
     @Override
     public void load(CompoundTag tag)
     {
         super.load(tag);
-        globeId = tag.contains("GlobeId") ? tag.getInt("GlobeId") : -1;
-        snapshot = tag.contains("Snapshot") ? GlobeSnapshot.fromTag(tag.getCompound("Snapshot")) : null;
-        snapshotVersion = tag.getLong("SnapshotVersion");
+        // Update packets carry only what changed, so leave out fields alone.
+        if (tag.contains("GlobeId"))
+            globeId = tag.getInt("GlobeId");
+        if (tag.contains("Snapshot"))
+        {
+            snapshot = GlobeSnapshot.fromTag(tag.getCompound("Snapshot"));
+            snapshotVersion = tag.getLong("SnapshotVersion");
+        }
+        if (tag.contains("Entities"))
+            entities = tag.getList("Entities", Tag.TAG_COMPOUND);
     }
 
     @Override
@@ -96,12 +137,28 @@ public class GlobeBlockEntity extends BlockEntity
     @Override
     public CompoundTag getUpdateTag()
     {
-        return saveWithoutMetadata();
+        CompoundTag tag = saveWithoutMetadata();
+        GlobeSpace.EntityFrame frame = GlobeSpace.entityFrame(globeId);
+        if (frame != null)
+            tag.put("Entities", frame.entities());
+        return tag;
     }
 
+    /** Sends the mob positions, plus the blocks only when those changed (they're much bigger). */
     @Override
     public Packet<ClientGamePacketListener> getUpdatePacket()
     {
-        return ClientboundBlockEntityDataPacket.create(this);
+        return ClientboundBlockEntityDataPacket.create(this, be -> {
+            CompoundTag tag = new CompoundTag();
+            if (blocksChanged)
+            {
+                saveAdditional(tag);
+                blocksChanged = false;
+            }
+            GlobeSpace.EntityFrame frame = GlobeSpace.entityFrame(globeId);
+            if (frame != null)
+                tag.put("Entities", frame.entities());
+            return tag;
+        });
     }
 }

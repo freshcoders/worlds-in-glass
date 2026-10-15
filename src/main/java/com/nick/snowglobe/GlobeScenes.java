@@ -4,15 +4,19 @@ import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.util.RandomSource;
+import net.minecraft.world.entity.EntityType;
+import net.minecraft.world.entity.Mob;
+import net.minecraft.world.entity.animal.Fox;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.Blocks;
-import net.minecraft.world.level.block.CarvedPumpkinBlock;
 import net.minecraft.world.level.block.LeavesBlock;
 import net.minecraft.world.level.block.RotatedPillarBlock;
 import net.minecraft.world.level.block.SnowyDirtBlock;
 import net.minecraft.world.level.block.StairBlock;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.block.state.properties.BlockStateProperties;
+
+import java.util.function.Consumer;
 
 /** The little scene a new globe starts with, so there's something to look at straight away. */
 final class GlobeScenes
@@ -48,7 +52,7 @@ final class GlobeScenes
         }
     }
 
-    // ---- Snow globe: a cabin, a spruce tree, a snowman and a lamp post on snowy ground ----
+    // ---- Snow globe: a cabin, spruce trees and a lamp post on snowy ground, with a snow golem and a fox ----
 
     private static void snowyCabin(Scene s)
     {
@@ -107,16 +111,9 @@ final class GlobeScenes
         spruce(s, 4, g + 1, 10, 5);
         spruce(s, 12, g + 1, 11, 3);
 
-        // A big round snowman looking at the cabin: chunky enough to stand out at miniature size.
-        BlockState snow = Blocks.SNOW_BLOCK.defaultBlockState();
-        int sx = 4, sz = 5;
-        for (int y = g + 1; y <= g + 2; y++)
-            for (int dx = -1; dx <= 1; dx++)
-                for (int dz = -1; dz <= 1; dz++)
-                    if (Math.abs(dx) + Math.abs(dz) <= 1)
-                        s.set(sx + dx, y, sz + dz, snow);
-        s.set(sx, g + 3, sz, snow);
-        s.set(sx, g + 4, sz, Blocks.CARVED_PUMPKIN.defaultBlockState().setValue(CarvedPumpkinBlock.FACING, Direction.EAST));
+        // Residents: a snow golem (the snowman, walking about) and a snow fox.
+        spawn(s, EntityType.SNOW_GOLEM, 5.5, g + 1, 5.5, mob -> {});
+        spawn(s, EntityType.FOX, 10.5, g + 1, 11.5, mob -> ((Fox) mob).setVariant(Fox.Type.SNOW));
 
         // Lamp post by the path.
         s.set(7, g + 1, 11, Blocks.SPRUCE_FENCE.defaultBlockState());
@@ -214,5 +211,22 @@ final class GlobeScenes
                 if (s.empty(x, y, z) && random.nextInt(100) < 45)
                     s.set(x, y, z, plants[random.nextInt(plants.length)]);
             }
+
+        // Residents: two frogs and a rabbit.
+        spawn(s, EntityType.FROG, 7.5, ground[7][6] + 1, 6.5, mob -> {});
+        spawn(s, EntityType.FROG, 9.5, ground[9][9] + 1, 9.5, mob -> {});
+        spawn(s, EntityType.RABBIT, 11.5, ground[11][7] + 1, 7.5, mob -> {});
+    }
+
+    /** Puts a mob in the globe that stays for good (it never despawns). */
+    private static void spawn(Scene s, EntityType<? extends Mob> type, double x, double y, double z, Consumer<Mob> setup)
+    {
+        Mob mob = type.create(s.level());
+        if (mob == null)
+            return;
+        mob.moveTo(s.min().getX() + x, s.min().getY() + y, s.min().getZ() + z, s.level().random.nextFloat() * 360, 0);
+        mob.setPersistenceRequired();
+        setup.accept(mob);
+        s.level().addFreshEntity(mob);
     }
 }

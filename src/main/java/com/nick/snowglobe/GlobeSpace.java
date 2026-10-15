@@ -12,9 +12,22 @@ import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.nbt.ListTag;
+import net.minecraft.server.level.TicketType;
+import net.minecraft.world.entity.LivingEntity;
+import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.level.ChunkPos;
+import net.minecraft.world.phys.AABB;
 import net.minecraftforge.event.TickEvent;
+import net.minecraftforge.event.server.ServerStoppedEvent;
+import net.minecraftforge.registries.ForgeRegistries;
+import org.jetbrains.annotations.Nullable;
 
+import java.util.Comparator;
+import java.util.HashMap;
 import java.util.HashSet;
+import java.util.Iterator;
+import java.util.Map;
 import java.util.Set;
 
 /**
@@ -169,21 +182,125 @@ public final class GlobeSpace
         data.storeSnapshot(id, GlobeSnapshot.capture(level, interiorMin(id), data.kindOf(id)));
     }
 
-    /** Once a second, re-captures every globe someone is building in, so the miniature follows along live. */
+    // ---- Live globes: while a globe block is loaded near a player, its space keeps running so its mobs move ----
+
+    /** Keeps a globe's chunks loaded and ticking. Added and removed by hand, never saved with the world. */
+    private static final TicketType<ChunkPos> TICKET = TicketType.create(SnowGlobeMod.MODID + ":globe", Comparator.comparingLong(ChunkPos::toLong));
+    /** How often mob positions are captured and sent, in ticks. Clients smooth the movement in between. */
+    public static final int ENTITY_INTERVAL = 4;
+    private static final int ACTIVE_TICKS = 40;
+
+    /** The mobs in one globe at one moment, plus a counter that goes up whenever they moved. */
+    public record EntityFrame(ListTag entities, long version) {}
+
+    private static final Map<Integer, Integer> lastSeen = new HashMap<>();
+    private static final Set<Integer> ticketed = new HashSet<>();
+    private static final Map<Integer, EntityFrame> frames = new HashMap<>();
+
+    /** Called every tick by each loaded globe block: its space should keep running for now. */
+    static void markSeen(MinecraftServer server, int id)
+    {
+        lastSeen.put(id, server.getTickCount());
+    }
+
+    @Nullable
+    static EntityFrame entityFrame(int id)
+    {
+        return frames.get(id);
+    }
+
+    /** Positions of the living things in a globe (not players), relative to the build space. */
+    private static void captureEntities(ServerLevel level, int id)
+    {
+        BlockPos min = interiorMin(id);
+        AABB box = new AABB(min, min.offset(SIZE, SIZE, SIZE));
+        ListTag list = new ListTag();
+        for (LivingEntity entity : level.getEntitiesOfClass(LivingEntity.class, box, e -> e.isAlive() && !(e instanceof Player)))
+        {
+            ResourceLocation type = ForgeRegistries.ENTITY_TYPES.getKey(entity.getType());
+            if (type == null)
+                continue;
+            CompoundTag tag = new CompoundTag();
+            tag.putString("T", type.toString());
+            tag.putInt("I", entity.getId());
+            tag.putFloat("X", (float) (entity.getX() - min.getX()));
+            tag.putFloat("Y", (float) (entity.getY() - min.getY()));
+            tag.putFloat("Z", (float) (entity.getZ() - min.getZ()));
+            tag.putFloat("B", entity.yBodyRot);
+            tag.putFloat("H", entity.yHeadRot);
+            list.add(tag);
+        }
+        EntityFrame old = frames.get(id);
+        if (old == null || !old.entities().equals(list))
+            frames.put(id, new EntityFrame(list, old == null ? 1 : old.version() + 1));
+    }
+
+    private static void setTickets(ServerLevel level, int id, boolean add)
+    {
+        BlockPos min = interiorMin(id);
+        for (int cx = min.getX() >> 4; cx <= (min.getX() + SIZE - 1) >> 4; cx++)
+            for (int cz = min.getZ() >> 4; cz <= (min.getZ() + SIZE - 1) >> 4; cz++)
+            {
+                ChunkPos chunk = new ChunkPos(cx, cz);
+                // Distance 2 gives ticket level 31: the chunk's entities tick.
+                if (add)
+                    level.getChunkSource().addRegionTicket(TICKET, chunk, 2, chunk);
+                else
+                    level.getChunkSource().removeRegionTicket(TICKET, chunk, 2, chunk);
+            }
+    }
+
+    /**
+     * Runs the live globes: keeps their chunks ticking, captures their mobs a few times a second
+     * and their blocks once a second, so the miniatures follow along.
+     */
     static void onServerTick(TickEvent.ServerTickEvent event)
     {
         if (event.phase != TickEvent.Phase.END)
             return;
         MinecraftServer server = event.getServer();
-        if (server.getTickCount() % 20 != 0)
-            return;
         ServerLevel level = server.getLevel(LEVEL);
-        if (level == null || level.players().isEmpty())
+        if (level == null)
             return;
-        Set<Integer> occupied = new HashSet<>();
+        int now = server.getTickCount();
+
+        Set<Integer> active = new HashSet<>();
+        lastSeen.entrySet().removeIf(e -> now - e.getValue() > ACTIVE_TICKS);
+        active.addAll(lastSeen.keySet());
         for (ServerPlayer player : level.players())
-            occupied.add(idAt(player.blockPosition()));
-        for (int id : occupied)
-            refreshSnapshot(server, id);
+            active.add(idAt(player.blockPosition()));
+
+        for (int id : active)
+            if (ticketed.add(id))
+                setTickets(level, id, true);
+        for (Iterator<Integer> it = ticketed.iterator(); it.hasNext(); )
+        {
+            int id = it.next();
+            if (!active.contains(id))
+            {
+                setTickets(level, id, false);
+                frames.remove(id);
+                it.remove();
+            }
+        }
+        if (active.isEmpty())
+            return;
+
+        // Without players or forced chunks a level stops ticking its entities after a while; keep it awake.
+        level.resetEmptyTime();
+        if (now % ENTITY_INTERVAL == 0)
+            for (int id : active)
+                captureEntities(level, id);
+        if (now % 20 == 0)
+            for (int id : active)
+                refreshSnapshot(server, id);
+    }
+
+    /** Forget live globes when a world closes, so they don't leak into the next one opened. */
+    static void onServerStopped(ServerStoppedEvent event)
+    {
+        lastSeen.clear();
+        ticketed.clear();
+        frames.clear();
     }
 }

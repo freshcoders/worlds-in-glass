@@ -54,6 +54,7 @@ public class SnowGlobeMod
         modEventBus.addListener(this::addCreative);
 
         MinecraftForge.EVENT_BUS.addListener(GlobeSpace::onServerTick);
+        MinecraftForge.EVENT_BUS.addListener(GlobeSpace::onServerStopped);
     }
 
     private void addCreative(BuildCreativeModeTabContentsEvent event)
