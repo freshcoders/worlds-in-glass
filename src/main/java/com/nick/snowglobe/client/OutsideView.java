@@ -76,7 +76,7 @@ public final class OutsideView
     private OutsideView() {}
 
     /** The world around one globe, as received, and how it maps onto the build space. */
-    private record View(BlockPos globePos, int turns, int display, BlockPos interiorMin, float cell, int scale,
+    private record View(BlockPos globePos, int kind, int turns, int display, BlockPos interiorMin, float cell, int scale,
                         Vec3 center, Vec3 pivot, BlockPos origin, int sx, int sy, int sz,
                         BlockState[] states, byte[] light, List<BlockPos> visible, List<Neighbour> globes) {}
 
@@ -125,7 +125,7 @@ public final class OutsideView
         if (view == null || !view.origin().equals(origin) || !java.util.Arrays.equals(view.states(), states) || !java.util.Arrays.equals(view.light(), light))
             dropWorldMesh();
 
-        view = new View(BlockPos.of(tag.getLong("GlobePos")), tag.getInt("Turns"), Math.max(1, tag.getInt("Display")),
+        view = new View(BlockPos.of(tag.getLong("GlobePos")), tag.getInt("Kind"), tag.getInt("Turns"), Math.max(1, tag.getInt("Display")),
                 BlockPos.of(tag.getLong("InteriorMin")), tag.getFloat("Cell"), Math.max(1, tag.getInt("Scale")),
                 new Vec3(tag.getDouble("CenterX"), tag.getDouble("CenterY"), tag.getDouble("CenterZ")),
                 new Vec3(tag.getDouble("PivotX"), tag.getDouble("PivotY"), tag.getDouble("PivotZ")),
@@ -214,6 +214,20 @@ public final class OutsideView
     }
 
     // ---- Drawing ----
+
+    /** The kind of globe you're inside, or null when not inside one. */
+    @Nullable
+    static com.nick.snowglobe.GlobeKind insideKind()
+    {
+        return active() ? com.nick.snowglobe.GlobeKind.values()[Math.floorMod(view.kind(), com.nick.snowglobe.GlobeKind.values().length)] : null;
+    }
+
+    /** Where the globe you're inside stands outside (its storm's seed), or null when not inside one. */
+    @Nullable
+    static BlockPos insideGlobePos()
+    {
+        return active() ? view.globePos() : null;
+    }
 
     /** True while inside a globe with a view to draw. */
     static boolean active()

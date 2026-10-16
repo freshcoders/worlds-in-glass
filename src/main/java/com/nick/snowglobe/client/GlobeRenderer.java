@@ -326,11 +326,10 @@ public class GlobeRenderer implements BlockEntityRenderer<GlobeBlockEntity>
 
         // Lightning: some slots strike, at a random moment in the slot, flickering for a few ticks.
         long tick = (long) Math.floor(ticks);
-        long slot = Math.floorDiv(tick, STRIKE_SLOT);
-        long hash = mix(slot * 31 + seed);
-        if (Math.floorMod(hash, 3) != 0)
+        long start = strikeStart(tick, seed);
+        if (start == Long.MIN_VALUE)
             return 0;
-        long start = slot * STRIKE_SLOT + Math.floorMod(hash >> 8, STRIKE_SLOT - 10);
+        long hash = mix(Math.floorDiv(tick, STRIKE_SLOT) * 31 + seed);
         long age = tick - start;
         if (age < 0 || age > 5)
             return 0;
@@ -344,6 +343,19 @@ public class GlobeRenderer implements BlockEntityRenderer<GlobeBlockEntity>
         if (lit)
             renderBolt(out, pose, hash);
         return lit ? 1 - age / 6f : 0;
+    }
+
+    /**
+     * When the storm globe with this seed (its block position) strikes in the time slot holding {@code tick}, or
+     * Long.MIN_VALUE if that slot stays quiet. Shared by the miniature and the storm inside, so they strike together.
+     */
+    static long strikeStart(long tick, long seed)
+    {
+        long slot = Math.floorDiv(tick, STRIKE_SLOT);
+        long hash = mix(slot * 31 + seed);
+        if (Math.floorMod(hash, 3) != 0)
+            return Long.MIN_VALUE;
+        return slot * STRIKE_SLOT + Math.floorMod(hash >> 8, STRIKE_SLOT - 10);
     }
 
     /** A jagged bolt from the clouds down to the sea, its shape fixed per strike. */

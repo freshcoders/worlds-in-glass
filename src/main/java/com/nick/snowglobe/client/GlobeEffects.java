@@ -8,6 +8,7 @@ import com.nick.snowglobe.net.GlobeNetwork.GlobeEvent;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.multiplayer.ClientLevel;
 import net.minecraft.client.player.LocalPlayer;
+import net.minecraft.core.BlockPos;
 import net.minecraft.core.particles.ParticleOptions;
 import net.minecraft.core.particles.ParticleTypes;
 import net.minecraft.resources.ResourceLocation;
@@ -46,6 +47,8 @@ public final class GlobeEffects
     private static long stirStart = Long.MIN_VALUE;
     private static GlobeKind stirKind = GlobeKind.SNOW_GLOBE;
     private static long flashStart = Long.MIN_VALUE;
+    /** The last strike thundered inside, so each strike is heard once. */
+    private static long lastStrike = Long.MIN_VALUE;
 
     private GlobeEffects() {}
 
@@ -144,6 +147,39 @@ public final class GlobeEffects
             diving = 0;
         }
         stir();
+        storm();
+    }
+
+    /**
+     * Inside a storm globe it's always storming: rain all round you, and lightning in step with the miniature
+     * outside (the same strikes), each with a flash and a deep, full-size thunderclap.
+     */
+    private static void storm()
+    {
+        Minecraft mc = Minecraft.getInstance();
+        ClientLevel level = mc.level;
+        LocalPlayer player = mc.player;
+        if (level == null || player == null || OutsideView.insideKind() != GlobeKind.STORM_GLOBE || mc.isPaused())
+            return;
+        BlockPos globePos = OutsideView.insideGlobePos();
+        long tick = level.getGameTime() % 240000;
+        long start = GlobeRenderer.strikeStart(tick, globePos.asLong());
+        if (start == tick && lastStrike != start)
+        {
+            lastStrike = start;
+            flashStart = ticks;
+            play(SoundEvents.LIGHTNING_BOLT_THUNDER, 1.0f, 0.9f);
+            play(SoundEvents.LIGHTNING_BOLT_IMPACT, 0.6f, 0.8f);
+        }
+        RandomSource random = level.random;
+        for (int i = 0; i < 12; i++)
+        {
+            double x = player.getX() + (random.nextDouble() - 0.5) * 24, z = player.getZ() + (random.nextDouble() - 0.5) * 24;
+            double y = player.getY() + 4 + random.nextDouble() * 8;
+            level.addParticle(ParticleTypes.FALLING_WATER, x, y, z, 0, -0.3, 0);
+        }
+        if (random.nextInt(20) == 0)
+            play(SoundEvents.WEATHER_RAIN, 0.25f, 0.9f + random.nextFloat() * 0.2f);
     }
 
     /** A shake stirs up the globe's weather around you, if you're inside. */

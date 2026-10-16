@@ -96,6 +96,7 @@ public final class GlobeView
 
         CompoundTag tag = new CompoundTag();
         tag.putLong("GlobePos", globePos.asLong());
+        tag.putInt("Kind", block.kind().ordinal());
         tag.putInt("Turns", GlobeBlock.quarterTurns(globeState.getValue(GlobeBlock.FACING)));
         tag.putInt("Display", globeState.getValue(GlobeBlock.DISPLAY).scale);
         tag.putLong("InteriorMin", GlobeSpace.interiorMin(player.server, id).asLong());
