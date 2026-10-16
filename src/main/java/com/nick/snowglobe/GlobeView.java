@@ -13,6 +13,7 @@ import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.level.LightLayer;
 import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.phys.AABB;
 import net.neoforged.neoforge.event.entity.player.PlayerInteractEvent;
 import org.jetbrains.annotations.Nullable;
 
@@ -210,6 +211,9 @@ public final class GlobeView
         }
         CompoundTag tag = new CompoundTag();
         tag.put("Players", list);
+        // The animals and monsters around the globe too, so they wander past as giants. Positions relative to the
+        // globe block, which keeps them small enough for exact floats.
+        tag.put("Mobs", GlobeSpace.entityTags(outside, new AABB(globePos).inflate(RADIUS + 2, ABOVE, RADIUS + 2), globePos));
         GlobeNetwork.send(player, new GlobeNetwork.OutsidePlayers(tag));
     }
 

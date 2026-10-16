@@ -446,16 +446,28 @@ public final class GlobeSpace
     /** Positions of the living things in a globe (not players), relative to the build space. */
     private static void captureEntities(ServerLevel level, int id, BlockPos min, int size)
     {
+        ListTag list = entityTags(level, spaceBox(min, size), min);
+        EntityFrame old = frames.get(id);
+        if (old == null || !old.entities().equals(list))
+            frames.put(id, new EntityFrame(list, old == null ? 1 : old.version() + 1));
+    }
+
+    /**
+     * The living things (not players) in a box, as sent to clients for their stand-in copies: type, id, position
+     * relative to {@code origin}, turn, and what they look like.
+     */
+    static ListTag entityTags(ServerLevel level, AABB box, BlockPos origin)
+    {
         ListTag list = new ListTag();
-        for (LivingEntity entity : level.getEntitiesOfClass(LivingEntity.class, spaceBox(min, size), e -> e.isAlive() && !(e instanceof Player)))
+        for (LivingEntity entity : level.getEntitiesOfClass(LivingEntity.class, box, e -> e.isAlive() && !(e instanceof Player)))
         {
             ResourceLocation type = BuiltInRegistries.ENTITY_TYPE.getKey(entity.getType());
             CompoundTag tag = new CompoundTag();
             tag.putString("T", type.toString());
             tag.putInt("I", entity.getId());
-            tag.putFloat("X", (float) (entity.getX() - min.getX()));
-            tag.putFloat("Y", (float) (entity.getY() - min.getY()));
-            tag.putFloat("Z", (float) (entity.getZ() - min.getZ()));
+            tag.putFloat("X", (float) (entity.getX() - origin.getX()));
+            tag.putFloat("Y", (float) (entity.getY() - origin.getY()));
+            tag.putFloat("Z", (float) (entity.getZ() - origin.getZ()));
             tag.putFloat("B", entity.yBodyRot);
             tag.putFloat("H", entity.yHeadRot);
             if (entity.isInWater())
@@ -465,9 +477,7 @@ public final class GlobeSpace
                 tag.put("L", looks);
             list.add(tag);
         }
-        EntityFrame old = frames.get(id);
-        if (old == null || !old.entities().equals(list))
-            frames.put(id, new EntityFrame(list, old == null ? 1 : old.version() + 1));
+        return list;
     }
 
     /** Saved-data keys that change how a mob looks (variants, colours, baby or not), for the client's copy. */

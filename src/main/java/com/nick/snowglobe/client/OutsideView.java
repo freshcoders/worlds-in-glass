@@ -58,6 +58,8 @@ public final class OutsideView
     @Nullable
     private static View view;
     private static final Map<UUID, Giant> giants = new HashMap<>();
+    /** The animals and monsters around the globe outside, as giant stand-ins (positions relative to the globe block). */
+    private static MiniEntities mobs = new MiniEntities();
 
     private OutsideView() {}
 
@@ -185,6 +187,8 @@ public final class OutsideView
             seen.add(id);
         }
         giants.keySet().retainAll(seen);
+        if (tag.contains("Mobs"))
+            mobs.update(tag.getList("Mobs", Tag.TAG_COMPOUND), level);
     }
 
     private static float progress(Giant giant, long now, float partialTick)
@@ -202,6 +206,7 @@ public final class OutsideView
         {
             view = null;
             giants.clear();
+            mobs = new MiniEntities();
         }
         return view != null;
     }
@@ -271,6 +276,15 @@ public final class OutsideView
                         ticks, blocks, null, null, level, globe.pos(), -1, false);
                 poseStack.popPose();
             }
+        }
+
+        // The animals and monsters around the globe, wandering past.
+        if (level != null)
+        {
+            poseStack.pushPose();
+            poseStack.translate(v.globePos().getX(), v.globePos().getY(), v.globePos().getZ());
+            mobs.render(poseStack, buffers, LightTexture.FULL_BRIGHT, partialTick, level);
+            poseStack.popPose();
         }
 
         // The players near the globe, peering in.
