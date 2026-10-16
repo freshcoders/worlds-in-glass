@@ -289,7 +289,7 @@ public class GlobeRenderer implements BlockEntityRenderer<GlobeBlockEntity>
             float x = 0.5f + (sx * spread + sway) * BALL_RADIUS;
             float y = BALL_CENTER_Y + h * BALL_RADIUS;
             float z = 0.5f + (sz * spread) * BALL_RADIUS;
-            box(out, pose, x, y, z, half, half, half, light, 255, 255, 255, 255);
+            box(out, pose, x, y, z, half, half, half, light, 255, 255, 255, 255, true);
         }
     }
 
@@ -321,7 +321,7 @@ public class GlobeRenderer implements BlockEntityRenderer<GlobeBlockEntity>
             float h = 0.58f - fall * 0.85f;
             float spread = (float) Math.sqrt(Math.max(0, 1 - h * h)) * 0.85f;
             box(out, pose, 0.5f + d[0] * spread * BALL_RADIUS, BALL_CENTER_Y + h * BALL_RADIUS, 0.5f + d[1] * spread * BALL_RADIUS,
-                    0.035f / 16f, 0.3f / 16f, 0.035f / 16f, light, 175, 195, 225, 170);
+                    0.035f / 16f, 0.3f / 16f, 0.035f / 16f, light, 175, 195, 225, 170, true);
         }
 
         // Shaken: a strike right away, flickering as the shake starts.
@@ -370,7 +370,7 @@ public class GlobeRenderer implements BlockEntityRenderer<GlobeBlockEntity>
             {
                 float t = step / 8f;
                 box(out, pose, 0.5f + (x + (nx - x) * t) * BALL_RADIUS, BALL_CENTER_Y + (h + (nh - h) * t) * BALL_RADIUS,
-                        0.5f + (z + (nz - z) * t) * BALL_RADIUS, half, half, half, LightTexture.FULL_BRIGHT, 225, 235, 255, 255);
+                        0.5f + (z + (nz - z) * t) * BALL_RADIUS, half, half, half, LightTexture.FULL_BRIGHT, 225, 235, 255, 255, true);
             }
             x = nx;
             z = nz;
@@ -491,15 +491,22 @@ public class GlobeRenderer implements BlockEntityRenderer<GlobeBlockEntity>
     private static void box(VertexConsumer out, PoseStack.Pose pose, float x, float y, float z, float hx, float hy, float hz,
                             int light, int r, int g, int b, int a)
     {
+        box(out, pose, x, y, z, hx, hy, hz, light, r, g, b, a, false);
+    }
+
+    /** A little box; {@code even}: every side lit like the top (snow and rain shouldn't have dark sides). */
+    private static void box(VertexConsumer out, PoseStack.Pose pose, float x, float y, float z, float hx, float hy, float hz,
+                            int light, int r, int g, int b, int a, boolean even)
+    {
         PoseStack.Pose m = pose;
         float x0 = x - hx, x1 = x + hx, y0 = y - hy, y1 = y + hy, z0 = z - hz, z1 = z + hz;
         int[] c = {r, g, b, a};
-        quad(out, m, light, c, 0, 1, 0, x0, y1, z0, x0, y1, z1, x1, y1, z1, x1, y1, z0);
-        quad(out, m, light, c, 0, -1, 0, x0, y0, z0, x1, y0, z0, x1, y0, z1, x0, y0, z1);
-        quad(out, m, light, c, 0, 0, -1, x0, y0, z0, x0, y1, z0, x1, y1, z0, x1, y0, z0);
-        quad(out, m, light, c, 0, 0, 1, x0, y0, z1, x1, y0, z1, x1, y1, z1, x0, y1, z1);
-        quad(out, m, light, c, -1, 0, 0, x0, y0, z0, x0, y0, z1, x0, y1, z1, x0, y1, z0);
-        quad(out, m, light, c, 1, 0, 0, x1, y0, z0, x1, y1, z0, x1, y1, z1, x1, y0, z1);
+        quad(out, m, light, c, even ? 0 : 0, even ? 1 : 1, even ? 0 : 0, x0, y1, z0, x0, y1, z1, x1, y1, z1, x1, y1, z0);
+        quad(out, m, light, c, even ? 0 : 0, even ? 1 : -1, even ? 0 : 0, x0, y0, z0, x1, y0, z0, x1, y0, z1, x0, y0, z1);
+        quad(out, m, light, c, even ? 0 : 0, even ? 1 : 0, even ? 0 : -1, x0, y0, z0, x0, y1, z0, x1, y1, z0, x1, y0, z0);
+        quad(out, m, light, c, even ? 0 : 0, even ? 1 : 0, even ? 0 : 1, x0, y0, z1, x1, y0, z1, x1, y1, z1, x0, y1, z1);
+        quad(out, m, light, c, even ? 0 : -1, even ? 1 : 0, even ? 0 : 0, x0, y0, z0, x0, y0, z1, x0, y1, z1, x0, y1, z0);
+        quad(out, m, light, c, even ? 0 : 1, even ? 1 : 0, even ? 0 : 0, x1, y0, z0, x1, y1, z0, x1, y1, z1, x1, y0, z1);
     }
 
     private static void quad(VertexConsumer out, PoseStack.Pose m, int light, int[] c, float nx, float ny, float nz,

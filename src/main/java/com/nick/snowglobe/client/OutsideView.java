@@ -2,6 +2,7 @@ package com.nick.snowglobe.client;
 
 import com.mojang.authlib.GameProfile;
 import com.mojang.blaze3d.systems.RenderSystem;
+import com.mojang.blaze3d.shaders.FogShape;
 import com.mojang.blaze3d.vertex.PoseStack;
 import com.mojang.math.Axis;
 import com.nick.snowglobe.GlobeBlock;
@@ -298,14 +299,22 @@ public final class OutsideView
         buffers.endBatch();
     }
 
-    /** Push the fog back inside a globe, or the giant world outside would vanish into it. */
+    /**
+     * Fog fitted to the giant world: clear nearby, thickening towards where the shown part of the world ends, so it
+     * fades into a haze instead of stopping at a hard edge.
+     */
     @SubscribeEvent
     public static void onFog(ViewportEvent.RenderFog event)
     {
         if (!active())
             return;
-        event.setNearPlaneDistance(Math.max(event.getNearPlaneDistance(), 400));
-        event.setFarPlaneDistance(Math.max(event.getFarPlaneDistance(), 1200));
+        View v = view;
+        // How far the shown world reaches from the globe, in blocks of the build space.
+        double giant = v.scale() / (v.cell() * v.display());
+        double reach = Math.min(v.sx(), v.sz()) / 2.0 * giant;
+        event.setNearPlaneDistance((float) (reach * 0.3));
+        event.setFarPlaneDistance((float) (reach * 0.92));
+        event.setFogShape(FogShape.SPHERE);
         event.setCanceled(true);
     }
 }
