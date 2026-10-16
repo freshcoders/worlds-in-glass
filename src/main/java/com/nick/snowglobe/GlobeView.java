@@ -33,7 +33,7 @@ public final class GlobeView
     /** Where a player's globe is: kept with the player while they're inside, so the outside can be shown. */
     static final String GLOBE_KEY = SnowGlobeMod.MODID + ":globe";
     /** How much of the outside world is shown around the globe block, in blocks. */
-    private static final int RADIUS = 10, BELOW = 4, ABOVE = 10;
+    private static final int RADIUS = 16, BELOW = 6, ABOVE = 16;
     /** Ticks between asking to go in or out and actually going: the client zooms meanwhile. */
     public static final int DIVE_TICKS = 12;
 
@@ -128,12 +128,40 @@ public final class GlobeView
                     });
                     light[i] = (byte) (outside.getBrightness(LightLayer.SKY, pos) << 4 | outside.getBrightness(LightLayer.BLOCK, pos));
                 }
+        light = litFromNeighbours(light, sx, sy, sz);
         tag.putLong("Origin", origin.asLong());
         tag.putIntArray("Size", new int[] {sx, sy, sz});
         tag.put("Palette", palette);
         tag.putIntArray("Cells", cells);
         tag.putByteArray("Light", light);
         GlobeNetwork.send(player, new GlobeNetwork.OutsideView(tag));
+    }
+
+    /**
+     * A solid block's own light is dark (it's inside the block); what you see of it is lit by the air around it.
+     * So each block takes the brightest of itself and its six neighbours, sky and block light separately.
+     */
+    private static byte[] litFromNeighbours(byte[] light, int sx, int sy, int sz)
+    {
+        byte[] lit = new byte[light.length];
+        int[][] sides = {{0, 0, 0}, {1, 0, 0}, {-1, 0, 0}, {0, 1, 0}, {0, -1, 0}, {0, 0, 1}, {0, 0, -1}};
+        for (int y = 0; y < sy; y++)
+            for (int z = 0; z < sz; z++)
+                for (int x = 0; x < sx; x++)
+                {
+                    int sky = 0, block = 0;
+                    for (int[] d : sides)
+                    {
+                        int nx = x + d[0], ny = y + d[1], nz = z + d[2];
+                        if (nx < 0 || ny < 0 || nz < 0 || nx >= sx || ny >= sy || nz >= sz)
+                            continue;
+                        int value = light[(ny * sz + nz) * sx + nx] & 0xFF;
+                        sky = Math.max(sky, value >> 4);
+                        block = Math.max(block, value & 15);
+                    }
+                    lit[(y * sz + z) * sx + x] = (byte) (sky << 4 | block);
+                }
+        return lit;
     }
 
     /** Sends a player inside a globe where the other players near that globe are, so they appear as giants. */
@@ -147,7 +175,7 @@ public final class GlobeView
         ListTag list = new ListTag();
         for (ServerPlayer other : outside.players())
         {
-            if (other == player || other.distanceToSqr(globePos.getCenter()) > (RADIUS + 6) * (RADIUS + 6))
+            if (other == player || other.distanceToSqr(globePos.getCenter()) > (RADIUS + 4) * (RADIUS + 4))
                 continue;
             CompoundTag tag = new CompoundTag();
             tag.putUUID("Id", other.getUUID());
@@ -248,7 +276,7 @@ public final class GlobeView
                 continue;
             if (now % 4 == 0)
                 sendPlayers(player);
-            if (now % 40 == 0)
+            if (now % 100 == 0)
                 sendView(player);
         }
     }
