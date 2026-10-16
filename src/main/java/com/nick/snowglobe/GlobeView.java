@@ -243,6 +243,12 @@ public final class GlobeView
         lastKnock.put(id, now);
         // A glassy tok out here; a deep knock for anyone inside.
         level.playSound(null, event.getPos(), net.minecraft.sounds.SoundEvents.GLASS_HIT, net.minecraft.sounds.SoundSource.BLOCKS, 1.0f, 1.3f);
+        if (globe.kind() == GlobeKind.STORM_GLOBE)
+        {
+            // The same tiny thunder as a shake (GlobeBlock.tinyThunder), sent from here to everyone nearby.
+            level.playSound(null, event.getPos(), net.minecraft.sounds.SoundEvents.FIREWORK_ROCKET_TWINKLE, net.minecraft.sounds.SoundSource.BLOCKS, 0.35f, 2.0f);
+            level.playSound(null, event.getPos(), net.minecraft.sounds.SoundEvents.LIGHTNING_BOLT_THUNDER, net.minecraft.sounds.SoundSource.BLOCKS, 0.08f, 2.0f);
+        }
         notifyOccupants(level.getServer(), id, GlobeNetwork.GlobeEvent.KNOCKED, globe.kind());
     }
 

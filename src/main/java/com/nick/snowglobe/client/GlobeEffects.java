@@ -89,6 +89,12 @@ public final class GlobeEffects
                 rumble(10, 1.8f, false);
                 play(SoundEvents.NOTE_BLOCK_BASEDRUM.value(), 2.0f, 0.5f);
                 play(SoundEvents.WOOD_HIT, 1.5f, 0.5f);
+                // A knock on a storm globe sets the storm off.
+                if (kind == GlobeKind.STORM_GLOBE)
+                {
+                    flashStart = ticks;
+                    play(SoundEvents.LIGHTNING_BOLT_THUNDER, 1.0f, 0.9f);
+                }
             }
             case GlobeEvent.DIVE_IN, GlobeEvent.DIVE_OUT ->
             {
