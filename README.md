@@ -99,9 +99,12 @@ On Windows, use `gradlew.bat`. The wrapper scripts set `jdk.net.unixdomain.tmpdi
 
 Don't rebuild while `runClient` is running. The test game loads classes from `build/` as it goes and will crash.
 
+## Performance
+
+Miniatures, and the giant world seen from inside, are built once into meshes on the graphics card and redrawn in one step per frame, the way Minecraft draws chunks. A mesh is only rebuilt when that globe's contents change. So a 64-block castle costs about as much to draw as a small scene. Mobs, snow, rain and glass are drawn live.
+
 ## Known limitations
 
-- Miniatures are redrawn block by block every frame, so very big globes, or many of them, cost frame rate. Building each miniature into a cached mesh is the planned fix.
 - Spinning Create parts (shafts, cogs) may not show in miniatures.
 - Only tested in single player so far, not on a dedicated server.
 - You can't open a globe from inside another globe.
