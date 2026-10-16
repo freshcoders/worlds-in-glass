@@ -4,6 +4,8 @@ import com.mojang.authlib.GameProfile;
 import com.mojang.blaze3d.systems.RenderSystem;
 import com.mojang.blaze3d.vertex.PoseStack;
 import com.mojang.math.Axis;
+import com.nick.snowglobe.GlobeBlock;
+import com.nick.snowglobe.GlobeSnapshot;
 import com.nick.snowglobe.GlobeSpace;
 import com.nick.snowglobe.SnowGlobeMod;
 import net.minecraft.client.Minecraft;
@@ -61,7 +63,10 @@ public final class OutsideView
     /** The world around one globe, as received, and how it maps onto the build space. */
     private record View(BlockPos globePos, int turns, int display, BlockPos interiorMin, float cell, int scale,
                         Vec3 center, Vec3 pivot, BlockPos origin, int sx, int sy, int sz,
-                        BlockState[] states, byte[] light, List<BlockPos> visible) {}
+                        BlockState[] states, byte[] light, List<BlockPos> visible, List<Neighbour> globes) {}
+
+    /** Another globe standing near the one you're in, with its contents, to draw giant with its miniature. */
+    private record Neighbour(BlockPos pos, GlobeSnapshot snapshot) {}
 
     static void receive(CompoundTag tag)
     {
@@ -91,11 +96,20 @@ public final class OutsideView
                         visible.add(origin.offset(x, y, z));
                 }
 
+        List<Neighbour> globes = new ArrayList<>();
+        ListTag globesTag = tag.getList("Globes", Tag.TAG_COMPOUND);
+        for (int i = 0; i < globesTag.size(); i++)
+        {
+            GlobeSnapshot snapshot = GlobeSnapshot.fromTag(globesTag.getCompound(i).getCompound("Snapshot"));
+            if (snapshot != null)
+                globes.add(new Neighbour(BlockPos.of(globesTag.getCompound(i).getLong("Pos")), snapshot));
+        }
+
         view = new View(BlockPos.of(tag.getLong("GlobePos")), tag.getInt("Turns"), Math.max(1, tag.getInt("Display")),
                 BlockPos.of(tag.getLong("InteriorMin")), tag.getFloat("Cell"), Math.max(1, tag.getInt("Scale")),
                 new Vec3(tag.getDouble("CenterX"), tag.getDouble("CenterY"), tag.getDouble("CenterZ")),
                 new Vec3(tag.getDouble("PivotX"), tag.getDouble("PivotY"), tag.getDouble("PivotZ")),
-                origin, size[0], size[1], size[2], states, tag.getByteArray("Light"), visible);
+                origin, size[0], size[1], size[2], states, tag.getByteArray("Light"), visible, globes);
     }
 
     private static boolean enclosed(BlockState[] states, int[] size, int x, int y, int z)
@@ -234,6 +248,28 @@ public final class OutsideView
             if (state.getRenderShape() != RenderShape.INVISIBLE)
                 blocks.renderSingleBlock(state, poseStack, buffers, light, OverlayTexture.NO_OVERLAY, ModelData.EMPTY, null);
             poseStack.popPose();
+        }
+
+        // The other globes around, with their miniatures (their glass drawn here too, straight away).
+        if (level != null)
+        {
+            float ticks = level.getGameTime() % 240000 + partialTick;
+            for (Neighbour globe : v.globes())
+            {
+                int x = globe.pos().getX() - v.origin().getX(), y = globe.pos().getY() - v.origin().getY(), z = globe.pos().getZ() - v.origin().getZ();
+                if (x < 0 || y < 0 || z < 0 || x >= v.sx() || y >= v.sy() || z >= v.sz())
+                    continue;
+                int i = (y * v.sz() + z) * v.sx() + x;
+                BlockState state = v.states()[i];
+                if (!(state.getBlock() instanceof GlobeBlock block))
+                    continue;
+                int packed = v.light()[i] & 0xFF;
+                poseStack.pushPose();
+                poseStack.translate(globe.pos().getX(), globe.pos().getY(), globe.pos().getZ());
+                GlobeRenderer.renderPlaced(state, block.kind(), globe.snapshot(), poseStack, buffers, LightTexture.pack(packed & 15, packed >> 4),
+                        ticks, blocks, null, null, level, globe.pos(), -1, false);
+                poseStack.popPose();
+            }
         }
 
         // The players near the globe, peering in.

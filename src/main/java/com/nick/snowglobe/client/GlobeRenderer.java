@@ -124,6 +124,22 @@ public class GlobeRenderer implements BlockEntityRenderer<GlobeBlockEntity>
 
         // A shake: a wobble that dies down over a couple of seconds, and the contents stirred up.
         float shaken = (level.getGameTime() - globe.shakeStart + partialTick) / SHAKE_TICKS;
+        float ticks = level.getGameTime() % 240000 + partialTick;
+        renderPlaced(blockState, globe.kind(), globe.getSnapshot(), poseStack, buffers, light, ticks, blocks, eye, state, level, pos,
+                shaken, false);
+    }
+
+    /**
+     * A globe standing in the world, at the pose's origin: turned the way it faces, drawn small, medium or large,
+     * wobbling if it's being shaken ({@code shaken} runs 0 to 1 through a shake). Used for placed globes, and
+     * for the globes seen giant from inside another one ({@code base}: draw the base too, as it's not in the world there).
+     */
+    static void renderPlaced(BlockState blockState, GlobeKind kind, @Nullable GlobeSnapshot snapshot, PoseStack poseStack,
+                             MultiBufferSource buffers, int light, float ticks, BlockRenderDispatcher blocks, @Nullable Vec3 eye,
+                             @Nullable ClientGlobeState state, ClientLevel level, BlockPos pos, float shaken, boolean base)
+    {
+        int turns = blockState.hasProperty(GlobeBlock.FACING) ? GlobeBlock.quarterTurns(blockState.getValue(GlobeBlock.FACING)) : 0;
+        int scale = blockState.hasProperty(GlobeBlock.DISPLAY) ? blockState.getValue(GlobeBlock.DISPLAY).scale : 1;
         float stir = shaken >= 0 && shaken < 1 ? (1 - shaken) * (1 - shaken) : 0;
 
         poseStack.pushPose();
@@ -138,12 +154,10 @@ public class GlobeRenderer implements BlockEntityRenderer<GlobeBlockEntity>
         poseStack.mulPose(Axis.YP.rotationDegrees(-90 * turns));
         poseStack.translate(-0.5f, 0, -0.5f);
         // A small globe's base is part of the world's block model; bigger globes draw theirs here, scaled up.
-        if (scale > 1)
+        if (scale > 1 || base)
             blocks.renderSingleBlock(blockState.setValue(GlobeBlock.DISPLAY, DisplaySize.SMALL).setValue(GlobeBlock.FACING, Direction.EAST),
                     poseStack, buffers, light, OverlayTexture.NO_OVERLAY, ModelData.EMPTY, null);
-
-        float ticks = level.getGameTime() % 240000 + partialTick;
-        renderGlobe(globe.kind(), globe.getSnapshot(), poseStack, buffers, light, ticks, blocks, eye, state, pos.asLong(), level, pos, stir);
+        renderGlobe(kind, snapshot, poseStack, buffers, light, ticks, blocks, eye, state, pos.asLong(), level, pos, stir);
         poseStack.popPose();
     }
 

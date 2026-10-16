@@ -192,9 +192,16 @@ public final class GlobeImport
         }
     }
 
+    /** Last tick each player imported with a schematic: one click can arrive by more than one route. */
+    private static final Map<java.util.UUID, Integer> lastHeldImport = new java.util.HashMap<>();
+
     /** Right-clicking a globe with a Create schematic in hand: import that schematic. */
     static void importHeldSchematic(ServerPlayer player, ItemStack stack, GlobeBlockEntity globe)
     {
+        int now = player.server.getTickCount();
+        Integer last = lastHeldImport.put(player.getUUID(), now);
+        if (last != null && now - last < 10)
+            return;
         // Create keeps schematics uploaded at a schematic table per player; local ones sit in the folder itself.
         Path dir = schematicsDir(player.server);
         String name = component(stack, CREATE_FILE);

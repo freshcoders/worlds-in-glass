@@ -129,6 +129,24 @@ public final class GlobeView
                     light[i] = (byte) (outside.getBrightness(LightLayer.SKY, pos) << 4 | outside.getBrightness(LightLayer.BLOCK, pos));
                 }
         light = litFromNeighbours(light, sx, sy, sz);
+        // The other globes standing around: their contents, so they show their miniatures (giant) too.
+        ListTag globes = new ListTag();
+        for (int y = 0; y < sy; y++)
+            for (int z = 0; z < sz; z++)
+                for (int x = 0; x < sx; x++)
+                {
+                    pos.set(origin.getX() + x, origin.getY() + y, origin.getZ() + z);
+                    if (pos.equals(globePos) || !(outside.getBlockEntity(pos) instanceof GlobeBlockEntity other) || other.globeId() < 0)
+                        continue;
+                    GlobeSavedData.Entry otherEntry = data.get(other.globeId());
+                    if (otherEntry == null)
+                        continue;
+                    CompoundTag neighbour = new CompoundTag();
+                    neighbour.putLong("Pos", pos.asLong());
+                    neighbour.put("Snapshot", otherEntry.snapshot().toTag());
+                    globes.add(neighbour);
+                }
+        tag.put("Globes", globes);
         tag.putLong("Origin", origin.asLong());
         tag.putIntArray("Size", new int[] {sx, sy, sz});
         tag.put("Palette", palette);
