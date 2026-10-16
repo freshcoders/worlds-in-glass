@@ -338,7 +338,7 @@ public class GlobeRenderer implements BlockEntityRenderer<GlobeBlockEntity>
         {
             // A tiny storm makes a tiny thunderclap: quiet and high-pitched.
             state.lastThunder = start;
-            level.playLocalSound(where, SoundEvents.LIGHTNING_BOLT_THUNDER, SoundSource.WEATHER, 0.25f, 1.9f, false);
+            GlobeBlock.tinyThunder(level, where);
         }
         boolean lit = age == 0 || age == 1 || age == 3;
         if (lit)

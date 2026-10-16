@@ -245,6 +245,27 @@ public final class GlobeView
         notifyOccupants(level.getServer(), id, GlobeNetwork.GlobeEvent.KNOCKED, globe.kind());
     }
 
+    /**
+     * Dev testing: acts as if someone outside knocked on, or shook, the globe this player is inside.
+     * False if they aren't inside one.
+     */
+    static boolean emulateFromOutside(ServerPlayer player, int event)
+    {
+        CompoundTag globe = player.getPersistentData().getCompound(GLOBE_KEY);
+        ServerLevel outside = outsideLevel(player.server, globe);
+        if (outside == null)
+            return false;
+        BlockPos pos = BlockPos.of(globe.getLong("Pos"));
+        if (!(outside.getBlockEntity(pos) instanceof GlobeBlockEntity globeEntity) || !(outside.getBlockState(pos).getBlock() instanceof GlobeBlock block))
+            return false;
+        if (event == GlobeNetwork.GlobeEvent.SHAKEN)
+            outside.blockEvent(pos, block, GlobeBlock.EVENT_SHAKE, 0);
+        else
+            outside.playSound(null, pos, net.minecraft.sounds.SoundEvents.GLASS_HIT, net.minecraft.sounds.SoundSource.BLOCKS, 1.0f, 1.3f);
+        notifyOccupants(player.server, globeEntity.globeId(), event, block.kind());
+        return true;
+    }
+
     // ---- Going in and out: a short zoom first ----
 
     private record Transit(boolean in, ServerLevel level, BlockPos globePos, int due) {}

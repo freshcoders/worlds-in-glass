@@ -40,6 +40,8 @@ import net.minecraft.world.level.levelgen.structure.templatesystem.StructureProc
 import net.minecraft.world.level.levelgen.structure.templatesystem.StructureTemplate;
 import net.minecraft.world.phys.BlockHitResult;
 import net.minecraft.world.phys.HitResult;
+import com.nick.snowglobe.net.GlobeNetwork;
+import net.neoforged.fml.loading.FMLEnvironment;
 import net.neoforged.neoforge.event.RegisterCommandsEvent;
 import org.jetbrains.annotations.Nullable;
 
@@ -74,6 +76,13 @@ public final class GlobeImport
     static void registerCommands(RegisterCommandsEvent event)
     {
         CommandDispatcher<CommandSourceStack> dispatcher = event.getDispatcher();
+        // Dev game only: test from inside a globe what's normally done to it from outside.
+        if (!FMLEnvironment.production)
+            dispatcher.register(Commands.literal("globe")
+                    .requires(source -> source.hasPermission(2))
+                    .then(Commands.literal("debug")
+                            .then(Commands.literal("knock").executes(context -> emulate(context, GlobeNetwork.GlobeEvent.KNOCKED)))
+                            .then(Commands.literal("shake").executes(context -> emulate(context, GlobeNetwork.GlobeEvent.SHAKEN)))));
         dispatcher.register(Commands.literal("globe")
                 .requires(source -> source.hasPermission(2))
                 .then(Commands.literal("import")
@@ -87,6 +96,17 @@ public final class GlobeImport
                                         GlobeSpace.SIZES.stream().map(String::valueOf), builder))
                                 .executes(context -> runSize(context, false))
                                 .then(Commands.literal("force").executes(context -> runSize(context, true))))));
+    }
+
+    private static int emulate(CommandContext<CommandSourceStack> context, int event)
+    {
+        ServerPlayer player = context.getSource().getPlayer();
+        if (player == null || !GlobeView.emulateFromOutside(player, event))
+        {
+            context.getSource().sendFailure(Component.literal("Stand inside a globe to test this."));
+            return 0;
+        }
+        return 1;
     }
 
     private static List<String> listSchematics(MinecraftServer server)

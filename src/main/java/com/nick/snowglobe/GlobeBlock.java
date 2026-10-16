@@ -229,6 +229,16 @@ public class GlobeBlock extends BaseEntityBlock
         return InteractionResult.sidedSuccess(level.isClientSide);
     }
 
+    /**
+     * A storm globe's thunder, from outside: it must sound tiny, or people nearby would think a real storm is coming.
+     * A little electric crackle, with the faintest high thunder under it, as the globe's own sound (not weather).
+     */
+    public static void tinyThunder(Level level, BlockPos pos)
+    {
+        level.playLocalSound(pos, SoundEvents.FIREWORK_ROCKET_TWINKLE, SoundSource.BLOCKS, 0.35f, 2.0f, false);
+        level.playLocalSound(pos, SoundEvents.LIGHTNING_BOLT_THUNDER, SoundSource.BLOCKS, 0.08f, 2.0f, false);
+    }
+
     @Override
     protected boolean triggerEvent(BlockState state, Level level, BlockPos pos, int id, int param)
     {
@@ -244,7 +254,7 @@ public class GlobeBlock extends BaseEntityBlock
                 case STORM_GLOBE ->
                 {
                     level.playLocalSound(pos, SoundEvents.AMETHYST_BLOCK_CHIME, SoundSource.BLOCKS, 0.7f, 0.8f, false);
-                    level.playLocalSound(pos, SoundEvents.LIGHTNING_BOLT_THUNDER, SoundSource.WEATHER, 0.3f, 1.9f, false);
+                    GlobeBlock.tinyThunder(level, pos);
                 }
                 case TERRARIUM ->
                 {
