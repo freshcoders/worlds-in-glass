@@ -59,11 +59,25 @@ public final class GlobeEffects
                 rumble(40, 1, kind == GlobeKind.SHIP_BOTTLE);
                 stirStart = ticks;
                 stirKind = kind;
-                play(SoundEvents.AMETHYST_BLOCK_CHIME, 1.0f, 0.6f);
-                if (kind == GlobeKind.STORM_GLOBE)
+                // Inside, the same sounds as outside, but deep: the whole world is being shaken.
+                switch (kind)
                 {
-                    flashStart = ticks;
-                    play(SoundEvents.LIGHTNING_BOLT_THUNDER, 1.0f, 0.9f);
+                    case SNOW_GLOBE -> play(SoundEvents.AMETHYST_BLOCK_CHIME, 1.0f, 0.6f);
+                    case STORM_GLOBE ->
+                    {
+                        flashStart = ticks;
+                        play(SoundEvents.LIGHTNING_BOLT_THUNDER, 1.0f, 0.9f);
+                    }
+                    case TERRARIUM ->
+                    {
+                        play(SoundEvents.GLASS_HIT, 1.2f, 0.5f);
+                        play(SoundEvents.AZALEA_LEAVES_STEP, 1.5f, 0.6f);
+                    }
+                    case SHIP_BOTTLE ->
+                    {
+                        play(SoundEvents.GLASS_HIT, 1.2f, 0.6f);
+                        play(SoundEvents.BUCKET_EMPTY, 1.0f, 0.7f);
+                    }
                 }
             }
             case GlobeEvent.KNOCKED ->

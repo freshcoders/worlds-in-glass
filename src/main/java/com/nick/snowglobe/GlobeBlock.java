@@ -237,9 +237,26 @@ public class GlobeBlock extends BaseEntityBlock
         if (level.isClientSide && level.getBlockEntity(pos) instanceof GlobeBlockEntity globe)
         {
             globe.shakeStart = level.getGameTime();
-            level.playLocalSound(pos, SoundEvents.AMETHYST_BLOCK_CHIME, SoundSource.BLOCKS, 1.0f, 1.3f, false);
-            if (kind == GlobeKind.STORM_GLOBE)
-                level.playLocalSound(pos, SoundEvents.LIGHTNING_BOLT_THUNDER, SoundSource.WEATHER, 0.3f, 1.9f, false);
+            // Each globe sounds like what's in it.
+            switch (kind)
+            {
+                case SNOW_GLOBE -> level.playLocalSound(pos, SoundEvents.AMETHYST_BLOCK_CHIME, SoundSource.BLOCKS, 1.0f, 1.3f, false);
+                case STORM_GLOBE ->
+                {
+                    level.playLocalSound(pos, SoundEvents.AMETHYST_BLOCK_CHIME, SoundSource.BLOCKS, 0.7f, 0.8f, false);
+                    level.playLocalSound(pos, SoundEvents.LIGHTNING_BOLT_THUNDER, SoundSource.WEATHER, 0.3f, 1.9f, false);
+                }
+                case TERRARIUM ->
+                {
+                    level.playLocalSound(pos, SoundEvents.GLASS_HIT, SoundSource.BLOCKS, 0.8f, 1.1f, false);
+                    level.playLocalSound(pos, SoundEvents.AZALEA_LEAVES_STEP, SoundSource.BLOCKS, 1.0f, 1.2f, false);
+                }
+                case SHIP_BOTTLE ->
+                {
+                    level.playLocalSound(pos, SoundEvents.GLASS_HIT, SoundSource.BLOCKS, 0.8f, 1.5f, false);
+                    level.playLocalSound(pos, SoundEvents.BUCKET_EMPTY, SoundSource.BLOCKS, 0.4f, 1.6f, false);
+                }
+            }
         }
         return true;
     }

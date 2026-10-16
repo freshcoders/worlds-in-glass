@@ -240,6 +240,8 @@ public final class GlobeView
         if (id < 0 || now - lastKnock.getOrDefault(id, -100) < 6)
             return;
         lastKnock.put(id, now);
+        // A glassy tok out here; a deep knock for anyone inside.
+        level.playSound(null, event.getPos(), net.minecraft.sounds.SoundEvents.GLASS_HIT, net.minecraft.sounds.SoundSource.BLOCKS, 1.0f, 1.3f);
         notifyOccupants(level.getServer(), id, GlobeNetwork.GlobeEvent.KNOCKED, globe.kind());
     }
 
