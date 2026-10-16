@@ -60,6 +60,18 @@ public final class OutsideView
     private static final Map<UUID, Giant> giants = new HashMap<>();
     /** The animals and monsters around the globe outside, as giant stand-ins (positions relative to the globe block). */
     private static MiniEntities mobs = new MiniEntities();
+    /** The giant world's blocks, built once into a mesh (positions relative to the view's origin). */
+    @Nullable
+    private static BakedMesh worldMesh;
+
+    private static void dropWorldMesh()
+    {
+        if (worldMesh != null)
+        {
+            worldMesh.close();
+            worldMesh = null;
+        }
+    }
 
     private OutsideView() {}
 
@@ -108,11 +120,16 @@ public final class OutsideView
                 globes.add(new Neighbour(BlockPos.of(globesTag.getCompound(i).getLong("Pos")), snapshot));
         }
 
+        // The same world as before (it's resent every few seconds): keep the mesh.
+        byte[] light = tag.getByteArray("Light");
+        if (view == null || !view.origin().equals(origin) || !java.util.Arrays.equals(view.states(), states) || !java.util.Arrays.equals(view.light(), light))
+            dropWorldMesh();
+
         view = new View(BlockPos.of(tag.getLong("GlobePos")), tag.getInt("Turns"), Math.max(1, tag.getInt("Display")),
                 BlockPos.of(tag.getLong("InteriorMin")), tag.getFloat("Cell"), Math.max(1, tag.getInt("Scale")),
                 new Vec3(tag.getDouble("CenterX"), tag.getDouble("CenterY"), tag.getDouble("CenterZ")),
                 new Vec3(tag.getDouble("PivotX"), tag.getDouble("PivotY"), tag.getDouble("PivotZ")),
-                origin, size[0], size[1], size[2], states, tag.getByteArray("Light"), visible, globes);
+                origin, size[0], size[1], size[2], states, light, visible, globes);
     }
 
     private static boolean enclosed(BlockState[] states, int[] size, int x, int y, int z)
@@ -207,6 +224,7 @@ public final class OutsideView
             view = null;
             giants.clear();
             mobs = new MiniEntities();
+            dropWorldMesh();
         }
         return view != null;
     }
@@ -242,19 +260,28 @@ public final class OutsideView
         poseStack.scale(1f / v.display(), 1f / v.display(), 1f / v.display());
         poseStack.translate(-(v.globePos().getX() + 0.5), -v.globePos().getY(), -(v.globePos().getZ() + 0.5));
 
-        for (BlockPos pos : v.visible())
-        {
-            int x = pos.getX() - v.origin().getX(), y = pos.getY() - v.origin().getY(), z = pos.getZ() - v.origin().getZ();
-            int i = (y * v.sz() + z) * v.sx() + x;
-            BlockState state = v.states()[i];
-            int packed = v.light()[i] & 0xFF;
-            int light = LightTexture.pack(packed & 15, packed >> 4);
-            poseStack.pushPose();
-            poseStack.translate(pos.getX(), pos.getY(), pos.getZ());
-            if (state.getRenderShape() != RenderShape.INVISIBLE)
-                blocks.renderSingleBlock(state, poseStack, buffers, light, OverlayTexture.NO_OVERLAY, ModelData.EMPTY, null);
-            poseStack.popPose();
-        }
+        if (worldMesh == null)
+            worldMesh = BakedMesh.bake(recorder -> {
+                PoseStack local = new PoseStack();
+                for (BlockPos pos : v.visible())
+                {
+                    int x = pos.getX() - v.origin().getX(), y = pos.getY() - v.origin().getY(), z = pos.getZ() - v.origin().getZ();
+                    int i = (y * v.sz() + z) * v.sx() + x;
+                    BlockState state = v.states()[i];
+                    if (state.getRenderShape() == RenderShape.INVISIBLE)
+                        continue;
+                    int packed = v.light()[i] & 0xFF;
+                    local.pushPose();
+                    local.translate(x, y, z);
+                    blocks.renderSingleBlock(state, local, recorder, LightTexture.pack(packed & 15, packed >> 4),
+                            OverlayTexture.NO_OVERLAY, ModelData.EMPTY, null);
+                    local.popPose();
+                }
+            });
+        poseStack.pushPose();
+        poseStack.translate(v.origin().getX(), v.origin().getY(), v.origin().getZ());
+        worldMesh.draw(poseStack.last().pose());
+        poseStack.popPose();
 
         // The other globes around, with their miniatures (their glass drawn here too, straight away).
         if (level != null)

@@ -38,16 +38,7 @@ final class MiniBlockEntities
 
     private final Map<BlockPos, BlockEntity> entities = new HashMap<>();
 
-    static MiniBlockEntities of(GlobeSnapshot snapshot, @Nullable ClientLevel level)
-    {
-        if (snapshot.clientCache instanceof MiniBlockEntities cached)
-            return cached;
-        MiniBlockEntities created = new MiniBlockEntities(snapshot, level);
-        snapshot.clientCache = created;
-        return created;
-    }
-
-    private MiniBlockEntities(GlobeSnapshot snapshot, @Nullable ClientLevel level)
+    MiniBlockEntities(GlobeSnapshot snapshot, @Nullable ClientLevel level)
     {
         ClientLevel world = level != null ? level : Minecraft.getInstance().level;
         if (world == null)
@@ -74,38 +65,45 @@ final class MiniBlockEntities
         }
     }
 
-    /** Draws one cell: its model (with the block entity's data), and its block entity renderer if it has one. */
-    void render(BlockPos pos, BlockState state, PoseStack poseStack, MultiBufferSource buffers, int light, float partialTick,
-                BlockRenderDispatcher blocks)
+    /** One cell's model (with its block entity's data, if any), for baking into the miniature's mesh. */
+    void renderModel(BlockPos pos, BlockState state, PoseStack poseStack, MultiBufferSource buffers, int light, BlockRenderDispatcher blocks)
     {
         BlockEntity be = entities.get(pos);
         RenderShape shape = state.getRenderShape();
         if (shape == RenderShape.MODEL)
             blocks.renderSingleBlock(state, poseStack, buffers, light, OverlayTexture.NO_OVERLAY, be != null ? be.getModelData() : ModelData.EMPTY, null);
         else if (shape == RenderShape.ENTITYBLOCK_ANIMATED)
-        {
             // Drawn like its item (chests, beds, ...), which also covers what its renderer would draw.
             blocks.renderSingleBlock(state, poseStack, buffers, light, OverlayTexture.NO_OVERLAY, ModelData.EMPTY, null);
-            return;
-        }
-        if (be == null || BROKEN.contains(be.getType()))
-            return;
-        BlockEntityRenderer<BlockEntity> renderer = Minecraft.getInstance().getBlockEntityRenderDispatcher().getRenderer(be);
-        if (renderer == null)
-            return;
-        try
+    }
+
+    /** The parts drawn fresh every frame: block entity renderers (moving parts, text, ...). Pose in cell units. */
+    void renderDynamic(PoseStack poseStack, MultiBufferSource buffers, int light, float partialTick)
+    {
+        for (Map.Entry<BlockPos, BlockEntity> entry : entities.entrySet())
         {
+            BlockEntity be = entry.getValue();
+            if (be.getBlockState().getRenderShape() == RenderShape.ENTITYBLOCK_ANIMATED || BROKEN.contains(be.getType()))
+                continue;
+            BlockEntityRenderer<BlockEntity> renderer = Minecraft.getInstance().getBlockEntityRenderDispatcher().getRenderer(be);
+            if (renderer == null)
+                continue;
+            BlockPos pos = entry.getKey();
             poseStack.pushPose();
-            renderer.render(be, partialTick, poseStack, buffers, light, OverlayTexture.NO_OVERLAY);
-        }
-        catch (Throwable e)
-        {
-            BROKEN.add(be.getType());
-            LOGGER.debug("Block entity renderer for {} doesn't work in a globe miniature; skipping it", be.getType(), e);
-        }
-        finally
-        {
-            poseStack.popPose();
+            poseStack.translate(pos.getX(), pos.getY(), pos.getZ());
+            try
+            {
+                renderer.render(be, partialTick, poseStack, buffers, light, OverlayTexture.NO_OVERLAY);
+            }
+            catch (Throwable e)
+            {
+                BROKEN.add(be.getType());
+                LOGGER.debug("Block entity renderer for {} doesn't work in a globe miniature; skipping it", be.getType(), e);
+            }
+            finally
+            {
+                poseStack.popPose();
+            }
         }
     }
 }

@@ -109,6 +109,12 @@ public class GlobeRenderer implements BlockEntityRenderer<GlobeBlockEntity>
         ListTag update = globe.takeEntityUpdate();
         if (update != null)
             state.mobs.update(update, level);
+        if (state.lastSnapshot != globe.getSnapshot())
+        {
+            if (state.lastSnapshot != null)
+                MiniatureCache.release(state.lastSnapshot);
+            state.lastSnapshot = globe.getSnapshot();
+        }
 
         BlockPos pos = globe.getBlockPos();
         BlockState blockState = globe.getBlockState();
@@ -232,27 +238,12 @@ public class GlobeRenderer implements BlockEntityRenderer<GlobeBlockEntity>
                                        BlockPos where, float partialTick, PoseStack poseStack, MultiBufferSource buffers, int light,
                                        BlockRenderDispatcher blocks)
     {
-        if (snapshot != null)
+        if (snapshot != null && level != null)
         {
-            MiniBlockEntities blockEntities = MiniBlockEntities.of(snapshot, level);
-            for (BlockPos pos : snapshot.visibleBlocks())
-            {
-                poseStack.pushPose();
-                poseStack.translate(pos.getX(), pos.getY(), pos.getZ());
-                blockEntities.render(pos, snapshot.get(pos.getX(), pos.getY(), pos.getZ()), poseStack, buffers, light, partialTick, blocks);
-                poseStack.popPose();
-            }
-            if (level != null && !snapshot.fluidCells().isEmpty())
-            {
-                // Minecraft's water renderer, fed with the snapshot as its world; it writes in cell units.
-                SnapshotView view = new SnapshotView(snapshot, level, where, light);
-                VertexConsumer out = new SnapshotView.PosedConsumer(buffers.getBuffer(Sheets.translucentCullBlockSheet()), poseStack.last());
-                for (BlockPos pos : snapshot.fluidCells())
-                {
-                    BlockState block = snapshot.get(pos.getX(), pos.getY(), pos.getZ());
-                    blocks.renderLiquid(pos, view, out, block, block.getFluidState());
-                }
-            }
+            // Blocks and water come from a mesh built once per snapshot; only block entity renderers draw fresh.
+            MiniatureCache cache = MiniatureCache.of(snapshot, level);
+            cache.mesh(snapshot, light, level, where, blocks).draw(poseStack.last().pose());
+            cache.blockEntities.renderDynamic(poseStack, buffers, light, partialTick);
         }
         if (state != null && level != null)
         {

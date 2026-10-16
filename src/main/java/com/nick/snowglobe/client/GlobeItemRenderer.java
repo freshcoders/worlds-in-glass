@@ -75,7 +75,13 @@ public class GlobeItemRenderer extends BlockEntityWithoutLevelRenderer
         if (data == null)
             return null;
         if (snapshots.size() > 64)
+        {
+            snapshots.values().forEach(s -> {
+                if (s != null)
+                    MiniatureCache.release(s);
+            });
             snapshots.clear();
+        }
         return snapshots.computeIfAbsent(data, d -> {
             var tag = d.copyTag();
             return tag.contains("Snapshot") ? GlobeSnapshot.fromTag(tag.getCompound("Snapshot")) : null;
