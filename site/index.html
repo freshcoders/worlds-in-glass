@@ -1,0 +1,247 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Snow Globes · Downloads</title>
+<meta name="description" content="Snow Globes, a Minecraft mod for building tiny worlds you can step inside. Download the mod pack, install steps and changelog.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,600;9..144,700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #0d1420;
+    --bg-2: #121c2c;
+    --card: #17233a;
+    --line: #26354f;
+    --text: #e8eef8;
+    --muted: #9aabc4;
+    --accent: #f2c66d;
+    --accent-ink: #2a1d05;
+    --frost: #bfe3ff;
+  }
+  @media (prefers-color-scheme: light) {
+    :root:not([data-theme="dark"]) {
+      --bg: #f4f7fb; --bg-2: #e9eff7; --card: #ffffff; --line: #d6dfeb;
+      --text: #172235; --muted: #5a6b85; --accent: #c58a14; --accent-ink: #fff; --frost: #2f6fa8;
+    }
+  }
+  * { box-sizing: border-box; }
+  html { scroll-behavior: smooth; }
+  body {
+    margin: 0; background: var(--bg); color: var(--text);
+    font: 16px/1.6 Inter, system-ui, sans-serif;
+  }
+  a { color: var(--frost); }
+  .wrap { max-width: 980px; margin: 0 auto; padding: 0 16px; }
+
+  /* Hero: the gallery shot, with the title and download over it. */
+  .hero { position: relative; min-height: 460px; display: flex; align-items: flex-end; overflow: hidden; }
+  .hero img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+  .hero::after { content: ""; position: absolute; inset: 0;
+    background: linear-gradient(180deg, rgba(13,20,32,.15) 0%, rgba(13,20,32,.55) 55%, var(--bg) 100%); }
+  .hero .wrap { position: relative; z-index: 1; padding-bottom: 36px; width: 100%; }
+  .snow { position: absolute; inset: 0; z-index: 1; pointer-events: none; }
+  h1 { font-family: Fraunces, Georgia, serif; font-size: clamp(40px, 8vw, 72px); line-height: 1; margin: 0 0 10px; color: #fff;
+    text-shadow: 0 2px 18px rgba(0,0,0,.45); }
+  .tagline { font-size: 18px; color: #dfe8f5; max-width: 560px; margin: 0 0 22px; text-shadow: 0 1px 10px rgba(0,0,0,.5); }
+  .meta { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 22px; }
+  .pill { font-size: 13px; padding: 4px 10px; border-radius: 999px; background: rgba(255,255,255,.12); color: #fff;
+    border: 1px solid rgba(255,255,255,.2); backdrop-filter: blur(6px); }
+  .pill b { color: var(--accent); font-weight: 600; }
+  .btn { display: inline-flex; align-items: center; gap: 10px; background: var(--accent); color: var(--accent-ink);
+    font-weight: 600; text-decoration: none; padding: 13px 20px; border-radius: 10px; box-shadow: 0 6px 24px rgba(242,198,109,.25); }
+  .btn:hover { filter: brightness(1.07); }
+  .btn small { font-weight: 500; opacity: .75; }
+
+  section { padding: 44px 0 8px; }
+  h2 { font-family: Fraunces, Georgia, serif; font-size: 28px; margin: 0 0 16px; }
+  .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; }
+  .card { background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 20px; }
+  .card h3 { margin: 0 0 10px; font-size: 17px; }
+  ol.steps { margin: 0; padding-left: 20px; }
+  ol.steps li { margin: 6px 0; }
+  code { background: var(--bg-2); border: 1px solid var(--line); padding: 1px 6px; border-radius: 6px; font-size: 14px; }
+  table { width: 100%; border-collapse: collapse; font-size: 15px; }
+  td { padding: 7px 0; border-bottom: 1px solid var(--line); }
+  td:last-child { text-align: right; color: var(--muted); }
+  tr:last-child td { border-bottom: 0; }
+
+  .shots { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
+  .shots figure { margin: 0; }
+  .shots img { width: 100%; aspect-ratio: 16/10; object-fit: cover; border-radius: 10px; display: block; border: 1px solid var(--line); }
+  .shots figcaption { font-size: 13px; color: var(--muted); margin-top: 5px; }
+
+  .log { border-left: 2px solid var(--line); margin-left: 6px; padding-left: 22px; }
+  .release { position: relative; margin-bottom: 26px; }
+  .release::before { content: ""; position: absolute; left: -30px; top: 7px; width: 12px; height: 12px; border-radius: 50%;
+    background: var(--bg); border: 2px solid var(--frost); }
+  .release.latest::before { background: var(--accent); border-color: var(--accent); }
+  .release h3 { margin: 0; font-size: 18px; }
+  .release .date { color: var(--muted); font-size: 14px; margin: 0 0 8px; }
+  .release ul { margin: 0; padding-left: 18px; }
+  .release li { margin: 3px 0; }
+  .tag { font-size: 12px; font-weight: 600; color: var(--accent-ink); background: var(--accent); padding: 1px 8px; border-radius: 999px;
+    margin-left: 6px; vertical-align: middle; }
+
+  footer { color: var(--muted); font-size: 14px; padding: 40px 0 50px; }
+  @media (max-width: 720px) {
+    .grid-2 { grid-template-columns: 1fr; }
+    .shots { grid-template-columns: 1fr 1fr; }
+    .hero { min-height: 400px; }
+  }
+</style>
+</head>
+<body>
+
+<header class="hero">
+  <img src="img/gallery.jpg" alt="A collector's gallery: a big snow globe with a snowy cabin on a red rug, shelves of globes behind it">
+  <canvas class="snow" aria-hidden="true"></canvas>
+  <div class="wrap">
+    <h1>Snow Globes</h1>
+    <p class="tagline">A Minecraft mod for building tiny worlds. Place a globe, step inside and build. Step back out and it's there in miniature under the glass.</p>
+    <div class="meta">
+      <span class="pill">Version <b>1.0.0</b></span>
+      <span class="pill">Updated 17 Oct 2026</span>
+      <span class="pill">Minecraft 1.21.1</span>
+      <span class="pill">NeoForge 21.1.262</span>
+    </div>
+    <a class="btn" href="snow-globes-friend-pack.zip" download>
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3v12M6 11l6 6 6-6M4 21h16"/></svg>
+      Download the mod pack <small>60 MB · zip</small>
+    </a>
+  </div>
+</header>
+
+<main class="wrap">
+
+  <section id="install">
+    <h2>Getting in</h2>
+    <div class="grid-2">
+      <div class="card">
+        <h3>Install</h3>
+        <ol class="steps">
+          <li>Install <a href="https://neoforged.net" rel="noopener">NeoForge 21.1.262</a> for Minecraft 1.21.1: run the installer and choose <i>Install client</i>.</li>
+          <li>Start the game once with the new <i>neoforge</i> profile, then close it.</li>
+          <li>Copy the four jars from the zip's <code>mods</code> folder into <code>%appdata%\.minecraft\mods</code>.</li>
+          <li>Start Minecraft with the neoforge profile.</li>
+        </ol>
+      </div>
+      <div class="card">
+        <h3>Join Nick's world</h3>
+        <ol class="steps">
+          <li>Ask Nick for today's address. It looks like <code>something.uk.e4mc.link</code>, and it changes each time the world opens.</li>
+          <li>Multiplayer → <i>Direct Connection</i>, paste it, join.</li>
+          <li>Got an "incompatible mods" message? Download the zip again: it's always the latest.</li>
+        </ol>
+      </div>
+    </div>
+    <div class="card" style="margin-top:18px">
+      <h3>In the pack</h3>
+      <table>
+        <tr><td>Snow Globes</td><td>1.0.0</td></tr>
+        <tr><td>Create</td><td>6.0.10</td></tr>
+        <tr><td>Create Aeronautics</td><td>1.3.2</td></tr>
+        <tr><td>Sable</td><td>2.0.6</td></tr>
+      </table>
+    </div>
+  </section>
+
+  <section id="look">
+    <h2>A look inside</h2>
+    <div class="shots">
+      <figure><img src="img/nether-jar.jpg" alt="Nether jar with a lava pool and basalt pillars" loading="lazy"><figcaption>Nether jar</figcaption></figure>
+      <figure><img src="img/desert-globe.jpg" alt="Desert globe with dunes, a pyramid and an oasis" loading="lazy"><figcaption>Desert globe</figcaption></figure>
+      <figure><img src="img/storm-globe.jpg" alt="Storm globe with a lighthouse under rain clouds" loading="lazy"><figcaption>Storm globe</figcaption></figure>
+      <figure><img src="img/star-globe-and-nether-jar.jpg" alt="A star globe and a nether jar on a collector's shelf" loading="lazy"><figcaption>On a collector's shelf</figcaption></figure>
+      <figure><img src="img/inside-desert-globe.jpg" alt="Inside the desert globe, with the room outside giant all around" loading="lazy"><figcaption>From inside: the room, giant</figcaption></figure>
+      <figure><img src="img/create-helicopter.jpg" alt="A Create helicopter built inside a snow globe" loading="lazy"><figcaption>A Create schematic in a globe</figcaption></figure>
+    </div>
+  </section>
+
+  <section id="changes">
+    <h2>What's new</h2>
+    <div class="log">
+      <div class="release latest">
+        <h3>1.0.0 <span class="tag">Latest</span></h3>
+        <p class="date">17 October 2026</p>
+        <ul>
+          <li>Four new globes: <b>desert globe</b>, <b>aquarium</b>, <b>star globe</b> and <b>nether jar</b>, each with its own sky and weather inside.</li>
+          <li>Every globe starts as a <b>glass bulb</b>, blown with a new <b>glassblower's pipe</b>. Recipes changed to match.</li>
+          <li><b>Twin globes</b>: a globe, an empty one of the same kind and an ender pearl make two globes with one world inside.</li>
+          <li><b>Collector's shelf</b>, <b>turntable</b> and <b>name plates</b> (name tag on, axe off).</li>
+          <li>Players inside a globe show up <b>tiny in its miniature</b>.</li>
+          <li>Snow globe <b>seasons</b>: shake it round the year; real snow settles in winter.</li>
+          <li>Fish go in by bucket, animals on a lead come along, and globes can stand <b>inside globes</b>.</li>
+          <li>Wandering traders and old chests sometimes have globes with a world already in them.</li>
+          <li>The <b>Globe Keeper's Handbook</b>, an advancement trail, a creative tab, tooltips and settings.</li>
+          <li>Fixes: glass cases no longer wobble, big globes' bases stay still, no more falling through the pedestal from inside.</li>
+        </ul>
+      </div>
+      <div class="release">
+        <h3>0.3</h3>
+        <p class="date">16 October 2026</p>
+        <ul>
+          <li>From inside, the real world around the globe is there, giant, with players and animals walking past.</li>
+          <li>Shakes and knocks from outside are felt inside; going in and out is a short zoom.</li>
+          <li>Storm globes storm inside too, with lightning and thunder in step with the miniature.</li>
+          <li>Right-click a globe with a Create schematic to build it inside. Survival pays for every block.</li>
+          <li>Much faster drawing of big miniatures.</li>
+        </ul>
+      </div>
+      <div class="release">
+        <h3>0.2</h3>
+        <p class="date">15 October 2026</p>
+        <ul>
+          <li>Moved to NeoForge 1.21.1. Globes grow up to 256 blocks across, and look bigger as they grow.</li>
+          <li>Shake and turn globes; round globes zoom in on what's inside.</li>
+        </ul>
+      </div>
+      <div class="release">
+        <h3>0.1</h3>
+        <p class="date">15 October 2026</p>
+        <ul>
+          <li>First version: snow globe, terrarium, storm globe and ship in a bottle, with live mobs in the miniature.</li>
+        </ul>
+      </div>
+    </div>
+  </section>
+
+</main>
+
+<footer class="wrap">Snow Globes is made by Nick. Made for playing with friends; not on Modrinth or CurseForge (yet).</footer>
+
+<script>
+  // A light snowfall over the header picture.
+  (function () {
+    const canvas = document.querySelector('.snow');
+    if (!canvas || matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+    const ctx = canvas.getContext('2d');
+    let flakes = [], w = 0, h = 0;
+    function resize() {
+      const r = canvas.getBoundingClientRect();
+      w = canvas.width = r.width * devicePixelRatio;
+      h = canvas.height = r.height * devicePixelRatio;
+      flakes = Array.from({ length: Math.round(r.width / 9) }, () => ({
+        x: Math.random() * w, y: Math.random() * h, r: (0.6 + Math.random() * 1.6) * devicePixelRatio,
+        s: 0.3 + Math.random() * 0.7, p: Math.random() * 6.28
+      }));
+    }
+    function frame(t) {
+      ctx.clearRect(0, 0, w, h);
+      ctx.fillStyle = 'rgba(255,255,255,0.85)';
+      for (const f of flakes) {
+        f.y += f.s * devicePixelRatio;
+        f.x += Math.sin(t / 1400 + f.p) * 0.3 * devicePixelRatio;
+        if (f.y > h) { f.y = -4; f.x = Math.random() * w; }
+        ctx.beginPath(); ctx.arc(f.x, f.y, f.r, 0, 6.283); ctx.fill();
+      }
+      requestAnimationFrame(frame);
+    }
+    addEventListener('resize', resize);
+    resize();
+    requestAnimationFrame(frame);
+  })();
+</script>
+</body>
+</html>
