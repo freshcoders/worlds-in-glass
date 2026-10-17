@@ -1,0 +1,24 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "category": "misc",
+  "pattern": [
+    "L",
+    "B",
+    "M"
+  ],
+  "key": {
+    "L": {
+      "item": "minecraft:polished_blackstone_slab"
+    },
+    "B": {
+      "item": "worldsinglass:glass_bulb"
+    },
+    "M": {
+      "item": "minecraft:magma_block"
+    }
+  },
+  "result": {
+    "id": "worldsinglass:nether_jar",
+    "count": 1
+  }
+}

@@ -1,0 +1,23 @@
+{
+  "display": {
+    "icon": {
+      "id": "worldsinglass:terrarium"
+    },
+    "title": {
+      "translate": "advancements.worldsinglass.step_inside.title"
+    },
+    "description": {
+      "translate": "advancements.worldsinglass.step_inside.description"
+    },
+    "frame": "task",
+    "show_toast": true,
+    "announce_to_chat": true,
+    "hidden": false
+  },
+  "parent": "worldsinglass:root",
+  "criteria": {
+    "done": {
+      "trigger": "minecraft:impossible"
+    }
+  }
+}

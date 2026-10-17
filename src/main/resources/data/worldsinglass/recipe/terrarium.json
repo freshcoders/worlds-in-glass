@@ -1,0 +1,24 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "category": "misc",
+  "pattern": [
+    " B ",
+    " M ",
+    "PPP"
+  ],
+  "key": {
+    "B": {
+      "item": "worldsinglass:glass_bulb"
+    },
+    "M": {
+      "item": "minecraft:moss_block"
+    },
+    "P": {
+      "tag": "minecraft:wooden_slabs"
+    }
+  },
+  "result": {
+    "id": "worldsinglass:terrarium",
+    "count": 1
+  }
+}

@@ -1,4 +1,4 @@
-![A collector's gallery of globes and jars](https://freshcoders.nl/snowglobes/img/gallery.jpg)
+![A collector's gallery of globes and jars](https://freshcoders.nl/worldsinglass/img/gallery.jpg)
 
 **Build tiny worlds you can step inside.** Place a snow globe, sneak and right-click it, and you're standing inside, in a build space of its own. Step back out and everything you made is there in miniature under the glass: the blocks, the water, and the mobs living in it, moving live.
 

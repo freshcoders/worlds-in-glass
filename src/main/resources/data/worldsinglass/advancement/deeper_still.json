@@ -1,0 +1,23 @@
+{
+  "display": {
+    "icon": {
+      "id": "worldsinglass:star_globe"
+    },
+    "title": {
+      "translate": "advancements.worldsinglass.deeper_still.title"
+    },
+    "description": {
+      "translate": "advancements.worldsinglass.deeper_still.description"
+    },
+    "frame": "challenge",
+    "show_toast": true,
+    "announce_to_chat": true,
+    "hidden": false
+  },
+  "parent": "worldsinglass:step_inside",
+  "criteria": {
+    "done": {
+      "trigger": "minecraft:impossible"
+    }
+  }
+}

@@ -1,15 +1,15 @@
 {
   "replace": false,
   "values": [
-    "snowglobe:snow_globe",
-    "snowglobe:terrarium",
-    "snowglobe:storm_globe",
-    "snowglobe:ship_bottle",
-    "snowglobe:desert_globe",
-    "snowglobe:aquarium",
-    "snowglobe:star_globe",
-    "snowglobe:nether_jar",
-    "snowglobe:globe_shelf",
-    "snowglobe:globe_turntable"
+    "worldsinglass:snow_globe",
+    "worldsinglass:terrarium",
+    "worldsinglass:storm_globe",
+    "worldsinglass:ship_bottle",
+    "worldsinglass:desert_globe",
+    "worldsinglass:aquarium",
+    "worldsinglass:star_globe",
+    "worldsinglass:nether_jar",
+    "worldsinglass:globe_shelf",
+    "worldsinglass:globe_turntable"
   ]
 }

@@ -1,0 +1,23 @@
+{
+  "display": {
+    "icon": {
+      "id": "worldsinglass:ship_bottle"
+    },
+    "title": {
+      "translate": "advancements.worldsinglass.ship_shape.title"
+    },
+    "description": {
+      "translate": "advancements.worldsinglass.ship_shape.description"
+    },
+    "frame": "goal",
+    "show_toast": true,
+    "announce_to_chat": true,
+    "hidden": false
+  },
+  "parent": "worldsinglass:root",
+  "criteria": {
+    "done": {
+      "trigger": "minecraft:impossible"
+    }
+  }
+}

@@ -1,7 +1,7 @@
 """Puts Worlds in Glass on Modrinth, using your personal access token (from ~/.modrinth-token or MODRINTH_TOKEN).
 
     python modrinth/publish.py create    # a draft project (only you can see it): icon, description, gallery, version 1.0.0
-    python modrinth/publish.py version   # upload build/libs/snowglobe-<version>.jar as a new version of the project
+    python modrinth/publish.py version   # upload build/libs/worldsinglass-<version>.jar as a new version of the project
     python modrinth/publish.py replace   # delete the version with this number and upload the current jar in its place
     python modrinth/publish.py rename    # bring the project's name, link (slug), summary and description up to date
     python modrinth/publish.py submit    # send the draft to Modrinth's moderators for review (then it goes public)
@@ -56,7 +56,7 @@ def token():
 
 
 def headers():
-    return {"Authorization": token(), "User-Agent": "ikdekker/snow-globes publish script"}
+    return {"Authorization": token(), "User-Agent": "ikdekker/worlds-in-glass publish script"}
 
 
 def mod_version():
@@ -102,7 +102,7 @@ def create():
 
 def version():
     number = mod_version()
-    jar = os.path.join(ROOT, "build", "libs", f"snowglobe-{number}.jar")
+    jar = os.path.join(ROOT, "build", "libs", f"worldsinglass-{number}.jar")
     if not os.path.exists(jar):
         sys.exit(f"Build the jar first: {jar} is missing.")
     project = check(requests.get(f"{API}/project/{SLUG}", headers=headers()), "Find project")

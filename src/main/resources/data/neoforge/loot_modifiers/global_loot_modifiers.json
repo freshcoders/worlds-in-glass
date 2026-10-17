@@ -1,12 +1,12 @@
 {
   "replace": false,
   "entries": [
-    "snowglobe:scene_globe_village",
-    "snowglobe:scene_globe_snowy",
-    "snowglobe:scene_globe_desert",
-    "snowglobe:scene_globe_sea",
-    "snowglobe:scene_globe_nether",
-    "snowglobe:scene_globe_deep",
-    "snowglobe:scene_globe_jungle"
+    "worldsinglass:scene_globe_village",
+    "worldsinglass:scene_globe_snowy",
+    "worldsinglass:scene_globe_desert",
+    "worldsinglass:scene_globe_sea",
+    "worldsinglass:scene_globe_nether",
+    "worldsinglass:scene_globe_deep",
+    "worldsinglass:scene_globe_jungle"
   ]
 }

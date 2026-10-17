@@ -1,0 +1,19 @@
+{
+  "variants": {
+    "facing=north": {
+      "model": "worldsinglass:block/globe_shelf"
+    },
+    "facing=east": {
+      "model": "worldsinglass:block/globe_shelf",
+      "y": 90
+    },
+    "facing=south": {
+      "model": "worldsinglass:block/globe_shelf",
+      "y": 180
+    },
+    "facing=west": {
+      "model": "worldsinglass:block/globe_shelf",
+      "y": 270
+    }
+  }
+}

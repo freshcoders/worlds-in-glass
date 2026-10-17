@@ -1,0 +1,126 @@
+{
+  "display": {
+    "icon": {
+      "id": "worldsinglass:nether_jar"
+    },
+    "title": {
+      "translate": "advancements.worldsinglass.collector.title"
+    },
+    "description": {
+      "translate": "advancements.worldsinglass.collector.description"
+    },
+    "frame": "challenge",
+    "show_toast": true,
+    "announce_to_chat": true,
+    "hidden": false
+  },
+  "parent": "worldsinglass:on_display",
+  "criteria": {
+    "snow_globe": {
+      "trigger": "minecraft:inventory_changed",
+      "conditions": {
+        "items": [
+          {
+            "items": "worldsinglass:snow_globe"
+          }
+        ]
+      }
+    },
+    "terrarium": {
+      "trigger": "minecraft:inventory_changed",
+      "conditions": {
+        "items": [
+          {
+            "items": "worldsinglass:terrarium"
+          }
+        ]
+      }
+    },
+    "storm_globe": {
+      "trigger": "minecraft:inventory_changed",
+      "conditions": {
+        "items": [
+          {
+            "items": "worldsinglass:storm_globe"
+          }
+        ]
+      }
+    },
+    "ship_bottle": {
+      "trigger": "minecraft:inventory_changed",
+      "conditions": {
+        "items": [
+          {
+            "items": "worldsinglass:ship_bottle"
+          }
+        ]
+      }
+    },
+    "desert_globe": {
+      "trigger": "minecraft:inventory_changed",
+      "conditions": {
+        "items": [
+          {
+            "items": "worldsinglass:desert_globe"
+          }
+        ]
+      }
+    },
+    "aquarium": {
+      "trigger": "minecraft:inventory_changed",
+      "conditions": {
+        "items": [
+          {
+            "items": "worldsinglass:aquarium"
+          }
+        ]
+      }
+    },
+    "star_globe": {
+      "trigger": "minecraft:inventory_changed",
+      "conditions": {
+        "items": [
+          {
+            "items": "worldsinglass:star_globe"
+          }
+        ]
+      }
+    },
+    "nether_jar": {
+      "trigger": "minecraft:inventory_changed",
+      "conditions": {
+        "items": [
+          {
+            "items": "worldsinglass:nether_jar"
+          }
+        ]
+      }
+    }
+  },
+  "requirements": [
+    [
+      "snow_globe"
+    ],
+    [
+      "terrarium"
+    ],
+    [
+      "storm_globe"
+    ],
+    [
+      "ship_bottle"
+    ],
+    [
+      "desert_globe"
+    ],
+    [
+      "aquarium"
+    ],
+    [
+      "star_globe"
+    ],
+    [
+      "nether_jar"
+    ]
+  ]
+}

@@ -1,0 +1,24 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "category": "misc",
+  "pattern": [
+    " B ",
+    " K ",
+    "PPP"
+  ],
+  "key": {
+    "B": {
+      "item": "worldsinglass:glass_bulb"
+    },
+    "K": {
+      "item": "minecraft:kelp"
+    },
+    "P": {
+      "item": "minecraft:dark_prismarine_slab"
+    }
+  },
+  "result": {
+    "id": "worldsinglass:aquarium",
+    "count": 1
+  }
+}

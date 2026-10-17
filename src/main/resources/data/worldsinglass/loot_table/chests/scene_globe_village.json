@@ -1,0 +1,128 @@
+{
+  "type": "minecraft:chest",
+  "pools": [
+    {
+      "rolls": 1,
+      "conditions": [
+        {
+          "condition": "minecraft:random_chance",
+          "chance": 0.08
+        }
+      ],
+      "entries": [
+        {
+          "type": "minecraft:item",
+          "name": "worldsinglass:snow_globe",
+          "functions": [
+            {
+              "function": "minecraft:set_components",
+              "components": {
+                "worldsinglass:globe": {
+                  "Scene": true
+                }
+              }
+            }
+          ]
+        },
+        {
+          "type": "minecraft:item",
+          "name": "worldsinglass:terrarium",
+          "functions": [
+            {
+              "function": "minecraft:set_components",
+              "components": {
+                "worldsinglass:globe": {
+                  "Scene": true
+                }
+              }
+            }
+          ]
+        },
+        {
+          "type": "minecraft:item",
+          "name": "worldsinglass:storm_globe",
+          "functions": [
+            {
+              "function": "minecraft:set_components",
+              "components": {
+                "worldsinglass:globe": {
+                  "Scene": true
+                }
+              }
+            }
+          ]
+        },
+        {
+          "type": "minecraft:item",
+          "name": "worldsinglass:ship_bottle",
+          "functions": [
+            {
+              "function": "minecraft:set_components",
+              "components": {
+                "worldsinglass:globe": {
+                  "Scene": true
+                }
+              }
+            }
+          ]
+        },
+        {
+          "type": "minecraft:item",
+          "name": "worldsinglass:desert_globe",
+          "functions": [
+            {
+              "function": "minecraft:set_components",
+              "components": {
+                "worldsinglass:globe": {
+                  "Scene": true
+                }
+              }
+            }
+          ]
+        },
+        {
+          "type": "minecraft:item",
+          "name": "worldsinglass:aquarium",
+          "functions": [
+            {
+              "function": "minecraft:set_components",
+              "components": {
+                "worldsinglass:globe": {
+                  "Scene": true
+                }
+              }
+            }
+          ]
+        },
+        {
+          "type": "minecraft:item",
+          "name": "worldsinglass:star_globe",
+          "functions": [
+            {
+              "function": "minecraft:set_components",
+              "components": {
+                "worldsinglass:globe": {
+                  "Scene": true
+                }
+              }
+            }
+          ]
+        },
+        {
+          "type": "minecraft:item",
+          "name": "worldsinglass:nether_jar",
+          "functions": [
+            {
+              "function": "minecraft:set_components",
+              "components": {
+                "worldsinglass:globe": {
+                  "Scene": true
+                }
+              }
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

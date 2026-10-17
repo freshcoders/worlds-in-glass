@@ -1,0 +1,94 @@
+{
+  "variants": {
+    "display=s,facing=east,spinning=false": {
+      "model": "worldsinglass:block/nether_jar"
+    },
+    "display=s,facing=east,spinning=true": {
+      "model": "worldsinglass:block/nether_jar_hidden"
+    },
+    "display=m,facing=east,spinning=false": {
+      "model": "worldsinglass:block/nether_jar_hidden"
+    },
+    "display=m,facing=east,spinning=true": {
+      "model": "worldsinglass:block/nether_jar_hidden"
+    },
+    "display=l,facing=east,spinning=false": {
+      "model": "worldsinglass:block/nether_jar_hidden"
+    },
+    "display=l,facing=east,spinning=true": {
+      "model": "worldsinglass:block/nether_jar_hidden"
+    },
+    "display=s,facing=south,spinning=false": {
+      "model": "worldsinglass:block/nether_jar",
+      "y": 90
+    },
+    "display=s,facing=south,spinning=true": {
+      "model": "worldsinglass:block/nether_jar_hidden",
+      "y": 90
+    },
+    "display=m,facing=south,spinning=false": {
+      "model": "worldsinglass:block/nether_jar_hidden",
+      "y": 90
+    },
+    "display=m,facing=south,spinning=true": {
+      "model": "worldsinglass:block/nether_jar_hidden",
+      "y": 90
+    },
+    "display=l,facing=south,spinning=false": {
+      "model": "worldsinglass:block/nether_jar_hidden",
+      "y": 90
+    },
+    "display=l,facing=south,spinning=true": {
+      "model": "worldsinglass:block/nether_jar_hidden",
+      "y": 90
+    },
+    "display=s,facing=west,spinning=false": {
+      "model": "worldsinglass:block/nether_jar",
+      "y": 180
+    },
+    "display=s,facing=west,spinning=true": {
+      "model": "worldsinglass:block/nether_jar_hidden",
+      "y": 180
+    },
+    "display=m,facing=west,spinning=false": {
+      "model": "worldsinglass:block/nether_jar_hidden",
+      "y": 180
+    },
+    "display=m,facing=west,spinning=true": {
+      "model": "worldsinglass:block/nether_jar_hidden",
+      "y": 180
+    },
+    "display=l,facing=west,spinning=false": {
+      "model": "worldsinglass:block/nether_jar_hidden",
+      "y": 180
+    },
+    "display=l,facing=west,spinning=true": {
+      "model": "worldsinglass:block/nether_jar_hidden",
+      "y": 180
+    },
+    "display=s,facing=north,spinning=false": {
+      "model": "worldsinglass:block/nether_jar",
+      "y": 270
+    },
+    "display=s,facing=north,spinning=true": {
+      "model": "worldsinglass:block/nether_jar_hidden",
+      "y": 270
+    },
+    "display=m,facing=north,spinning=false": {
+      "model": "worldsinglass:block/nether_jar_hidden",
+      "y": 270
+    },
+    "display=m,facing=north,spinning=true": {
+      "model": "worldsinglass:block/nether_jar_hidden",
+      "y": 270
+    },
+    "display=l,facing=north,spinning=false": {
+      "model": "worldsinglass:block/nether_jar_hidden",
+      "y": 270
+    },
+    "display=l,facing=north,spinning=true": {
+      "model": "worldsinglass:block/nether_jar_hidden",
+      "y": 270
+    }
+  }
+}

@@ -1,0 +1,6 @@
+{
+  "parent": "minecraft:item/handheld",
+  "textures": {
+    "layer0": "worldsinglass:item/glassblower_pipe"
+  }
+}

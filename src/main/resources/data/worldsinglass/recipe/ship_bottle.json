@@ -1,0 +1,19 @@
+{
+  "type": "minecraft:crafting_shapeless",
+  "category": "misc",
+  "ingredients": [
+    {
+      "item": "worldsinglass:glass_bulb"
+    },
+    {
+      "tag": "minecraft:boats"
+    },
+    {
+      "item": "minecraft:stripped_oak_log"
+    }
+  ],
+  "result": {
+    "id": "worldsinglass:ship_bottle",
+    "count": 1
+  }
+}

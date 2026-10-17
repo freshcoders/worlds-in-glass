@@ -1,0 +1,23 @@
+{
+  "display": {
+    "icon": {
+      "id": "worldsinglass:storm_globe"
+    },
+    "title": {
+      "translate": "advancements.worldsinglass.eye_of_the_storm.title"
+    },
+    "description": {
+      "translate": "advancements.worldsinglass.eye_of_the_storm.description"
+    },
+    "frame": "goal",
+    "show_toast": true,
+    "announce_to_chat": true,
+    "hidden": false
+  },
+  "parent": "worldsinglass:shake",
+  "criteria": {
+    "done": {
+      "trigger": "minecraft:impossible"
+    }
+  }
+}
