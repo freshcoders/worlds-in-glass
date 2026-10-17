@@ -110,11 +110,11 @@ final class MiniatureCache implements AutoCloseable
         {
             // Minecraft's water renderer, fed with the snapshot as its world; it writes in cell units.
             SnapshotView view = new SnapshotView(snapshot, level, where, light);
-            VertexConsumer out = new SnapshotView.PosedConsumer(buffers.getBuffer(Sheets.translucentCullBlockSheet()), poseStack.last());
+            SnapshotView.PosedConsumer out = new SnapshotView.PosedConsumer(buffers.getBuffer(Sheets.translucentCullBlockSheet()), poseStack.last());
             for (BlockPos pos : snapshot.fluidCells())
             {
                 BlockState block = snapshot.get(pos.getX(), pos.getY(), pos.getZ());
-                blocks.renderLiquid(pos, view, out, block, block.getFluidState());
+                blocks.renderLiquid(pos, view, out.at(pos), block, block.getFluidState());
             }
         }
     }

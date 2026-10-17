@@ -330,16 +330,19 @@ public final class OutsideView
         return view != null;
     }
 
-    /** A view's blocks as one mesh, positions relative to the view's origin. */
+    /** A view's blocks as one mesh, positions relative to the view's origin; water and lava included. */
     private static BakedMesh buildMesh(View v, BlockRenderDispatcher blocks)
     {
         return BakedMesh.bake(recorder -> {
             PoseStack local = new PoseStack();
+            List<BlockPos> fluids = new ArrayList<>();
             for (BlockPos pos : v.visible())
             {
                 int x = pos.getX() - v.origin().getX(), y = pos.getY() - v.origin().getY(), z = pos.getZ() - v.origin().getZ();
                 int i = (y * v.sz() + z) * v.sx() + x;
                 BlockState state = v.states()[i];
+                if (!state.getFluidState().isEmpty())
+                    fluids.add(new BlockPos(x, y, z));
                 if (state.getRenderShape() == RenderShape.INVISIBLE)
                     continue;
                 int packed = v.light()[i] & 0xFF;
@@ -349,7 +352,95 @@ public final class OutsideView
                         OverlayTexture.NO_OVERLAY, ModelData.EMPTY, null);
                 local.popPose();
             }
+            // Fluids have no block model: Minecraft's own water renderer draws them, with the view as its world.
+            ClientLevel level = Minecraft.getInstance().level;
+            if (!fluids.isEmpty() && level != null)
+            {
+                ViewWorld world = new ViewWorld(v, level);
+                SnapshotView.PosedConsumer out = new SnapshotView.PosedConsumer(
+                        recorder.getBuffer(net.minecraft.client.renderer.Sheets.translucentCullBlockSheet()), local.last());
+                for (BlockPos pos : fluids)
+                {
+                    BlockState state = world.getBlockState(pos);
+                    blocks.renderLiquid(pos, world, out.at(pos), state, state.getFluidState());
+                }
+            }
         });
+    }
+
+    /** A view seen as a small world (positions relative to its origin), for the water renderer's questions. */
+    private record ViewWorld(View v, ClientLevel level) implements net.minecraft.world.level.BlockAndTintGetter
+    {
+        private int index(BlockPos pos)
+        {
+            int x = pos.getX(), y = pos.getY(), z = pos.getZ();
+            return x < 0 || y < 0 || z < 0 || x >= v.sx() || y >= v.sy() || z >= v.sz() ? -1 : (y * v.sz() + z) * v.sx() + x;
+        }
+
+        @Override
+        public BlockState getBlockState(BlockPos pos)
+        {
+            int i = index(pos);
+            return i < 0 ? net.minecraft.world.level.block.Blocks.AIR.defaultBlockState() : v.states()[i];
+        }
+
+        @Override
+        public net.minecraft.world.level.material.FluidState getFluidState(BlockPos pos)
+        {
+            return getBlockState(pos).getFluidState();
+        }
+
+        @Nullable
+        @Override
+        public net.minecraft.world.level.block.entity.BlockEntity getBlockEntity(BlockPos pos)
+        {
+            return null;
+        }
+
+        @Override
+        public int getHeight()
+        {
+            return v.sy();
+        }
+
+        @Override
+        public int getMinBuildHeight()
+        {
+            return 0;
+        }
+
+        @Override
+        public float getShade(net.minecraft.core.Direction direction, boolean shade)
+        {
+            return level.getShade(direction, shade);
+        }
+
+        @Override
+        public net.minecraft.world.level.lighting.LevelLightEngine getLightEngine()
+        {
+            return level.getLightEngine();
+        }
+
+        @Override
+        public int getBrightness(net.minecraft.world.level.LightLayer layer, BlockPos pos)
+        {
+            int i = index(pos);
+            int packed = i < 0 ? 0xF0 : v.light()[i] & 0xFF;
+            return layer == net.minecraft.world.level.LightLayer.SKY ? packed >> 4 : packed & 15;
+        }
+
+        @Override
+        public int getRawBrightness(BlockPos pos, int darkening)
+        {
+            return Math.max(getBrightness(net.minecraft.world.level.LightLayer.BLOCK, pos),
+                    getBrightness(net.minecraft.world.level.LightLayer.SKY, pos) - darkening);
+        }
+
+        @Override
+        public int getBlockTint(BlockPos pos, net.minecraft.world.level.ColorResolver resolver)
+        {
+            return level.getBlockTint(v.globePos(), resolver);
+        }
     }
 
     /** The camera's view, then the miniature's placement run backwards: outside world -> globe block -> build space. */

@@ -116,11 +116,22 @@ final class SnapshotView implements BlockAndTintGetter
         private final PoseStack.Pose pose;
         private float x, y, z, u, v;
         private int r = 255, g = 255, b = 255, a = 255, light;
+        /** Minecraft's water renderer writes positions within a 16-block section; this puts them back in place. */
+        private int ox, oy, oz;
 
         PosedConsumer(VertexConsumer out, PoseStack.Pose pose)
         {
             this.out = out;
             this.pose = pose;
+        }
+
+        /** Call before rendering each fluid block: where its 16-block section starts. */
+        PosedConsumer at(BlockPos pos)
+        {
+            ox = pos.getX() & ~15;
+            oy = pos.getY() & ~15;
+            oz = pos.getZ() & ~15;
+            return this;
         }
 
         @Override
@@ -166,7 +177,7 @@ final class SnapshotView implements BlockAndTintGetter
         @Override
         public VertexConsumer setNormal(float nx, float ny, float nz)
         {
-            out.addVertex(pose, x, y, z).setColor(r, g, b, a).setUv(u, v).setOverlay(OverlayTexture.NO_OVERLAY)
+            out.addVertex(pose, x + ox, y + oy, z + oz).setColor(r, g, b, a).setUv(u, v).setOverlay(OverlayTexture.NO_OVERLAY)
                     .setLight(light).setNormal(pose, nx, ny, nz);
             return this;
         }
