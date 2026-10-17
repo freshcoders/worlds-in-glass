@@ -147,6 +147,8 @@ public class SnowGlobeMod
         NeoForge.EVENT_BUS.addListener(GlobeTrades::onWandererTrades);
         NeoForge.EVENT_BUS.addListener(GlobeWakeUp::onDeath);
         NeoForge.EVENT_BUS.addListener(GlobeWakeUp::onClone);
+        NeoForge.EVENT_BUS.addListener(GlobeWakeUp::onDrops);
+        NeoForge.EVENT_BUS.addListener(GlobeWakeUp::onExperience);
         NeoForge.EVENT_BUS.addListener(GlobeWakeUp::onRespawn);
     }
 }

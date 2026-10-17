@@ -92,6 +92,6 @@
   "item.snowglobe.glass_bulb": "Glass Bulb",
   "advancements.snowglobe.two_of_a_kind.title": "Two of a Kind",
   "advancements.snowglobe.two_of_a_kind.description": "Make a twin globe: two globes, one world inside",
-  "snowglobe.message.woke_up": "You wake up on the floor beside the %s, a little dizzy.",
+  "snowglobe.message.woke_up": "You wake up on the floor beside the %s, a little dizzy, with everything still in your pockets.",
   "snowglobe.message.the_globe": "globe"
 }

@@ -390,6 +390,37 @@ public final class OutsideView
         poseStack.translate(-(v.globePos().getX() + 0.5), -v.globePos().getY(), -(v.globePos().getZ() + 0.5));
     }
 
+    /** The block at a spot in a view's world, or air outside it. */
+    private static BlockState stateAt(View v, BlockPos pos)
+    {
+        int x = pos.getX() - v.origin().getX(), y = pos.getY() - v.origin().getY(), z = pos.getZ() - v.origin().getZ();
+        if (x < 0 || y < 0 || z < 0 || x >= v.sx() || y >= v.sy() || z >= v.sz())
+            return net.minecraft.world.level.block.Blocks.AIR.defaultBlockState();
+        return v.states()[(y * v.sz() + z) * v.sx() + x];
+    }
+
+    /** The light at a spot in a view's world, packed for drawing. */
+    private static int lightAt(View v, BlockPos pos)
+    {
+        int x = pos.getX() - v.origin().getX(), y = pos.getY() - v.origin().getY(), z = pos.getZ() - v.origin().getZ();
+        if (x < 0 || y < 0 || z < 0 || x >= v.sx() || y >= v.sy() || z >= v.sz())
+            return LightTexture.FULL_BRIGHT;
+        int packed = v.light()[(y * v.sz() + z) * v.sx() + x] & 0xFF;
+        return LightTexture.pack(packed & 15, packed >> 4);
+    }
+
+    /** The globe a view is seen from: its base (drawn big if it's a big globe), and its glass if asked. */
+    private static void drawOwnGlobe(View v, PoseStack poseStack, MultiBufferSource buffers, BlockRenderDispatcher blocks, boolean glass)
+    {
+        BlockState state = stateAt(v, v.globePos());
+        if (!(state.getBlock() instanceof GlobeBlock block))
+            return;
+        poseStack.pushPose();
+        poseStack.translate(v.globePos().getX(), v.globePos().getY(), v.globePos().getZ());
+        GlobeRenderer.renderShell(state, block.kind(), poseStack, buffers, lightAt(v, v.globePos()), blocks, glass);
+        poseStack.popPose();
+    }
+
     /** How many times giant a view's world is drawn, seen from inside its globe. */
     private static double giant(View v)
     {
@@ -432,6 +463,27 @@ public final class OutsideView
                 placeOutside(poseStack, layers.get(i));
             poseStack.translate(b.origin().getX(), b.origin().getY(), b.origin().getZ());
             backdropMeshes[layer].draw(poseStack.last().pose());
+            // The globes standing round it with their miniatures, and this layer's own globe: base and glass, all
+            // round the worlds nearer in.
+            poseStack.translate(-b.origin().getX(), -b.origin().getY(), -b.origin().getZ());
+            MultiBufferSource.BufferSource buffers = mc.renderBuffers().bufferSource();
+            if (mc.level != null)
+            {
+                float ticks = mc.level.getGameTime() % 240000 + event.getPartialTick().getGameTimeDeltaPartialTick(false);
+                for (Neighbour globe : b.globes())
+                {
+                    BlockState state = stateAt(b, globe.pos());
+                    if (!(state.getBlock() instanceof GlobeBlock block))
+                        continue;
+                    poseStack.pushPose();
+                    poseStack.translate(globe.pos().getX(), globe.pos().getY(), globe.pos().getZ());
+                    GlobeRenderer.renderPlaced(state, block.kind(), globe.snapshot(), poseStack, buffers, lightAt(b, globe.pos()),
+                            ticks, mc.getBlockRenderer(), null, null, mc.level, globe.pos(), -1, state.getValue(GlobeBlock.SPINNING), globe.look());
+                    poseStack.popPose();
+                }
+            }
+            drawOwnGlobe(b, poseStack, buffers, mc.getBlockRenderer(), true);
+            buffers.endBatch();
             RenderSystem.clear(org.lwjgl.opengl.GL11.GL_DEPTH_BUFFER_BIT, Minecraft.ON_OSX);
         }
         RenderSystem.setShaderFogStart(fogStart);
@@ -488,6 +540,8 @@ public final class OutsideView
                         ticks, blocks, null, null, level, globe.pos(), -1, state.getValue(GlobeBlock.SPINNING), globe.look());
                 poseStack.popPose();
             }
+            // The globe you're in: a big one's pedestal looms under you (a small one's is in the world's blocks).
+            drawOwnGlobe(v, poseStack, buffers, blocks, false);
         }
 
         // The animals and monsters around the globe, wandering past.

@@ -18,11 +18,14 @@ import org.jetbrains.annotations.Nullable;
 
 /**
  * Dying inside a globe: you come round on the floor beside the globe you first went into (the outermost one, if you
- * were in a globe inside a globe), not back at your bed or the world's spawn.
+ * were in a globe inside a globe), not back at your bed or the world's spawn, and with everything you had on you:
+ * it was only a dream, a very small one.
  */
 public final class GlobeWakeUp
 {
     private static final String WAKE_KEY = SnowGlobeMod.MODID + ":wake_up";
+    /** Your inventory and experience as they were when you died inside a globe, to have them back when you wake. */
+    private static final String KEPT_KEY = SnowGlobeMod.MODID + ":kept";
 
     private GlobeWakeUp() {}
 
@@ -37,6 +40,30 @@ public final class GlobeWakeUp
         if (first.contains("Pos"))
             data.put(WAKE_KEY, first.copy());
         GlobeSpace.forgetWayBack(player);
+        // Keep what you had (unless the world keeps inventories anyway): nothing is dropped, and it comes back with you.
+        if (!player.serverLevel().getGameRules().getBoolean(net.minecraft.world.level.GameRules.RULE_KEEPINVENTORY))
+        {
+            CompoundTag kept = new CompoundTag();
+            kept.put("Items", player.getInventory().save(new ListTag()));
+            kept.putInt("Level", player.experienceLevel);
+            kept.putFloat("Progress", player.experienceProgress);
+            kept.putInt("Total", player.totalExperience);
+            data.put(KEPT_KEY, kept);
+        }
+    }
+
+    /** Nothing falls out of your pockets when you die inside a globe... */
+    static void onDrops(net.neoforged.neoforge.event.entity.living.LivingDropsEvent event)
+    {
+        if (event.getEntity() instanceof ServerPlayer player && player.getPersistentData().contains(KEPT_KEY))
+            event.setCanceled(true);
+    }
+
+    /** ...and no experience either. */
+    static void onExperience(net.neoforged.neoforge.event.entity.living.LivingExperienceDropEvent event)
+    {
+        if (event.getEntity() instanceof ServerPlayer player && player.getPersistentData().contains(KEPT_KEY))
+            event.setCanceled(true);
     }
 
     /** The player after respawning is a new one: carry the note over. */
@@ -45,6 +72,14 @@ public final class GlobeWakeUp
         CompoundTag old = event.getOriginal().getPersistentData();
         if (event.isWasDeath() && old.contains(WAKE_KEY))
             event.getEntity().getPersistentData().put(WAKE_KEY, old.getCompound(WAKE_KEY).copy());
+        if (event.isWasDeath() && old.contains(KEPT_KEY))
+        {
+            CompoundTag kept = old.getCompound(KEPT_KEY);
+            event.getEntity().getInventory().load(kept.getList("Items", Tag.TAG_COMPOUND));
+            event.getEntity().experienceLevel = kept.getInt("Level");
+            event.getEntity().experienceProgress = kept.getFloat("Progress");
+            event.getEntity().totalExperience = kept.getInt("Total");
+        }
     }
 
     static void onRespawn(PlayerEvent.PlayerRespawnEvent event)

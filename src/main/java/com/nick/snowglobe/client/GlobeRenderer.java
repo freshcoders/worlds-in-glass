@@ -298,6 +298,38 @@ public class GlobeRenderer implements BlockEntityRenderer<GlobeBlockEntity>
         }
     }
 
+    /**
+     * Just a globe's base, drawn big for a medium or large globe (a small one's is its block model), and if asked
+     * its glass: for the globe you're in, seen giant from inside it, and the globes round it further out.
+     */
+    static void renderShell(BlockState blockState, GlobeKind kind, PoseStack poseStack, MultiBufferSource buffers, int light,
+                            BlockRenderDispatcher blocks, boolean glass)
+    {
+        int turns = blockState.hasProperty(GlobeBlock.FACING) ? GlobeBlock.quarterTurns(blockState.getValue(GlobeBlock.FACING)) : 0;
+        int scale = blockState.hasProperty(GlobeBlock.DISPLAY) ? blockState.getValue(GlobeBlock.DISPLAY).scale : 1;
+        poseStack.pushPose();
+        poseStack.translate(0.5f, 0, 0.5f);
+        poseStack.scale(scale, scale, scale);
+        poseStack.mulPose(Axis.YP.rotationDegrees(-90 * turns));
+        poseStack.translate(-0.5f, 0, -0.5f);
+        if (scale > 1)
+            blocks.renderSingleBlock(blockState.setValue(GlobeBlock.DISPLAY, DisplaySize.SMALL).setValue(GlobeBlock.FACING, Direction.EAST)
+                            .setValue(GlobeBlock.SPINNING, false),
+                    poseStack, buffers, light, OverlayTexture.NO_OVERLAY, ModelData.EMPTY, null);
+        if (glass)
+        {
+            Vec3 up = new Vec3(0, 1, 0);
+            switch (kind)
+            {
+                case SHIP_BOTTLE -> renderBottle(poseStack, buffers, false, light, up);
+                case NETHER_JAR -> renderJar(poseStack, buffers, false, light, up);
+                case TERRARIUM, AQUARIUM -> {}
+                default -> renderBall(poseStack, buffers, false, light, up, 255, 255, 255, 0);
+            }
+        }
+        poseStack.popPose();
+    }
+
     /** Medium and large globes are drawn bigger than their block; keep drawing them while any of that is in view. */
     @Override
     public AABB getRenderBoundingBox(GlobeBlockEntity globe)
