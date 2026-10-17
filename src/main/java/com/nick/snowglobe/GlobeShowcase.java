@@ -103,10 +103,18 @@ final class GlobeShowcase
                 for (int y = 2; y <= 3; y++)
                     room.set(u, v, y, pane);
 
-        // A rug in the middle.
+        // A rug in the middle, round a bare stone spot for the big globe: drawn two blocks wide, its base would sink
+        // into carpet around it.
         for (int u = -2; u <= 2; u++)
             for (int v = 3; v <= 7; v++)
+            {
+                if (Math.abs(u) <= 1 && Math.abs(v - 5) <= 1)
+                {
+                    room.set(u, v, 0, Blocks.POLISHED_BLACKSTONE.defaultBlockState());
+                    continue;
+                }
                 room.set(u, v, 1, (Math.abs(u) == 2 || v == 3 || v == 7 ? Blocks.BROWN_CARPET : Blocks.RED_CARPET).defaultBlockState());
+            }
 
         // Lanterns hanging from the beams.
         for (int u : new int[] {-3, 3})
