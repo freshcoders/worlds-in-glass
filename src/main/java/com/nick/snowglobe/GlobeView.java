@@ -85,19 +85,46 @@ public final class GlobeView
 
     // ---- The outside world, seen from inside ----
 
-    /** Sends a player inside a globe the world around the globe block, and how to place it around them. */
+    /**
+     * Sends a player inside a globe the world around the globe block, and how to place it around them. Inside a globe
+     * that stands in another globe, also the world around the outermost globe (the overworld, usually), to show far
+     * off behind the outer globe's glass.
+     */
     static void sendView(ServerPlayer player)
     {
         CompoundTag globe = player.getPersistentData().getCompound(GLOBE_KEY);
         ServerLevel outside = outsideLevel(player.server, globe);
         if (outside == null)
             return;
-        BlockPos globePos = BlockPos.of(globe.getLong("Pos"));
+        CompoundTag tag = captureView(player.server, outside, BlockPos.of(globe.getLong("Pos")), globe.getInt("Id"));
+        if (tag == null)
+            return;
+        ListTag outer = player.getPersistentData().getList(GlobeSpace.OUTER_KEY, net.minecraft.nbt.Tag.TAG_COMPOUND);
+        int parent = outside.dimension() == GlobeSpace.LEVEL ? GlobeSpace.idAt(player.server, BlockPos.of(globe.getLong("Pos"))) : -1;
+        if (!outer.isEmpty() && parent >= 0)
+        {
+            CompoundTag root = outer.getCompound(0);
+            ServerLevel rootLevel = outsideLevel(player.server, root);
+            CompoundTag backdrop = rootLevel == null ? null : captureView(player.server, rootLevel, BlockPos.of(root.getLong("Pos")), root.getInt("Id"));
+            if (backdrop != null)
+            {
+                // Where the globe this one stands in is, for placing the backdrop round it.
+                backdrop.putLong("ParentMin", GlobeSpace.interiorMin(player.server, parent).asLong());
+                backdrop.putInt("ParentSize", GlobeSavedData.get(player.server).sizeOf(parent));
+                tag.put("Backdrop", backdrop);
+            }
+        }
+        GlobeNetwork.send(player, new GlobeNetwork.OutsideView(tag));
+    }
+
+    /** The world around one globe block, and how its globe's miniature sits in it; null if there's no globe there. */
+    @Nullable
+    private static CompoundTag captureView(MinecraftServer server, ServerLevel outside, BlockPos globePos, int id)
+    {
         BlockState globeState = outside.getBlockState(globePos);
         if (!(globeState.getBlock() instanceof GlobeBlock block))
-            return;
-        int id = globe.getInt("Id");
-        GlobeSavedData data = GlobeSavedData.get(player.server);
+            return null;
+        GlobeSavedData data = GlobeSavedData.get(server);
         GlobeSavedData.Entry entry = data.get(id);
         MiniatureLayout layout = MiniatureLayout.of(block.kind(), entry == null ? null : entry.snapshot());
 
@@ -108,7 +135,7 @@ public final class GlobeView
         tag.putInt("Season", data.seasonOf(id));
         tag.putInt("Turns", GlobeBlock.quarterTurns(globeState.getValue(GlobeBlock.FACING)));
         tag.putInt("Display", globeState.getValue(GlobeBlock.DISPLAY).scale);
-        tag.putLong("InteriorMin", GlobeSpace.interiorMin(player.server, id).asLong());
+        tag.putLong("InteriorMin", GlobeSpace.interiorMin(server, id).asLong());
         tag.putInt("SpaceSize", data.sizeOf(id));
         tag.putFloat("Cell", layout.cell());
         tag.putInt("Scale", layout.scale());
@@ -166,7 +193,7 @@ public final class GlobeView
         tag.put("Palette", palette);
         tag.putIntArray("Cells", cells);
         tag.putByteArray("Light", light);
-        GlobeNetwork.send(player, new GlobeNetwork.OutsideView(tag));
+        return tag;
     }
 
     /**

@@ -63,6 +63,17 @@ public final class OutsideView
     /** The giant world's blocks, built once into a mesh (positions relative to the view's origin). */
     @Nullable
     private static BakedMesh worldMesh;
+    /**
+     * Inside a globe that stands in another globe: the world around the outermost globe (the overworld, usually),
+     * drawn far off behind the outer globe's glass. At its true size it would be hundreds of times giant and far
+     * beyond the view distance, so it's shown smaller: as a backdrop, behind everything else.
+     */
+    @Nullable
+    private static View backdrop;
+    @Nullable
+    private static BakedMesh backdropMesh;
+    private static BlockPos parentMin = BlockPos.ZERO;
+    private static int parentSize;
 
     private static void dropWorldMesh()
     {
@@ -70,6 +81,11 @@ public final class OutsideView
         {
             worldMesh.close();
             worldMesh = null;
+        }
+        if (backdropMesh != null)
+        {
+            backdropMesh.close();
+            backdropMesh = null;
         }
     }
 
@@ -83,7 +99,9 @@ public final class OutsideView
     /** Another globe standing near the one you're in, with its contents, to draw giant with its miniature. */
     private record Neighbour(BlockPos pos, GlobeSnapshot snapshot, GlobeRenderer.Look look) {}
 
-    static void receive(CompoundTag tag)
+    /** A view as received, or null if it's malformed. */
+    @Nullable
+    private static View parse(CompoundTag tag)
     {
         ListTag paletteTag = tag.getList("Palette", Tag.TAG_COMPOUND);
         BlockState[] palette = new BlockState[paletteTag.size()];
@@ -92,7 +110,7 @@ public final class OutsideView
         int[] size = tag.getIntArray("Size");
         int[] cells = tag.getIntArray("Cells");
         if (size.length != 3 || cells.length != size[0] * size[1] * size[2])
-            return;
+            return null;
         BlockState[] states = new BlockState[cells.length];
         for (int i = 0; i < cells.length; i++)
             states[i] = palette[Mth.clamp(cells[i], 0, palette.length - 1)];
@@ -121,17 +139,47 @@ public final class OutsideView
                         GlobeRenderer.Look.of(globesTag.getCompound(i))));
         }
 
-        // The same world as before (it's resent every few seconds): keep the mesh.
         byte[] light = tag.getByteArray("Light");
-        if (view == null || !view.origin().equals(origin) || !java.util.Arrays.equals(view.states(), states) || !java.util.Arrays.equals(view.light(), light))
-            dropWorldMesh();
-
-        view = new View(BlockPos.of(tag.getLong("GlobePos")), tag.getInt("Kind"), tag.getInt("Phase"), tag.getInt("Season"), tag.getInt("SpaceSize"),
+        return new View(BlockPos.of(tag.getLong("GlobePos")), tag.getInt("Kind"), tag.getInt("Phase"), tag.getInt("Season"), tag.getInt("SpaceSize"),
                 tag.getInt("Turns"), Math.max(1, tag.getInt("Display")),
                 BlockPos.of(tag.getLong("InteriorMin")), tag.getFloat("Cell"), Math.max(1, tag.getInt("Scale")),
                 new Vec3(tag.getDouble("CenterX"), tag.getDouble("CenterY"), tag.getDouble("CenterZ")),
                 new Vec3(tag.getDouble("PivotX"), tag.getDouble("PivotY"), tag.getDouble("PivotZ")),
                 origin, size[0], size[1], size[2], states, light, visible, globes);
+    }
+
+    /** Whether two views show the same blocks, so a mesh built for one still fits the other. */
+    private static boolean sameWorld(@Nullable View a, View b)
+    {
+        return a != null && a.origin().equals(b.origin()) && java.util.Arrays.equals(a.states(), b.states())
+                && java.util.Arrays.equals(a.light(), b.light());
+    }
+
+    static void receive(CompoundTag tag)
+    {
+        View next = parse(tag);
+        if (next == null)
+            return;
+        // The same world as before (it's resent every few seconds): keep the mesh.
+        if (!sameWorld(view, next) && worldMesh != null)
+        {
+            worldMesh.close();
+            worldMesh = null;
+        }
+        view = next;
+
+        View nextBackdrop = tag.contains("Backdrop") ? parse(tag.getCompound("Backdrop")) : null;
+        if ((nextBackdrop == null || !sameWorld(backdrop, nextBackdrop)) && backdropMesh != null)
+        {
+            backdropMesh.close();
+            backdropMesh = null;
+        }
+        backdrop = nextBackdrop;
+        if (nextBackdrop != null)
+        {
+            parentMin = BlockPos.of(tag.getCompound("Backdrop").getLong("ParentMin"));
+            parentSize = tag.getCompound("Backdrop").getInt("ParentSize");
+        }
     }
 
     private static boolean enclosed(BlockState[] states, int[] size, int x, int y, int z)
@@ -266,6 +314,7 @@ public final class OutsideView
         if (level == null || level.dimension() != GlobeSpace.LEVEL)
         {
             view = null;
+            backdrop = null;
             giants.clear();
             mobs = new MiniEntities();
             dropWorldMesh();
@@ -273,9 +322,97 @@ public final class OutsideView
         return view != null;
     }
 
+    /** A view's blocks as one mesh, positions relative to the view's origin. */
+    private static BakedMesh buildMesh(View v, BlockRenderDispatcher blocks)
+    {
+        return BakedMesh.bake(recorder -> {
+            PoseStack local = new PoseStack();
+            for (BlockPos pos : v.visible())
+            {
+                int x = pos.getX() - v.origin().getX(), y = pos.getY() - v.origin().getY(), z = pos.getZ() - v.origin().getZ();
+                int i = (y * v.sz() + z) * v.sx() + x;
+                BlockState state = v.states()[i];
+                if (state.getRenderShape() == RenderShape.INVISIBLE)
+                    continue;
+                int packed = v.light()[i] & 0xFF;
+                local.pushPose();
+                local.translate(x, y, z);
+                blocks.renderSingleBlock(state, local, recorder, LightTexture.pack(packed & 15, packed >> 4),
+                        OverlayTexture.NO_OVERLAY, ModelData.EMPTY, null);
+                local.popPose();
+            }
+        });
+    }
+
+    /** The camera's view, then the miniature's placement run backwards: outside world -> globe block -> build space. */
+    private static PoseStack viewPose(RenderLevelStageEvent event, View v)
+    {
+        Vec3 camera = event.getCamera().getPosition();
+        PoseStack poseStack = new PoseStack();
+        // At some stages the camera's turn isn't in the render system's model-view yet (the world's solid blocks
+        // get it passed in directly); add it ourselves, unless it's already there.
+        if (RenderSystem.getModelViewMatrix().equals(new Matrix4f(), 1e-5f))
+            poseStack.last().pose().mul(event.getModelViewMatrix());
+        poseStack.translate(-camera.x, -camera.y, -camera.z);
+        poseStack.translate(v.interiorMin().getX() + v.scale() * v.pivot().x, v.interiorMin().getY() + v.scale() * v.pivot().y,
+                v.interiorMin().getZ() + v.scale() * v.pivot().z);
+        float giant = v.scale() / v.cell();
+        poseStack.scale(giant, giant, giant);
+        poseStack.translate(-v.center().x, -v.center().y, -v.center().z);
+        poseStack.translate(0.5, 0, 0.5);
+        poseStack.mulPose(Axis.YP.rotationDegrees(90 * v.turns()));
+        poseStack.scale(1f / v.display(), 1f / v.display(), 1f / v.display());
+        poseStack.translate(-(v.globePos().getX() + 0.5), -v.globePos().getY(), -(v.globePos().getZ() + 0.5));
+        return poseStack;
+    }
+
+    /**
+     * The overworld far behind the outer globe, when in a globe inside a globe: drawn right after the sky, without
+     * fog, and then forgotten by the depth buffer, so everything else is drawn over it as if it were the sky.
+     */
+    private static void drawBackdrop(RenderLevelStageEvent event)
+    {
+        View v = view, b = backdrop;
+        if (v == null || b == null || parentSize <= 0)
+            return;
+        Minecraft mc = Minecraft.getInstance();
+        if (backdropMesh == null)
+            backdropMesh = buildMesh(b, mc.getBlockRenderer());
+        PoseStack poseStack = viewPose(event, v);
+        // Now in the outer globe's world. Put the outermost globe's surroundings round the outer globe's build space,
+        // its floor level with the space's floor, and big enough to reach well past the outer glass (but not past
+        // the view distance).
+        double half = parentSize / 2.0;
+        double giant = v.scale() / (v.cell() * v.display());
+        double farthest = mc.options.getEffectiveRenderDistance() * 16 * 3.5;
+        double reach = Math.min(half * 2.6, farthest / giant);
+        float s = (float) (reach / Math.max(1, Math.min(b.sx(), b.sz()) / 2.0));
+        poseStack.translate(parentMin.getX() + half, parentMin.getY(), parentMin.getZ() + half);
+        poseStack.scale(s, s, s);
+        poseStack.mulPose(Axis.YP.rotationDegrees(90 * b.turns()));
+        poseStack.translate(-(b.globePos().getX() + 0.5), -b.globePos().getY(), -(b.globePos().getZ() + 0.5));
+        poseStack.translate(b.origin().getX(), b.origin().getY(), b.origin().getZ());
+
+        float fogStart = RenderSystem.getShaderFogStart(), fogEnd = RenderSystem.getShaderFogEnd();
+        com.mojang.blaze3d.shaders.FogShape fogShape = RenderSystem.getShaderFogShape();
+        float[] fogColour = RenderSystem.getShaderFogColor().clone();
+        net.minecraft.client.renderer.FogRenderer.setupNoFog();
+        backdropMesh.draw(poseStack.last().pose());
+        RenderSystem.setShaderFogStart(fogStart);
+        RenderSystem.setShaderFogEnd(fogEnd);
+        RenderSystem.setShaderFogShape(fogShape);
+        RenderSystem.setShaderFogColor(fogColour[0], fogColour[1], fogColour[2], fogColour[3]);
+        RenderSystem.clear(org.lwjgl.opengl.GL11.GL_DEPTH_BUFFER_BIT, Minecraft.ON_OSX);
+    }
+
     @SubscribeEvent
     public static void onRenderLevel(RenderLevelStageEvent event)
     {
+        if (event.getStage() == RenderLevelStageEvent.Stage.AFTER_SKY && active())
+        {
+            drawBackdrop(event);
+            return;
+        }
         // Drawn after the world's solid blocks but before its see-through ones, so the globe's glass walls go over it.
         if (event.getStage() != RenderLevelStageEvent.Stage.AFTER_CUTOUT_BLOCKS || !active())
             return;
@@ -287,41 +424,10 @@ public final class OutsideView
         MultiBufferSource.BufferSource buffers = mc.renderBuffers().bufferSource();
         BlockRenderDispatcher blocks = mc.getBlockRenderer();
 
-        PoseStack poseStack = new PoseStack();
-        // At this stage the camera's turn isn't in the render system's model-view yet (the world's solid blocks
-        // get it passed in directly); add it ourselves, unless it's already there.
-        if (RenderSystem.getModelViewMatrix().equals(new Matrix4f(), 1e-5f))
-            poseStack.last().pose().mul(event.getModelViewMatrix());
-        poseStack.translate(-camera.x, -camera.y, -camera.z);
-        // The miniature's placement, run backwards: outside world -> globe block -> miniature cells -> build space.
-        poseStack.translate(v.interiorMin().getX() + v.scale() * v.pivot().x, v.interiorMin().getY() + v.scale() * v.pivot().y,
-                v.interiorMin().getZ() + v.scale() * v.pivot().z);
-        float giant = v.scale() / v.cell();
-        poseStack.scale(giant, giant, giant);
-        poseStack.translate(-v.center().x, -v.center().y, -v.center().z);
-        poseStack.translate(0.5, 0, 0.5);
-        poseStack.mulPose(Axis.YP.rotationDegrees(90 * v.turns()));
-        poseStack.scale(1f / v.display(), 1f / v.display(), 1f / v.display());
-        poseStack.translate(-(v.globePos().getX() + 0.5), -v.globePos().getY(), -(v.globePos().getZ() + 0.5));
+        PoseStack poseStack = viewPose(event, v);
 
         if (worldMesh == null)
-            worldMesh = BakedMesh.bake(recorder -> {
-                PoseStack local = new PoseStack();
-                for (BlockPos pos : v.visible())
-                {
-                    int x = pos.getX() - v.origin().getX(), y = pos.getY() - v.origin().getY(), z = pos.getZ() - v.origin().getZ();
-                    int i = (y * v.sz() + z) * v.sx() + x;
-                    BlockState state = v.states()[i];
-                    if (state.getRenderShape() == RenderShape.INVISIBLE)
-                        continue;
-                    int packed = v.light()[i] & 0xFF;
-                    local.pushPose();
-                    local.translate(x, y, z);
-                    blocks.renderSingleBlock(state, local, recorder, LightTexture.pack(packed & 15, packed >> 4),
-                            OverlayTexture.NO_OVERLAY, ModelData.EMPTY, null);
-                    local.popPose();
-                }
-            });
+            worldMesh = buildMesh(v, blocks);
         poseStack.pushPose();
         poseStack.translate(v.origin().getX(), v.origin().getY(), v.origin().getZ());
         worldMesh.draw(poseStack.last().pose());

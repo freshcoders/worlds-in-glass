@@ -56,7 +56,7 @@ public final class GlobeSpace
     /** Where a player came from, one entry per globe they're in: the innermost last. */
     private static final String RETURNS_KEY = SnowGlobeMod.MODID + ":returns";
     /** The globes a player is in around the one they're in now (see {@link GlobeView#GLOBE_KEY}), innermost last. */
-    private static final String OUTER_KEY = SnowGlobeMod.MODID + ":outer_globes";
+    static final String OUTER_KEY = SnowGlobeMod.MODID + ":outer_globes";
 
     private GlobeSpace() {}
 
@@ -458,6 +458,16 @@ public final class GlobeSpace
         // Back inside the outer globe: show its outside again.
         if (target.dimension() == LEVEL)
             GlobeView.sendView(player);
+    }
+
+    /** Forgets every way back out of globes (after a death inside: waking up outside replaces them). */
+    static void forgetWayBack(ServerPlayer player)
+    {
+        CompoundTag data = player.getPersistentData();
+        data.remove(RETURN_KEY);
+        data.remove(RETURNS_KEY);
+        data.remove(OUTER_KEY);
+        GlobeView.forgetGlobe(player);
     }
 
     // ---- Snow that settles in a snow globe ----
