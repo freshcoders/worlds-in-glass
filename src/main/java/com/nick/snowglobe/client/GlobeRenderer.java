@@ -381,7 +381,9 @@ public class GlobeRenderer implements BlockEntityRenderer<GlobeBlockEntity>
             double size = placed.hasProperty(GlobeBlock.DISPLAY) ? placed.getValue(GlobeBlock.DISPLAY).scale : 1;
             double dist = Math.sqrt(cam.distanceToSqr(where.getX() + 0.5, where.getY() + 0.5, where.getZ() + 0.5)) / size;
             detailed = dist < 40;
-            showMobs = dist < 16;
+            // A mob one block tall is drawn this tall (in blocks); past 250 times that it's only 3 or 4 pixels high.
+            double mobHeight = layout.cell() / layout.scale();
+            showMobs = dist < mobHeight * 250;
             if (dist > 24)
                 weatherCount = 0;
             else if (dist > 12)

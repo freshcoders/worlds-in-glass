@@ -51,6 +51,8 @@ public final class GlobeSpace
     public static final int DEFAULT_SIZE = 16;
     public static final int MAX_SIZE = 256;
     private static final int BASE_Y = 64;
+    /** How many globes deep you can go. */
+    static final int MAX_DEPTH = 8;
     /** Where a player came from before going in (from before globes could be nested: a single place). */
     private static final String RETURN_KEY = SnowGlobeMod.MODID + ":return";
     /** Where a player came from, one entry per globe they're in: the innermost last. */
@@ -339,6 +341,25 @@ public final class GlobeSpace
         // A globe can't be entered from inside itself (it would have to stand inside its own build space).
         if (nested && idAt(player.server, globe.getBlockPos()) == id)
             return;
+        if (nested)
+        {
+            // Nor one you're already inside further out (twin globes could stand in each other, round and round),
+            // and there's a limit to how deep you can go.
+            ListTag around = player.getPersistentData().getList(OUTER_KEY, Tag.TAG_COMPOUND);
+            boolean already = player.getPersistentData().getCompound(GlobeView.GLOBE_KEY).getInt("Id") == id;
+            for (int i = 0; i < around.size(); i++)
+                already |= around.getCompound(i).contains("Id") && around.getCompound(i).getInt("Id") == id;
+            if (already)
+            {
+                player.displayClientMessage(Component.translatable("snowglobe.message.already_inside"), true);
+                return;
+            }
+            if (around.size() + 2 > MAX_DEPTH)
+            {
+                player.displayClientMessage(Component.translatable("snowglobe.message.too_deep"), true);
+                return;
+            }
+        }
         giveOwnSlot(player.server, id);
 
         CompoundTag back = new CompoundTag();

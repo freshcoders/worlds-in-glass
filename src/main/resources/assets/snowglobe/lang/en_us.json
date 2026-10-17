@@ -92,5 +92,8 @@
   "advancements.snowglobe.two_of_a_kind.title": "Two of a Kind",
   "advancements.snowglobe.two_of_a_kind.description": "Make a twin globe: two globes, one world inside",
   "snowglobe.message.woke_up": "You wake up on the floor beside the %s, a little dizzy, with everything still in your pockets.",
-  "snowglobe.message.the_globe": "globe"
+  "snowglobe.message.the_globe": "globe",
+  "snowglobe.message.no_wither": "The Wither can't be contained in a globe. Its parts fall back to the floor.",
+  "snowglobe.message.already_inside": "You're already inside that globe, further out.",
+  "snowglobe.message.too_deep": "That's as deep as globes go."
 }
