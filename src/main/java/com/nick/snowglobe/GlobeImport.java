@@ -82,7 +82,8 @@ public final class GlobeImport
                     .requires(source -> source.hasPermission(2))
                     .then(Commands.literal("debug")
                             .then(Commands.literal("knock").executes(context -> emulate(context, GlobeNetwork.GlobeEvent.KNOCKED)))
-                            .then(Commands.literal("shake").executes(context -> emulate(context, GlobeNetwork.GlobeEvent.SHAKEN)))));
+                            .then(Commands.literal("shake").executes(context -> emulate(context, GlobeNetwork.GlobeEvent.SHAKEN)))
+                            .then(Commands.literal("showcase").executes(context -> GlobeShowcase.build(context.getSource().getPlayerOrException())))));
         dispatcher.register(Commands.literal("globe")
                 .requires(source -> source.hasPermission(2))
                 .then(Commands.literal("import")

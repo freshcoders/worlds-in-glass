@@ -1,6 +1,6 @@
 # Snow Globes
 
-A Minecraft mod for building tiny worlds. Place a snow globe, a terrarium, a storm globe or a ship in a bottle, step inside, and build in its own private space. Step back out and your creation is there in miniature under the glass: blocks, water, and the mobs living in it, all moving live.
+A Minecraft mod for building tiny worlds. Place a snow globe, a terrarium, an aquarium, a nether jar or one of four other globes, step inside, and build in its own private space. Step back out and your creation is there in miniature under the glass: blocks, water, and the mobs living in it, all moving live.
 
 **Minecraft 1.21.1 · NeoForge 21.1** · works alongside [Create](https://modrinth.com/mod/create) (optional)
 
@@ -14,8 +14,12 @@ A Minecraft mod for building tiny worlds. Place a snow globe, a terrarium, a sto
 | **Terrarium** | Glass case in a wooden frame | Mossy garden: azalea tree, fallen log, rocks, flowers, frogs and a rabbit |
 | **Storm Globe** | Dark glass on deepslate and oxidized copper, with clouds, rain and lightning | Striped lighthouse on a rocky island, with cod in the sea |
 | **Ship in a Bottle** | Green glass bottle with a cork, on a wooden stand | Sailing ship on a strip of sea, with tropical fish |
+| **Desert Globe** | Glass ball on sandstone, sand blowing across the dunes | Dunes, a stepped pyramid, an oasis with a palm, a camel and a desert rabbit, at sunset |
+| **Aquarium** | Glass tank on dark prismarine, bubbles rising | Coral reef with kelp, seagrass, a sunken chest, tropical fish and an axolotl |
+| **Star Globe** | Dark glass on blackstone, stars, northern lights and shooting stars inside | A camp on a hilltop under a night sky: tent, campfire, amethyst, a fox |
+| **Nether Jar** | Glass jar with a blackstone lid, embers rising; it lights up the room | Lava pool, basalt pillars, crimson and warped fungi, a ruined arch, a strider |
 
-All four are in the **Functional Blocks** creative tab. A globe you pick up keeps its contents, and the item shows the miniature too.
+They're all in their own **Snow Globes** creative tab, with the collector's shelf and the handbook. A globe you pick up keeps its contents, and the item shows the miniature too. Hold Shift over a globe for how to use it.
 
 | | |
 |---|---|
@@ -28,8 +32,8 @@ All four are in the **Functional Blocks** creative tab. A globe you pick up keep
 
 | Action | How |
 |---|---|
-| **Shake** | Right-click the glass. The globe wobbles and chimes, and the snow whirls up. Anyone inside feels it. |
-| **Turn** | Right-click the base or stand: a quarter turn. |
+| **Shake** | Right-click the glass. The globe wobbles and chimes, and the snow whirls up. Anyone inside feels it. A snow globe also turns to the next season. |
+| **Turn** | Right-click the base or stand: a quarter turn, and the time of day inside moves on. Winds the music box, if it has one. |
 | **Go inside** | Sneak + right-click, with an empty hand. |
 | **Leave** | Right-click the glass wall from inside, with an empty hand. |
 | **Knock** | Punch the glass, in survival. Anyone inside hears a giant knock. |
@@ -39,6 +43,21 @@ All four are in the **Functional Blocks** creative tab. A globe you pick up keep
 - You build in a space of its own, **16 to 256 blocks** across: a dome for round globes, a box for the terrarium, a long cylinder for the bottle.
 - Through the walls you see the **real world around the globe, giant**: the shelf it stands on, the other globes with their miniatures, and the players and animals nearby, fading into haze in the distance.
 - Going in and out is a short zoom and white-out instead of a cut.
+- Each globe has **its own sky and light**: day, sunset, night or sunrise, set by turning the base. The star globe is always night, with the northern lights. The storm globe storms, with lightning in step with the miniature. The nether jar glows red, and the aquarium is underwater blue.
+- **Weather falls around you**: the snow globe's season, blown sand, ash and embers, spores, rain.
+- Globes can stand **inside other globes**, and you can go in further. Leaving takes you out one glass at a time.
+
+## Seasons, music and company
+
+- **Seasons:** shaking a snow globe turns the year: winter, spring (blossom), summer (fireflies), autumn (falling leaves). Shaken into winter, real snow settles on everything inside, and melts a few minutes later, or straight away in spring.
+- **Music boxes:** use a note block on a globe to fit a music box in its base. Turning the base winds it, and it plays the globe's own tune, slowing down as it runs out. Anyone inside hears it as a huge, deep bell.
+- **Fish:** use a bucket of fish (or an axolotl, or tadpoles) on a globe with water inside, and they swim in. The bucket keeps its water. A water bucket catches one back out.
+- **Animals:** anything you're leading on a lead comes in and out with you.
+- **Collector's shelf:** holds two globes side by side and keeps their miniatures up to date.
+
+## The handbook and advancements
+
+Your first globe comes with the **Globe Keeper's Handbook**: some lore, the recipes, and how everything works. You can also make one from a book and a glass block. There's an advancement trail too, from your first shake to owning every kind of globe.
 
 ![From inside a snow globe: the neighbouring terrarium looms like a building, its garden full-size behind giant glass](docs/screenshots/inside-giant-terrarium.jpg)
 
@@ -75,12 +94,24 @@ Commands need operator permissions (cheats).
 - `/globe import <file>` — fill the globe you're looking at, or standing in, from `schematics/<file>`.
 - `/globe size <16–256> [force]` — resize that globe; everything inside stays centred.
 
+In the test game only (`runClient`), `/globe debug knock|shake` acts from inside a globe as if someone outside did it, and `/globe debug showcase` builds a display plaza in front of you, with every kind of globe, for screenshots.
+
+## Settings
+
+In **Mods → Snow Globes → Config**: how rare lightning is, how much weather falls inside globes, whether you hear a storm globe's tiny thunder from outside, and whether music boxes play.
+
 ## Crafting
 
 - **Snow Globe:** glass on top and sides, a snow block in the middle, planks along the bottom.
 - **Terrarium:** the same, with a moss block in the middle.
 - **Storm Globe:** glass with a lightning rod in the middle, polished deepslate and a copper block underneath.
 - **Ship in a Bottle:** glass all round, a boat in the middle and a stripped oak log as the cork.
+- **Desert Globe:** glass with a dead bush in the middle, cut sandstone along the bottom.
+- **Aquarium:** glass with kelp in the middle, dark prismarine along the bottom.
+- **Star Globe:** glass with a spyglass in the middle; polished blackstone, an amethyst shard and polished blackstone underneath.
+- **Nether Jar:** a polished blackstone slab on top, glass at the sides and bottom corners, a magma block in the middle and polished blackstone below it.
+- **Collector's Shelf** (makes 2): two sticks over three wooden slabs.
+- **Globe Keeper's Handbook:** a book and a glass block.
 
 ## Installing
 
@@ -93,6 +124,7 @@ The build needs Java 21, which Gradle downloads by itself if it's missing.
 ```bash
 ./gradlew build        # the mod jar ends up in build/libs/
 ./gradlew runClient    # a test game, with Create, Sable and Create Aeronautics loaded
+./gradlew runClient -PquickPlay="New World"   # the same, opening that world straight away
 ```
 
 On Windows, use `gradlew.bat`. The wrapper scripts set `jdk.net.unixdomain.tmpdir` to work around a Java pipe problem on some Windows setups; take that out if your machine doesn't need it.
@@ -107,7 +139,6 @@ Miniatures, and the giant world seen from inside, are built once into meshes on 
 
 - Spinning Create parts (shafts, cogs) may not show in miniatures.
 - Only tested in single player so far, not on a dedicated server.
-- You can't open a globe from inside another globe.
 
 ## Project layout
 
