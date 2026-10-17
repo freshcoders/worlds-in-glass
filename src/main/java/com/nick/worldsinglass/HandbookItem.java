@@ -11,7 +11,7 @@ import net.minecraft.world.level.Level;
 public class HandbookItem extends Item
 {
     /** How many pages it has: worldsinglass.handbook.page.1 and on, in the language file. */
-    public static final int PAGES = 17;
+    public static final int PAGES = 16;
 
     public HandbookItem(Properties properties)
     {
