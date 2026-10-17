@@ -50,6 +50,9 @@ public final class GlobeEffects
     /** The last strike thundered inside, so each strike is heard once. */
     private static long lastStrike = Long.MIN_VALUE;
 
+    private static final ParticleOptions SAND_DUST = new net.minecraft.core.particles.BlockParticleOption(ParticleTypes.FALLING_DUST,
+            net.minecraft.world.level.block.Blocks.SAND.defaultBlockState());
+
     private GlobeEffects() {}
 
     static void onEvent(int event, int kindOrdinal)
@@ -80,6 +83,26 @@ public final class GlobeEffects
                     {
                         play(SoundEvents.GLASS_HIT, 1.2f, 0.6f);
                         play(SoundEvents.BUCKET_EMPTY, 1.0f, 0.7f);
+                    }
+                    case DESERT_GLOBE ->
+                    {
+                        play(SoundEvents.AMETHYST_BLOCK_CHIME, 1.0f, 0.55f);
+                        play(SoundEvents.SAND_BREAK, 1.5f, 0.5f);
+                    }
+                    case AQUARIUM ->
+                    {
+                        play(SoundEvents.GLASS_HIT, 1.2f, 0.5f);
+                        play(SoundEvents.BUBBLE_COLUMN_UPWARDS_INSIDE, 1.5f, 0.6f);
+                    }
+                    case STAR_GLOBE ->
+                    {
+                        play(SoundEvents.AMETHYST_BLOCK_CHIME, 1.2f, 0.9f);
+                        play(SoundEvents.AMETHYST_BLOCK_RESONATE, 1.0f, 0.8f);
+                    }
+                    case NETHER_JAR ->
+                    {
+                        play(SoundEvents.GLASS_HIT, 1.2f, 0.5f);
+                        play(SoundEvents.LAVA_POP, 1.5f, 0.6f);
                     }
                 }
             }
@@ -212,6 +235,10 @@ public final class GlobeEffects
                 case STORM_GLOBE -> ParticleTypes.FALLING_WATER;
                 case TERRARIUM -> random.nextBoolean() ? ParticleTypes.FALLING_SPORE_BLOSSOM : ParticleTypes.SPORE_BLOSSOM_AIR;
                 case SHIP_BOTTLE -> random.nextBoolean() ? ParticleTypes.SPLASH : ParticleTypes.BUBBLE_POP;
+                case DESERT_GLOBE -> SAND_DUST;
+                case AQUARIUM -> player.isUnderWater() ? ParticleTypes.BUBBLE : ParticleTypes.BUBBLE_POP;
+                case STAR_GLOBE -> ParticleTypes.END_ROD;
+                case NETHER_JAR -> random.nextInt(4) == 0 ? ParticleTypes.LAVA : ParticleTypes.ASH;
                 default -> ParticleTypes.SNOWFLAKE;
             };
             level.addParticle(particle, x, y, z, vx, -0.05 - random.nextDouble() * 0.05, vz);

@@ -76,12 +76,12 @@ public final class OutsideView
     private OutsideView() {}
 
     /** The world around one globe, as received, and how it maps onto the build space. */
-    private record View(BlockPos globePos, int kind, int turns, int display, BlockPos interiorMin, float cell, int scale,
+    private record View(BlockPos globePos, int kind, int phase, int season, int turns, int display, BlockPos interiorMin, float cell, int scale,
                         Vec3 center, Vec3 pivot, BlockPos origin, int sx, int sy, int sz,
                         BlockState[] states, byte[] light, List<BlockPos> visible, List<Neighbour> globes) {}
 
     /** Another globe standing near the one you're in, with its contents, to draw giant with its miniature. */
-    private record Neighbour(BlockPos pos, GlobeSnapshot snapshot) {}
+    private record Neighbour(BlockPos pos, GlobeSnapshot snapshot, GlobeRenderer.Look look) {}
 
     static void receive(CompoundTag tag)
     {
@@ -117,7 +117,8 @@ public final class OutsideView
         {
             GlobeSnapshot snapshot = GlobeSnapshot.fromTag(globesTag.getCompound(i).getCompound("Snapshot"));
             if (snapshot != null)
-                globes.add(new Neighbour(BlockPos.of(globesTag.getCompound(i).getLong("Pos")), snapshot));
+                globes.add(new Neighbour(BlockPos.of(globesTag.getCompound(i).getLong("Pos")), snapshot,
+                        GlobeRenderer.Look.of(globesTag.getCompound(i))));
         }
 
         // The same world as before (it's resent every few seconds): keep the mesh.
@@ -125,7 +126,8 @@ public final class OutsideView
         if (view == null || !view.origin().equals(origin) || !java.util.Arrays.equals(view.states(), states) || !java.util.Arrays.equals(view.light(), light))
             dropWorldMesh();
 
-        view = new View(BlockPos.of(tag.getLong("GlobePos")), tag.getInt("Kind"), tag.getInt("Turns"), Math.max(1, tag.getInt("Display")),
+        view = new View(BlockPos.of(tag.getLong("GlobePos")), tag.getInt("Kind"), tag.getInt("Phase"), tag.getInt("Season"),
+                tag.getInt("Turns"), Math.max(1, tag.getInt("Display")),
                 BlockPos.of(tag.getLong("InteriorMin")), tag.getFloat("Cell"), Math.max(1, tag.getInt("Scale")),
                 new Vec3(tag.getDouble("CenterX"), tag.getDouble("CenterY"), tag.getDouble("CenterZ")),
                 new Vec3(tag.getDouble("PivotX"), tag.getDouble("PivotY"), tag.getDouble("PivotZ")),
@@ -222,6 +224,18 @@ public final class OutsideView
         return active() ? com.nick.snowglobe.GlobeKind.values()[Math.floorMod(view.kind(), com.nick.snowglobe.GlobeKind.values().length)] : null;
     }
 
+    /** Time of day inside the globe you're in (GlobeSavedData.PHASE_*), day when not inside one. */
+    static int insidePhase()
+    {
+        return active() ? view.phase() : 0;
+    }
+
+    /** The season inside the globe you're in (GlobeSavedData.WINTER and so on). */
+    static int insideSeason()
+    {
+        return active() ? view.season() : 0;
+    }
+
     /** Where the globe you're inside stands outside (its storm's seed), or null when not inside one. */
     @Nullable
     static BlockPos insideGlobePos()
@@ -314,7 +328,7 @@ public final class OutsideView
                 poseStack.pushPose();
                 poseStack.translate(globe.pos().getX(), globe.pos().getY(), globe.pos().getZ());
                 GlobeRenderer.renderPlaced(state, block.kind(), globe.snapshot(), poseStack, buffers, LightTexture.pack(packed & 15, packed >> 4),
-                        ticks, blocks, null, null, level, globe.pos(), -1, false);
+                        ticks, blocks, null, null, level, globe.pos(), -1, false, globe.look());
                 poseStack.popPose();
             }
         }

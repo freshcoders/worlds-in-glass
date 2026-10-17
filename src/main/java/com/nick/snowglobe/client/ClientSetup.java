@@ -31,6 +31,6 @@ public final class ClientSetup
             {
                 return GlobeItemRenderer.get();
             }
-        }, SnowGlobeMod.SNOW_GLOBE_ITEM.get(), SnowGlobeMod.TERRARIUM_ITEM.get(), SnowGlobeMod.STORM_GLOBE_ITEM.get(), SnowGlobeMod.SHIP_BOTTLE_ITEM.get());
+        }, SnowGlobeMod.GLOBE_ITEMS.values().stream().map(item -> item.get()).toArray(net.minecraft.world.item.Item[]::new));
     }
 }

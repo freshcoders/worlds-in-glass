@@ -1,0 +1,27 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "category": "misc",
+  "pattern": [
+    " L ",
+    "GMG",
+    "GBG"
+  ],
+  "key": {
+    "L": {
+      "item": "minecraft:polished_blackstone_slab"
+    },
+    "G": {
+      "item": "minecraft:glass"
+    },
+    "M": {
+      "item": "minecraft:magma_block"
+    },
+    "B": {
+      "item": "minecraft:polished_blackstone"
+    }
+  },
+  "result": {
+    "id": "snowglobe:nether_jar",
+    "count": 1
+  }
+}

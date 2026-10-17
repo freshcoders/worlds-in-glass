@@ -97,6 +97,8 @@ public final class GlobeView
         CompoundTag tag = new CompoundTag();
         tag.putLong("GlobePos", globePos.asLong());
         tag.putInt("Kind", block.kind().ordinal());
+        tag.putInt("Phase", data.phaseOf(id));
+        tag.putInt("Season", data.seasonOf(id));
         tag.putInt("Turns", GlobeBlock.quarterTurns(globeState.getValue(GlobeBlock.FACING)));
         tag.putInt("Display", globeState.getValue(GlobeBlock.DISPLAY).scale);
         tag.putLong("InteriorMin", GlobeSpace.interiorMin(player.server, id).asLong());
@@ -145,6 +147,9 @@ public final class GlobeView
                         continue;
                     CompoundTag neighbour = new CompoundTag();
                     neighbour.putLong("Pos", pos.asLong());
+                    neighbour.putInt("Phase", data.phaseOf(other.globeId()));
+                    neighbour.putInt("Season", data.seasonOf(other.globeId()));
+                    neighbour.putBoolean("MusicBox", data.hasMusicBox(other.globeId()));
                     neighbour.put("Snapshot", otherEntry.snapshot().toTag());
                     globes.add(neighbour);
                 }
@@ -241,14 +246,8 @@ public final class GlobeView
         if (id < 0 || now - lastKnock.getOrDefault(id, -100) < 6)
             return;
         lastKnock.put(id, now);
-        // A glassy tok out here; a deep knock for anyone inside.
-        level.playSound(null, event.getPos(), net.minecraft.sounds.SoundEvents.GLASS_HIT, net.minecraft.sounds.SoundSource.BLOCKS, 1.0f, 1.3f);
-        if (globe.kind() == GlobeKind.STORM_GLOBE)
-        {
-            // The same tiny thunder as a shake (GlobeBlock.tinyThunder), sent from here to everyone nearby.
-            level.playSound(null, event.getPos(), net.minecraft.sounds.SoundEvents.FIREWORK_ROCKET_TWINKLE, net.minecraft.sounds.SoundSource.BLOCKS, 0.35f, 2.0f);
-            level.playSound(null, event.getPos(), net.minecraft.sounds.SoundEvents.LIGHTNING_BOLT_THUNDER, net.minecraft.sounds.SoundSource.BLOCKS, 0.08f, 2.0f);
-        }
+        // A glassy tok out here (and a tiny thunder from a storm globe); a deep knock for anyone inside.
+        level.blockEvent(event.getPos(), globe.getBlockState().getBlock(), GlobeBlock.EVENT_KNOCK, 0);
         notifyOccupants(level.getServer(), id, GlobeNetwork.GlobeEvent.KNOCKED, globe.kind());
     }
 
@@ -268,7 +267,7 @@ public final class GlobeView
         if (event == GlobeNetwork.GlobeEvent.SHAKEN)
             outside.blockEvent(pos, block, GlobeBlock.EVENT_SHAKE, 0);
         else
-            outside.playSound(null, pos, net.minecraft.sounds.SoundEvents.GLASS_HIT, net.minecraft.sounds.SoundSource.BLOCKS, 1.0f, 1.3f);
+            outside.blockEvent(pos, block, GlobeBlock.EVENT_KNOCK, 0);
         notifyOccupants(player.server, globeEntity.globeId(), event, block.kind());
         return true;
     }

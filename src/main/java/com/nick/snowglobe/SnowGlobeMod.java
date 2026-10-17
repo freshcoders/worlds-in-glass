@@ -2,9 +2,12 @@ package com.nick.snowglobe;
 
 import net.minecraft.core.component.DataComponentType;
 import net.minecraft.core.registries.Registries;
-import net.minecraft.world.item.CreativeModeTabs;
+import net.minecraft.network.chat.Component;
+import net.minecraft.world.item.CreativeModeTab;
 import net.minecraft.world.item.Item;
+import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.component.CustomData;
+import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.SoundType;
 import net.minecraft.world.level.block.entity.BlockEntityType;
 import net.minecraft.world.level.block.state.BlockBehaviour;
@@ -13,12 +16,15 @@ import com.nick.snowglobe.net.GlobeNetwork;
 import net.neoforged.bus.api.IEventBus;
 import net.neoforged.fml.ModContainer;
 import net.neoforged.fml.common.Mod;
+import net.neoforged.fml.config.ModConfig;
 import net.neoforged.neoforge.common.NeoForge;
-import net.neoforged.neoforge.event.BuildCreativeModeTabContentsEvent;
 import net.neoforged.neoforge.registries.DeferredBlock;
 import net.neoforged.neoforge.registries.DeferredHolder;
 import net.neoforged.neoforge.registries.DeferredItem;
 import net.neoforged.neoforge.registries.DeferredRegister;
+
+import java.util.EnumMap;
+import java.util.Map;
 
 @Mod(SnowGlobeMod.MODID)
 public class SnowGlobeMod
@@ -29,21 +35,41 @@ public class SnowGlobeMod
     public static final DeferredRegister.Items ITEMS = DeferredRegister.createItems(MODID);
     public static final DeferredRegister<BlockEntityType<?>> BLOCK_ENTITIES = DeferredRegister.create(Registries.BLOCK_ENTITY_TYPE, MODID);
     public static final DeferredRegister.DataComponents COMPONENTS = DeferredRegister.createDataComponents(Registries.DATA_COMPONENT_TYPE, MODID);
+    public static final DeferredRegister<CreativeModeTab> TABS = DeferredRegister.create(Registries.CREATIVE_MODE_TAB, MODID);
 
-    // The globes you place in the world, each showing its build space in miniature.
-    public static final DeferredBlock<GlobeBlock> SNOW_GLOBE = BLOCKS.register("snow_globe", () -> new GlobeBlock(GlobeKind.SNOW_GLOBE,
-            BlockBehaviour.Properties.of().mapColor(MapColor.WOOD).strength(1.0f).sound(SoundType.GLASS).noOcclusion()));
-    public static final DeferredBlock<GlobeBlock> TERRARIUM = BLOCKS.register("terrarium", () -> new GlobeBlock(GlobeKind.TERRARIUM,
-            BlockBehaviour.Properties.of().mapColor(MapColor.WOOD).strength(1.0f).sound(SoundType.GLASS).noOcclusion()));
-    public static final DeferredBlock<GlobeBlock> STORM_GLOBE = BLOCKS.register("storm_globe", () -> new GlobeBlock(GlobeKind.STORM_GLOBE,
-            BlockBehaviour.Properties.of().mapColor(MapColor.DEEPSLATE).strength(1.5f).sound(SoundType.GLASS).noOcclusion()));
-    public static final DeferredBlock<GlobeBlock> SHIP_BOTTLE = BLOCKS.register("ship_bottle", () -> new GlobeBlock(GlobeKind.SHIP_BOTTLE,
-            BlockBehaviour.Properties.of().mapColor(MapColor.WOOD).strength(1.0f).sound(SoundType.GLASS).noOcclusion()));
+    /** The globes you place in the world, each showing its build space in miniature: one block and item per kind. */
+    public static final Map<GlobeKind, DeferredBlock<GlobeBlock>> GLOBES = new EnumMap<>(GlobeKind.class);
+    public static final Map<GlobeKind, DeferredItem<GlobeItem>> GLOBE_ITEMS = new EnumMap<>(GlobeKind.class);
 
-    public static final DeferredItem<GlobeItem> SNOW_GLOBE_ITEM = ITEMS.register("snow_globe", () -> new GlobeItem(SNOW_GLOBE.get(), new Item.Properties().stacksTo(1)));
-    public static final DeferredItem<GlobeItem> TERRARIUM_ITEM = ITEMS.register("terrarium", () -> new GlobeItem(TERRARIUM.get(), new Item.Properties().stacksTo(1)));
-    public static final DeferredItem<GlobeItem> STORM_GLOBE_ITEM = ITEMS.register("storm_globe", () -> new GlobeItem(STORM_GLOBE.get(), new Item.Properties().stacksTo(1)));
-    public static final DeferredItem<GlobeItem> SHIP_BOTTLE_ITEM = ITEMS.register("ship_bottle", () -> new GlobeItem(SHIP_BOTTLE.get(), new Item.Properties().stacksTo(1)));
+    static
+    {
+        for (GlobeKind kind : GlobeKind.values())
+        {
+            DeferredBlock<GlobeBlock> block = BLOCKS.register(kind.getName(), () -> new GlobeBlock(kind, properties(kind)));
+            GLOBES.put(kind, block);
+            GLOBE_ITEMS.put(kind, ITEMS.register(kind.getName(), () -> new GlobeItem(block.get(), new Item.Properties().stacksTo(1))));
+        }
+    }
+
+    private static BlockBehaviour.Properties properties(GlobeKind kind)
+    {
+        BlockBehaviour.Properties properties = BlockBehaviour.Properties.of().strength(1.0f).sound(SoundType.GLASS).noOcclusion();
+        return switch (kind)
+        {
+            case STORM_GLOBE -> properties.mapColor(MapColor.DEEPSLATE).strength(1.5f);
+            case DESERT_GLOBE -> properties.mapColor(MapColor.SAND);
+            case AQUARIUM -> properties.mapColor(MapColor.WARPED_NYLIUM);
+            case STAR_GLOBE -> properties.mapColor(MapColor.COLOR_BLACK).lightLevel(state -> 4);
+            // The embers inside light up the room around the jar.
+            case NETHER_JAR -> properties.mapColor(MapColor.NETHER).strength(1.5f).lightLevel(state -> 10);
+            default -> properties.mapColor(MapColor.WOOD);
+        };
+    }
+
+    public static DeferredBlock<GlobeBlock> globe(GlobeKind kind)
+    {
+        return GLOBES.get(kind);
+    }
 
     // The unbreakable glass shell around each globe's build space. Right-click it with an empty hand to leave.
     public static final DeferredBlock<GlobeWallBlock> GLOBE_WALL = BLOCKS.register("globe_wall", () -> new GlobeWallBlock(BlockBehaviour.Properties.of()
@@ -55,11 +81,21 @@ public class SnowGlobeMod
 
     @SuppressWarnings("DataFlowIssue") // the data fixer type may be null
     public static final DeferredHolder<BlockEntityType<?>, BlockEntityType<GlobeBlockEntity>> GLOBE_BLOCK_ENTITY = BLOCK_ENTITIES.register("snow_globe",
-            () -> BlockEntityType.Builder.of(GlobeBlockEntity::new, SNOW_GLOBE.get(), TERRARIUM.get(), STORM_GLOBE.get(), SHIP_BOTTLE.get()).build(null));
+            () -> BlockEntityType.Builder.of(GlobeBlockEntity::new, GLOBES.values().stream().map(DeferredBlock::get).toArray(Block[]::new)).build(null));
 
     /** A globe's id and contents, carried by the item when you pick a globe up, so placing it again restores it. */
     public static final DeferredHolder<DataComponentType<?>, DataComponentType<CustomData>> GLOBE_DATA = COMPONENTS.registerComponentType("globe",
             builder -> builder.persistent(CustomData.CODEC).networkSynchronized(CustomData.STREAM_CODEC));
+
+    /** Everything from this mod in one creative tab. */
+    public static final DeferredHolder<CreativeModeTab, CreativeModeTab> TAB = TABS.register("globes", () -> CreativeModeTab.builder()
+            .title(Component.translatable("itemGroup.snowglobe"))
+            .icon(() -> new ItemStack(GLOBE_ITEMS.get(GlobeKind.SNOW_GLOBE).get()))
+            .displayItems((parameters, output) -> {
+                for (GlobeKind kind : GlobeKind.values())
+                    output.accept(GLOBE_ITEMS.get(kind).get());
+            })
+            .build());
 
     public SnowGlobeMod(IEventBus modEventBus, ModContainer container)
     {
@@ -67,23 +103,13 @@ public class SnowGlobeMod
         ITEMS.register(modEventBus);
         BLOCK_ENTITIES.register(modEventBus);
         COMPONENTS.register(modEventBus);
-        modEventBus.addListener(this::addCreative);
+        TABS.register(modEventBus);
         modEventBus.addListener(GlobeNetwork::register);
+        container.registerConfig(ModConfig.Type.CLIENT, SnowGlobeConfig.SPEC);
 
         NeoForge.EVENT_BUS.addListener(GlobeSpace::onServerTick);
         NeoForge.EVENT_BUS.addListener(GlobeSpace::onServerStopped);
         NeoForge.EVENT_BUS.addListener(GlobeImport::registerCommands);
         NeoForge.EVENT_BUS.addListener(GlobeView::onLeftClickBlock);
-    }
-
-    private void addCreative(BuildCreativeModeTabContentsEvent event)
-    {
-        if (event.getTabKey() == CreativeModeTabs.FUNCTIONAL_BLOCKS)
-        {
-            event.accept(SNOW_GLOBE_ITEM);
-            event.accept(TERRARIUM_ITEM);
-            event.accept(STORM_GLOBE_ITEM);
-            event.accept(SHIP_BOTTLE_ITEM);
-        }
     }
 }

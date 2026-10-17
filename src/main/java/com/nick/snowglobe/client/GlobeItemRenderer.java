@@ -51,25 +51,28 @@ public class GlobeItemRenderer extends BlockEntityWithoutLevelRenderer
         BlockState state = block.defaultBlockState();
         float ticks = (System.currentTimeMillis() % 12_000_000L) / 50f;
         GlobeSnapshot snapshot = snapshotOf(stack);
+        CustomData data = stack.get(SnowGlobeMod.GLOBE_DATA.get());
+        GlobeRenderer.Look look = data != null ? GlobeRenderer.Look.of(data.getUnsafe()) : GlobeRenderer.Look.DEFAULT;
         // Water in the miniature needs a world for its colour; the player's surroundings will do.
         ClientLevel level = Minecraft.getInstance().level;
         BlockPos where = Minecraft.getInstance().player != null ? Minecraft.getInstance().player.blockPosition() : BlockPos.ZERO;
 
         // The terrarium's glass is part of its model, so draw it after the miniature or it would hide it.
-        if (block.kind() == GlobeKind.TERRARIUM)
+        if (block.kind() == GlobeKind.TERRARIUM || block.kind() == GlobeKind.AQUARIUM)
         {
-            GlobeRenderer.renderGlobe(block.kind(), snapshot, poseStack, buffers, light, ticks, blocks, null, null, 0, level, where, 0);
+            GlobeRenderer.renderGlobe(block.kind(), snapshot, poseStack, buffers, light, ticks, blocks, null, null, 0, level, where, 0, look);
             blocks.renderSingleBlock(state, poseStack, buffers, light, overlay, ModelData.EMPTY, null);
         }
         else
         {
             blocks.renderSingleBlock(state, poseStack, buffers, light, overlay, ModelData.EMPTY, null);
-            GlobeRenderer.renderGlobe(block.kind(), snapshot, poseStack, buffers, light, ticks, blocks, null, null, 0, level, where, 0);
+            GlobeRenderer.renderGlobe(block.kind(), snapshot, poseStack, buffers, light, ticks, blocks, null, null, 0, level, where, 0, look);
         }
     }
 
+    /** The miniature saved in a globe item, parsed once per item data. */
     @Nullable
-    private GlobeSnapshot snapshotOf(ItemStack stack)
+    GlobeSnapshot snapshotOf(ItemStack stack)
     {
         CustomData data = stack.get(SnowGlobeMod.GLOBE_DATA.get());
         if (data == null)

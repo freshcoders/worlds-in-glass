@@ -49,6 +49,8 @@ public class GlobeBlock extends BaseEntityBlock
     public static final EnumProperty<DisplaySize> DISPLAY = EnumProperty.create("display", DisplaySize.class);
     /** Block event id for a shake, sent to everyone watching so they see it too. */
     public static final int EVENT_SHAKE = 1;
+    /** Block event id for a knock on the glass, so everyone near hears it (as their settings allow). */
+    public static final int EVENT_KNOCK = 2;
 
     private final GlobeKind kind;
     private final MapCodec<GlobeBlock> codec;
@@ -192,7 +194,8 @@ public class GlobeBlock extends BaseEntityBlock
     {
         return switch (kind)
         {
-            case TERRARIUM -> 1.5 / 16;
+            case TERRARIUM, AQUARIUM -> 1.5 / 16;
+            case NETHER_JAR -> 1.0 / 16;
             case SHIP_BOTTLE -> 2.5 / 16;
             default -> 2.75 / 16;
         };
@@ -235,6 +238,8 @@ public class GlobeBlock extends BaseEntityBlock
      */
     public static void tinyThunder(Level level, BlockPos pos)
     {
+        if (!SnowGlobeConfig.thunderOutside())
+            return;
         level.playLocalSound(pos, SoundEvents.FIREWORK_ROCKET_TWINKLE, SoundSource.BLOCKS, 0.35f, 2.0f, false);
         level.playLocalSound(pos, SoundEvents.LIGHTNING_BOLT_THUNDER, SoundSource.BLOCKS, 0.08f, 2.0f, false);
     }
@@ -242,6 +247,16 @@ public class GlobeBlock extends BaseEntityBlock
     @Override
     protected boolean triggerEvent(BlockState state, Level level, BlockPos pos, int id, int param)
     {
+        if (id == EVENT_KNOCK)
+        {
+            if (level.isClientSide)
+            {
+                level.playLocalSound(pos, SoundEvents.GLASS_HIT, SoundSource.BLOCKS, 1.0f, 1.3f, false);
+                if (kind == GlobeKind.STORM_GLOBE)
+                    tinyThunder(level, pos);
+            }
+            return true;
+        }
         if (id != EVENT_SHAKE)
             return super.triggerEvent(state, level, pos, id, param);
         if (level.isClientSide && level.getBlockEntity(pos) instanceof GlobeBlockEntity globe)
@@ -265,6 +280,26 @@ public class GlobeBlock extends BaseEntityBlock
                 {
                     level.playLocalSound(pos, SoundEvents.GLASS_HIT, SoundSource.BLOCKS, 0.8f, 1.5f, false);
                     level.playLocalSound(pos, SoundEvents.BUCKET_EMPTY, SoundSource.BLOCKS, 0.4f, 1.6f, false);
+                }
+                case DESERT_GLOBE ->
+                {
+                    level.playLocalSound(pos, SoundEvents.AMETHYST_BLOCK_CHIME, SoundSource.BLOCKS, 0.6f, 1.1f, false);
+                    level.playLocalSound(pos, SoundEvents.SAND_BREAK, SoundSource.BLOCKS, 0.6f, 1.5f, false);
+                }
+                case AQUARIUM ->
+                {
+                    level.playLocalSound(pos, SoundEvents.GLASS_HIT, SoundSource.BLOCKS, 0.8f, 1.2f, false);
+                    level.playLocalSound(pos, SoundEvents.BUBBLE_COLUMN_UPWARDS_INSIDE, SoundSource.BLOCKS, 0.7f, 1.4f, false);
+                }
+                case STAR_GLOBE ->
+                {
+                    level.playLocalSound(pos, SoundEvents.AMETHYST_BLOCK_CHIME, SoundSource.BLOCKS, 1.0f, 1.8f, false);
+                    level.playLocalSound(pos, SoundEvents.AMETHYST_BLOCK_RESONATE, SoundSource.BLOCKS, 0.5f, 1.6f, false);
+                }
+                case NETHER_JAR ->
+                {
+                    level.playLocalSound(pos, SoundEvents.GLASS_HIT, SoundSource.BLOCKS, 0.8f, 1.0f, false);
+                    level.playLocalSound(pos, SoundEvents.LAVA_POP, SoundSource.BLOCKS, 0.8f, 1.3f, false);
                 }
             }
         }

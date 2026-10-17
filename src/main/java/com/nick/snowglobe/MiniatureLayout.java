@@ -25,6 +25,11 @@ public record MiniatureLayout(float cell, Vec3 center, Vec3 pivot, int scale)
     public static final float BOTTLE_Y = 5.25f / 16f;
     public static final float BOTTLE_MID_X = 6.75f / 16f;
     public static final float BOTTLE_CELL = 0.6f / 16f;
+    // Jar, standing upright on its base: the build space's cylinder just inside the glass.
+    public static final float JAR_RADIUS = 4.75f / 16f;
+    public static final float JAR_INNER = 4.4f / 16f;
+    public static final float JAR_FLOOR = 1f / 16f;
+    public static final float JAR_TOP = 12.5f / 16f;
 
     public static MiniatureLayout of(GlobeKind kind, @Nullable GlobeSnapshot snapshot)
     {
@@ -33,7 +38,7 @@ public record MiniatureLayout(float cell, Vec3 center, Vec3 pivot, int scale)
         float half = size / 2f;
         return switch (kind)
         {
-            case SNOW_GLOBE, STORM_GLOBE ->
+            case SNOW_GLOBE, STORM_GLOBE, DESERT_GLOBE, STAR_GLOBE ->
             {
                 // Fit what's inside just within the ball: a full dome reaches about 1.11 half-sizes from its centre,
                 // a smaller build less, so it's shown bigger. (Never zoom in further than an 8-block reach.)
@@ -43,7 +48,9 @@ public record MiniatureLayout(float cell, Vec3 center, Vec3 pivot, int scale)
             }
             case SHIP_BOTTLE -> new MiniatureLayout(BOTTLE_CELL * GlobeSpace.DEFAULT_SIZE / size,
                     new Vec3(BOTTLE_MID_X, BOTTLE_Y, 0.5), new Vec3(half, half, half), scale);
-            case TERRARIUM -> new MiniatureLayout(CASE_WIDTH / size, new Vec3(0.5, CASE_FLOOR + 0.002, 0.5), new Vec3(half, 0, half), scale);
+            case TERRARIUM, AQUARIUM -> new MiniatureLayout(CASE_WIDTH / size, new Vec3(0.5, CASE_FLOOR + 0.002, 0.5), new Vec3(half, 0, half), scale);
+            case NETHER_JAR -> new MiniatureLayout(JAR_INNER / (float) GlobeKind.jarRadius(size), new Vec3(0.5, JAR_FLOOR + 0.002, 0.5),
+                    new Vec3(half, 0, half), scale);
         };
     }
 

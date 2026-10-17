@@ -35,6 +35,10 @@ public class GlobeBlockEntity extends BlockEntity
     public Object renderState;
     /** Client: game time this globe was last shaken. */
     public long shakeStart = Long.MIN_VALUE;
+    /** Copied from the globe's saved data for clients to draw: time of day inside, season, and the music box. */
+    private int phase;
+    private int season;
+    private boolean musicBox;
 
     public GlobeBlockEntity(BlockPos pos, BlockState state)
     {
@@ -51,6 +55,45 @@ public class GlobeBlockEntity extends BlockEntity
     public int globeId()
     {
         return globeId;
+    }
+
+    /** Time of day inside (GlobeSavedData.PHASE_*). */
+    public int phase()
+    {
+        return phase;
+    }
+
+    /** A snow globe's season (GlobeSavedData.WINTER and so on). */
+    public int season()
+    {
+        return season;
+    }
+
+    public boolean hasMusicBox()
+    {
+        return musicBox;
+    }
+
+    /** Server: copies time, season and music box from the saved data; true if any changed. */
+    boolean pullExtras(MinecraftServer server)
+    {
+        GlobeSavedData data = GlobeSavedData.get(server);
+        int newPhase = data.phaseOf(globeId), newSeason = data.seasonOf(globeId);
+        boolean newMusicBox = data.hasMusicBox(globeId);
+        if (newPhase == phase && newSeason == season && newMusicBox == musicBox)
+            return false;
+        phase = newPhase;
+        season = newSeason;
+        musicBox = newMusicBox;
+        setChanged();
+        return true;
+    }
+
+    /** Server: after changing this globe's time, season or music box, shows it right away. */
+    public void refreshExtras()
+    {
+        if (level != null && level.getServer() != null && globeId >= 0 && pullExtras(level.getServer()))
+            level.sendBlockUpdated(worldPosition, getBlockState(), getBlockState(), Block.UPDATE_CLIENTS);
     }
 
     public GlobeKind kind()
@@ -71,6 +114,7 @@ public class GlobeBlockEntity extends BlockEntity
         {
             globeId = GlobeSpace.create(server, kind(), withScene);
             pullSnapshot(server);
+            pullExtras(server);
             setChanged();
         }
         return globeId;
@@ -111,6 +155,8 @@ public class GlobeBlockEntity extends BlockEntity
                 globe.setChanged();
                 send = true;
             }
+            if (globe.pullExtras(server))
+                send = true;
             // Checked every time, not only on changes: globes from before display sizes existed need it too.
             globe.updateDisplaySize();
         }
@@ -152,6 +198,12 @@ public class GlobeBlockEntity extends BlockEntity
         }
         if (tag.contains("Entities"))
             entities = tag.getList("Entities", Tag.TAG_COMPOUND);
+        if (tag.contains("Phase"))
+        {
+            phase = tag.getInt("Phase");
+            season = tag.getInt("Season");
+            musicBox = tag.getBoolean("MusicBox");
+        }
     }
 
     private CompoundTag writeGlobe(CompoundTag tag)
@@ -163,7 +215,16 @@ public class GlobeBlockEntity extends BlockEntity
             tag.put("Snapshot", snapshot.toTag());
             tag.putLong("SnapshotVersion", snapshotVersion);
         }
+        writeExtras(tag);
         return tag;
+    }
+
+    private void writeExtras(CompoundTag tag)
+    {
+        tag.putInt("Phase", phase);
+        tag.putInt("Season", season);
+        if (musicBox)
+            tag.putBoolean("MusicBox", true);
     }
 
     @Override
@@ -206,6 +267,9 @@ public class GlobeBlockEntity extends BlockEntity
         tag.remove("GlobeId");
         tag.remove("Snapshot");
         tag.remove("SnapshotVersion");
+        tag.remove("Phase");
+        tag.remove("Season");
+        tag.remove("MusicBox");
     }
 
     @Override
@@ -235,6 +299,8 @@ public class GlobeBlockEntity extends BlockEntity
                 writeGlobe(tag);
                 blocksChanged = false;
             }
+            else
+                writeExtras(tag);
             GlobeSpace.EntityFrame frame = GlobeSpace.entityFrame(globeId);
             if (frame != null)
                 tag.put("Entities", frame.entities());

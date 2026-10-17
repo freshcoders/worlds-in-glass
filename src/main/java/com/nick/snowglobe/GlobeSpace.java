@@ -122,6 +122,7 @@ public final class GlobeSpace
             case CUBE -> x < 1 || y < 1 || z < 1 || x >= size - 1 || y >= size - 1 || z >= size - 1;
             case SPHERE -> Math.abs(Math.sqrt(dx * dx + dy * dy + dz * dz) - c) < 2;
             case BOTTLE -> Math.abs(Math.sqrt(dy * dy + dz * dz) - GlobeKind.bottleRadius(size)) < 2 || x < 1 || x >= size - 1;
+            case JAR -> Math.abs(Math.sqrt(dx * dx + dz * dz) - GlobeKind.jarRadius(size)) < 2 || y < 1 || y >= size - 1;
         };
     }
 
@@ -222,9 +223,9 @@ public final class GlobeSpace
             data.giveSlot(id);
         BlockPos min = interiorMin(server, id);
 
-        // Put it back, shifted so it stays in the middle (a terrarium keeps its floor where it is).
+        // Put it back, shifted so it stays in the middle (a terrarium or jar keeps its floor where it is).
         int shift = (newSize - oldSize) / 2;
-        int shiftY = kind.space == GlobeKind.Space.CUBE ? 0 : shift;
+        int shiftY = kind.space.hasFloor() ? 0 : shift;
         buildShell(level, min, kind, newSize, SnowGlobeMod.GLOBE_WALL.get().defaultBlockState());
         states.forEach((cell, state) -> {
             int x = cell.getX() + shift, y = cell.getY() + shiftY, z = cell.getZ() + shift;
@@ -254,7 +255,7 @@ public final class GlobeSpace
     private static BlockPos resizedCell(GlobeKind kind, int oldSize, int newSize, int x, int y, int z)
     {
         int shift = (newSize - oldSize) / 2;
-        return new BlockPos(x + shift, y + (kind.space == GlobeKind.Space.CUBE ? 0 : shift), z + shift);
+        return new BlockPos(x + shift, y + (kind.space.hasFloor() ? 0 : shift), z + shift);
     }
 
     /** How many blocks resizing to {@code newSize} would cut off (0 when growing). */

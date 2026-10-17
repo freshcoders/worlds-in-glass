@@ -29,6 +29,13 @@ public class GlobeSavedData extends SavedData
     private final Map<Integer, Entry> globes = new HashMap<>();
     private final Map<Integer, GlobeKind> kinds = new HashMap<>();
     private final Map<Integer, Integer> sizes = new HashMap<>();
+    /** Time of day inside each globe (see {@link #phaseOf}), and the snow globes' seasons. */
+    private final Map<Integer, Integer> phases = new HashMap<>();
+    private final Map<Integer, Integer> seasons = new HashMap<>();
+    /** Globes fitted with a music box. */
+    private final java.util.Set<Integer> musicBoxes = new java.util.HashSet<>();
+    /** Snow that settled in a globe after a shake: where it lies, and the game time it melts. */
+    private final Map<Integer, Map<Long, Long>> settledSnow = new HashMap<>();
     /** Where each globe's slot starts along x (its wall), for globes with a slot of their own. */
     private final Map<Integer, Integer> slots = new HashMap<>();
     private final TreeMap<Integer, Integer> slotOwners = new TreeMap<>();
@@ -45,8 +52,64 @@ public class GlobeSavedData extends SavedData
     {
         int id = nextId++;
         kinds.put(id, kind);
+        // Some globes start at another time of day: the desert at sunset, the stars at night.
+        if (kind == GlobeKind.DESERT_GLOBE)
+            phases.put(id, PHASE_SUNSET);
+        else if (kind == GlobeKind.STAR_GLOBE)
+            phases.put(id, PHASE_NIGHT);
         giveSlot(id);
         return id;
+    }
+
+    public static final int PHASE_DAY = 0, PHASE_SUNSET = 1, PHASE_NIGHT = 2, PHASE_SUNRISE = 3;
+    public static final int WINTER = 0, SPRING = 1, SUMMER = 2, AUTUMN = 3;
+
+    /** Time of day inside: day, sunset, night or sunrise (0 to 3). Turning the base moves it on. */
+    public int phaseOf(int id)
+    {
+        return phases.getOrDefault(id, PHASE_DAY);
+    }
+
+    public void setPhase(int id, int phase)
+    {
+        phases.put(id, Math.floorMod(phase, 4));
+        setDirty();
+    }
+
+    /** A snow globe's season: winter, spring, summer or autumn (0 to 3). Shaking it moves it on. */
+    public int seasonOf(int id)
+    {
+        return seasons.getOrDefault(id, WINTER);
+    }
+
+    public void setSeason(int id, int season)
+    {
+        seasons.put(id, Math.floorMod(season, 4));
+        setDirty();
+    }
+
+    public boolean hasMusicBox(int id)
+    {
+        return musicBoxes.contains(id);
+    }
+
+    public void setMusicBox(int id, boolean has)
+    {
+        if (has ? musicBoxes.add(id) : musicBoxes.remove(id))
+            setDirty();
+    }
+
+    /** Settled snow in a globe, by position, with when it melts. Call {@link #setDirty()} after changing it. */
+    public Map<Long, Long> settledSnow(int id)
+    {
+        return settledSnow.computeIfAbsent(id, k -> new HashMap<>());
+    }
+
+    /** The globes with settled snow, to melt it as time goes by. */
+    public java.util.Set<Integer> globesWithSnow()
+    {
+        settledSnow.values().removeIf(Map::isEmpty);
+        return settledSnow.keySet();
     }
 
     /** Gives a globe a slot of its own (room to grow to the largest size), after all slots in use. */
@@ -141,6 +204,27 @@ public class GlobeSavedData extends SavedData
         slots.forEach((id, start) -> slotsTag.putInt(Integer.toString(id), start));
         tag.put("Slots", slotsTag);
         tag.putInt("NextSlotX", nextSlotX);
+        CompoundTag phasesTag = new CompoundTag();
+        phases.forEach((id, phase) -> phasesTag.putInt(Integer.toString(id), phase));
+        tag.put("Phases", phasesTag);
+        CompoundTag seasonsTag = new CompoundTag();
+        seasons.forEach((id, season) -> seasonsTag.putInt(Integer.toString(id), season));
+        tag.put("Seasons", seasonsTag);
+        tag.putIntArray("MusicBoxes", musicBoxes.stream().mapToInt(Integer::intValue).toArray());
+        CompoundTag snowTag = new CompoundTag();
+        settledSnow.forEach((id, snow) -> {
+            if (snow.isEmpty())
+                return;
+            long[] flat = new long[snow.size() * 2];
+            int i = 0;
+            for (Map.Entry<Long, Long> e : snow.entrySet())
+            {
+                flat[i++] = e.getKey();
+                flat[i++] = e.getValue();
+            }
+            snowTag.putLongArray(Integer.toString(id), flat);
+        });
+        tag.put("SettledSnow", snowTag);
         return tag;
     }
 
@@ -169,6 +253,22 @@ public class GlobeSavedData extends SavedData
                 data.slotOwners.put(slotsTag.getInt(key), id);
             });
         data.nextSlotX = tag.contains("NextSlotX") ? tag.getInt("NextSlotX") : -1;
+        CompoundTag phasesTag = tag.getCompound("Phases");
+        for (String key : phasesTag.getAllKeys())
+            parseId(key, id -> data.phases.put(id, phasesTag.getInt(key)));
+        CompoundTag seasonsTag = tag.getCompound("Seasons");
+        for (String key : seasonsTag.getAllKeys())
+            parseId(key, id -> data.seasons.put(id, seasonsTag.getInt(key)));
+        for (int id : tag.getIntArray("MusicBoxes"))
+            data.musicBoxes.add(id);
+        CompoundTag snowTag = tag.getCompound("SettledSnow");
+        for (String key : snowTag.getAllKeys())
+            parseId(key, id -> {
+                long[] flat = snowTag.getLongArray(key);
+                Map<Long, Long> snow = data.settledSnow(id);
+                for (int i = 0; i + 1 < flat.length; i += 2)
+                    snow.put(flat[i], flat[i + 1]);
+            });
         return data;
     }
 

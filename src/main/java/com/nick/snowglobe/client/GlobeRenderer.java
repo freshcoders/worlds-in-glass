@@ -10,11 +10,13 @@ import com.mojang.math.Axis;
 import com.mojang.blaze3d.vertex.VertexConsumer;
 import com.nick.snowglobe.GlobeBlockEntity;
 import com.nick.snowglobe.GlobeKind;
+import com.nick.snowglobe.GlobeSavedData;
 import com.nick.snowglobe.GlobeSnapshot;
 import com.nick.snowglobe.GlobeSpace;
 import com.nick.snowglobe.MiniatureLayout;
 import static com.nick.snowglobe.MiniatureLayout.*;
 import com.nick.snowglobe.SnowGlobeMod;
+import com.nick.snowglobe.SnowGlobeConfig;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.multiplayer.ClientLevel;
 import net.minecraft.client.renderer.LightTexture;
@@ -64,6 +66,12 @@ public class GlobeRenderer implements BlockEntityRenderer<GlobeBlockEntity>
     private static final float[][] FLAKES = seeds(70, 1225);
     private static final float[][] DROPS = seeds(90, 77);
     private static final float[][] CLOUDS = seeds(10, 4242);
+    private static final float[][] STARS = seeds(46, 31337);
+    private static final float[][] EMBERS = seeds(40, 666);
+    private static final float[][] BUBBLES = seeds(30, 4711);
+
+    // Jar, standing on its base: a profile (y, radius) in pixels, turned round the jar's upright axis.
+    private static final float[][] JAR_PROFILE = {{1f, 0}, {1f, 4.75f}, {11.5f, 4.75f}, {12.5f, 4f}, {13f, 4f}};
     /** Ticks between possible lightning strikes; about one in three slots actually strikes. */
     private static final int STRIKE_SLOT = 50;
     /** How long a shake takes to settle, in ticks. */
@@ -93,7 +101,28 @@ public class GlobeRenderer implements BlockEntityRenderer<GlobeBlockEntity>
     /** Where a kind's glass is centred inside its block, for the edge glow. */
     private static Vec3 glassCenter(GlobeKind kind)
     {
-        return kind == GlobeKind.SHIP_BOTTLE ? new Vec3(BOTTLE_MID_X, BOTTLE_Y, 0.5) : new Vec3(0.5, BALL_CENTER_Y, 0.5);
+        return switch (kind)
+        {
+            case SHIP_BOTTLE -> new Vec3(BOTTLE_MID_X, BOTTLE_Y, 0.5);
+            case NETHER_JAR -> new Vec3(0.5, (JAR_FLOOR + JAR_TOP) / 2, 0.5);
+            case TERRARIUM, AQUARIUM -> new Vec3(0.5, 6 / 16.0, 0.5);
+            default -> new Vec3(0.5, BALL_CENTER_Y, 0.5);
+        };
+    }
+
+    /** Light for the miniature: dimmer when it's evening or night inside (the star globe always is). */
+    static int insideLight(GlobeKind kind, int phase, int light)
+    {
+        if (kind == GlobeKind.NETHER_JAR || kind == GlobeKind.AQUARIUM)
+            return light;
+        int cap = kind == GlobeKind.STAR_GLOBE ? 4 : switch (phase)
+        {
+            case GlobeSavedData.PHASE_SUNSET -> 10;
+            case GlobeSavedData.PHASE_NIGHT -> 4;
+            case GlobeSavedData.PHASE_SUNRISE -> 11;
+            default -> 15;
+        };
+        return LightTexture.pack(LightTexture.block(light), Math.min(LightTexture.sky(light), cap));
     }
 
     @Override
@@ -132,7 +161,7 @@ public class GlobeRenderer implements BlockEntityRenderer<GlobeBlockEntity>
         float shaken = (level.getGameTime() - globe.shakeStart + partialTick) / SHAKE_TICKS;
         float ticks = level.getGameTime() % 240000 + partialTick;
         renderPlaced(blockState, globe.kind(), globe.getSnapshot(), poseStack, buffers, light, ticks, blocks, eye, state, level, pos,
-                shaken, false);
+                shaken, false, new Look(globe.phase(), globe.season(), globe.hasMusicBox()));
     }
 
     /**
@@ -142,7 +171,7 @@ public class GlobeRenderer implements BlockEntityRenderer<GlobeBlockEntity>
      */
     static void renderPlaced(BlockState blockState, GlobeKind kind, @Nullable GlobeSnapshot snapshot, PoseStack poseStack,
                              MultiBufferSource buffers, int light, float ticks, BlockRenderDispatcher blocks, @Nullable Vec3 eye,
-                             @Nullable ClientGlobeState state, ClientLevel level, BlockPos pos, float shaken, boolean base)
+                             @Nullable ClientGlobeState state, ClientLevel level, BlockPos pos, float shaken, boolean base, Look look)
     {
         int turns = blockState.hasProperty(GlobeBlock.FACING) ? GlobeBlock.quarterTurns(blockState.getValue(GlobeBlock.FACING)) : 0;
         int scale = blockState.hasProperty(GlobeBlock.DISPLAY) ? blockState.getValue(GlobeBlock.DISPLAY).scale : 1;
@@ -163,7 +192,43 @@ public class GlobeRenderer implements BlockEntityRenderer<GlobeBlockEntity>
         if (scale > 1 || base)
             blocks.renderSingleBlock(blockState.setValue(GlobeBlock.DISPLAY, DisplaySize.SMALL).setValue(GlobeBlock.FACING, Direction.EAST),
                     poseStack, buffers, light, OverlayTexture.NO_OVERLAY, ModelData.EMPTY, null);
-        renderGlobe(kind, snapshot, poseStack, buffers, light, ticks, blocks, eye, state, pos.asLong(), level, pos, stir);
+        if (look.musicBox())
+            renderKey(kind, poseStack, buffers, light, MusicBoxes.keyAngle(pos, ticks));
+        renderGlobe(kind, snapshot, poseStack, buffers, light, ticks, blocks, eye, state, pos.asLong(), level, pos, stir, look);
+        poseStack.popPose();
+    }
+
+    /** What a globe shows besides its blocks: the time of day and season inside, and whether it has a music box. */
+    public record Look(int phase, int season, boolean musicBox)
+    {
+        public static final Look DEFAULT = new Look(0, 0, false);
+
+        /** Read from a globe's saved fields (an item's data, or a neighbour sent to someone inside). */
+        public static Look of(net.minecraft.nbt.CompoundTag tag)
+        {
+            return new Look(tag.getInt("Phase"), tag.getInt("Season"), tag.getBoolean("MusicBox"));
+        }
+    }
+
+    /** The music box's winding key, sticking out of the back of the base; it turns while the tune plays. */
+    private static void renderKey(GlobeKind kind, PoseStack poseStack, MultiBufferSource buffers, int light, float angle)
+    {
+        float x = switch (kind)
+        {
+            case TERRARIUM, AQUARIUM -> 2f / 16;
+            case SHIP_BOTTLE -> 1.5f / 16;
+            case NETHER_JAR -> 3f / 16;
+            default -> 4f / 16;
+        };
+        float y = kind == GlobeKind.NETHER_JAR || kind == GlobeKind.TERRARIUM || kind == GlobeKind.AQUARIUM ? 0.6f / 16 : 1.1f / 16;
+        VertexConsumer out = buffers.getBuffer(RenderType.entityTranslucent(WHITE));
+        poseStack.pushPose();
+        poseStack.translate(x, y, 0.5f);
+        poseStack.mulPose(Axis.XP.rotationDegrees(angle));
+        PoseStack.Pose pose = poseStack.last();
+        // Stem, then the flat bow you'd hold to wind it.
+        box(out, pose, -0.6f / 16, 0, 0, 0.6f / 16, 0.25f / 16, 0.25f / 16, light, 230, 185, 60, 255);
+        box(out, pose, -1.5f / 16, 0, 0, 0.3f / 16, 0.9f / 16, 0.25f / 16, light, 240, 200, 80, 255);
         poseStack.popPose();
     }
 
@@ -183,8 +248,11 @@ public class GlobeRenderer implements BlockEntityRenderer<GlobeBlockEntity>
      */
     public static void renderGlobe(GlobeKind kind, @Nullable GlobeSnapshot snapshot, PoseStack poseStack, MultiBufferSource buffers,
                                    int light, float ticks, BlockRenderDispatcher blocks, @Nullable Vec3 eye,
-                                   @Nullable ClientGlobeState state, long seed, @Nullable ClientLevel level, BlockPos where, float stir)
+                                   @Nullable ClientGlobeState state, long seed, @Nullable ClientLevel level, BlockPos where, float stir,
+                                   Look look)
     {
+        int outsideLight = light;
+        light = insideLight(kind, look.phase(), light);
         // Placed globes (which know where you are) queue their glass to draw after the world; items draw it straight away.
         boolean inWorld = eye != null;
         Vec3 view = eye != null ? eye : ITEM_EYE;
@@ -197,24 +265,55 @@ public class GlobeRenderer implements BlockEntityRenderer<GlobeBlockEntity>
                 pushMiniature(poseStack, layout);
                 renderContents(snapshot, state, level, where, partialTick, poseStack, buffers, light, blocks);
                 poseStack.popPose();
-                renderSnow(poseStack, buffers, light, ticks / 20f, stir);
-                renderBall(poseStack, buffers, inWorld, light, view, 255, 255, 255, 0);
+                renderSnow(poseStack, buffers, outsideLight, ticks / 20f, stir, look.season());
+                renderBall(poseStack, buffers, inWorld, outsideLight, view, 255, 255, 255, 0);
+            }
+            case DESERT_GLOBE ->
+            {
+                pushMiniature(poseStack, layout);
+                renderContents(snapshot, state, level, where, partialTick, poseStack, buffers, light, blocks);
+                poseStack.popPose();
+                renderSand(poseStack, buffers, outsideLight, ticks / 20f, stir);
+                renderBall(poseStack, buffers, inWorld, outsideLight, view, 255, 236, 205, 0.02f);
+            }
+            case STAR_GLOBE ->
+            {
+                pushMiniature(poseStack, layout);
+                renderContents(snapshot, state, level, where, partialTick, poseStack, buffers, light, blocks);
+                poseStack.popPose();
+                renderStars(poseStack, buffers, ticks, seed, stir);
+                renderBall(poseStack, buffers, inWorld, outsideLight, view, 200, 212, 255, 0.04f);
+            }
+            case AQUARIUM ->
+            {
+                pushMiniature(poseStack, layout);
+                renderContents(snapshot, state, level, where, partialTick, poseStack, buffers, light, blocks);
+                poseStack.popPose();
+                renderBubbles(poseStack, buffers, outsideLight, ticks / 20f, stir);
+            }
+            case NETHER_JAR ->
+            {
+                pushMiniature(poseStack, layout);
+                renderContents(snapshot, state, level, where, partialTick, poseStack, buffers, light, blocks);
+                poseStack.popPose();
+                renderEmbers(poseStack, buffers, ticks / 20f, stir);
+                renderJar(poseStack, buffers, inWorld, outsideLight, view);
             }
             case STORM_GLOBE ->
             {
                 pushMiniature(poseStack, layout);
                 renderContents(snapshot, state, level, where, partialTick, poseStack, buffers, light, blocks);
                 poseStack.popPose();
-                float flash = renderStorm(poseStack, buffers, light, ticks, seed, state, level, where, stir);
+                float flash = renderStorm(poseStack, buffers, outsideLight, ticks, seed, state, level, where, stir);
                 int grey = (int) (150 + 105 * flash);
-                renderBall(poseStack, buffers, inWorld, light, view, grey, grey + (int) (10 * (1 - flash)), grey + (int) (30 * (1 - flash)), flash * 0.35f);
+                renderBall(poseStack, buffers, inWorld, outsideLight, view, grey, grey + (int) (10 * (1 - flash)), grey + (int) (30 * (1 - flash)), flash * 0.35f);
             }
             case SHIP_BOTTLE ->
             {
                 pushMiniature(poseStack, layout);
                 renderContents(snapshot, state, level, where, partialTick, poseStack, buffers, light, blocks);
                 poseStack.popPose();
-                renderBottle(poseStack, buffers, inWorld, light, view);
+                renderBottle(poseStack, buffers, inWorld, outsideLight, view);
             }
             default ->
             {
@@ -258,20 +357,50 @@ public class GlobeRenderer implements BlockEntityRenderer<GlobeBlockEntity>
 
     // ---- Snow ----
 
-    /** Little flakes drifting down through the ball, swaying as they fall, and starting over at the top. */
-    private static void renderSnow(PoseStack poseStack, MultiBufferSource buffers, int light, float seconds, float stir)
+    /** Autumn leaf colours: orange, red, gold and brown. */
+    private static final int[][] LEAF_COLOURS = {{230, 120, 30}, {200, 50, 30}, {235, 180, 40}, {150, 90, 40}};
+
+    /**
+     * What drifts through the snow globe, by season: snowflakes in winter, blossom petals in spring, fireflies in
+     * summer and falling leaves in autumn.
+     */
+    private static void renderSnow(PoseStack poseStack, MultiBufferSource buffers, int light, float seconds, float stir, int season)
     {
+        if (season == GlobeSavedData.SUMMER)
+        {
+            renderFireflies(poseStack, buffers, seconds, stir);
+            return;
+        }
         VertexConsumer out = buffers.getBuffer(RenderType.entityTranslucent(WHITE));
         PoseStack.Pose pose = poseStack.last();
-        float half = 0.06f / 16f;
-        for (float[] seed : FLAKES)
+        boolean leaves = season == GlobeSavedData.AUTUMN, petals = season == GlobeSavedData.SPRING;
+        float half = (leaves ? 0.1f : petals ? 0.08f : 0.06f) / 16f;
+        // Petals and leaves float down more slowly than snow, and swing further as they fall.
+        float speed = leaves ? 0.6f : petals ? 0.75f : 1f, swing = leaves ? 2.2f : petals ? 1.6f : 1f;
+        for (int i = 0; i < FLAKES.length; i++)
         {
-            // Height runs from near the top of the ball down to the ground (about half-way down).
-            float fall = (seconds * seed[3] * 0.18f + seed[2]) % 1f;
+            float[] seed = FLAKES[i];
+            if ((leaves || petals) && i % 2 == 1)
+                continue;
+            int r = 255, g = 255, b = 255;
+            if (petals)
+            {
+                r = 255;
+                g = 180 + (int) (seed[4] * 8);
+                b = 200 + (int) (seed[2] * 30);
+            }
+            else if (leaves)
+            {
+                int[] c = LEAF_COLOURS[i / 2 % LEAF_COLOURS.length];
+                r = c[0];
+                g = c[1];
+                b = c[2];
+            }
+            float fall = (seconds * seed[3] * 0.18f * speed + seed[2]) % 1f;
             float h = 0.85f - fall * 1.3f;
             float spread = (float) Math.sqrt(Math.max(0, 1 - h * h)) * 0.8f;
-            float sway = (float) Math.sin(seconds * 1.3f + seed[4]) * 0.06f;
-            // Shaken: flakes thrown up through the whole ball, whirling round, then settling back as the stir fades.
+            float sway = (float) Math.sin(seconds * 1.3f + seed[4]) * 0.06f * swing;
+            // Shaken: thrown up through the whole ball, whirling round, then settling back as the stir fades.
             h += stir * ((0.75f - seed[2] * 1.3f) - h);
             spread += stir * (0.85f * (float) Math.sqrt(Math.max(0, 1 - h * h)) - spread);
             double whirl = stir * seconds * 7;
@@ -280,8 +409,177 @@ public class GlobeRenderer implements BlockEntityRenderer<GlobeBlockEntity>
             float x = 0.5f + (sx * spread + sway) * BALL_RADIUS;
             float y = BALL_CENTER_Y + h * BALL_RADIUS;
             float z = 0.5f + (sz * spread) * BALL_RADIUS;
-            box(out, pose, x, y, z, half, half, half, light, 255, 255, 255, 255, true);
+            if (leaves || petals)
+                box(out, pose, x, y, z, half, half * 0.3f, half, light, r, g, b, 255, true);
+            else
+                box(out, pose, x, y, z, half, half, half, light, r, g, b, 255, true);
         }
+    }
+
+    /** Summer in the snow globe: fireflies blinking as they wander over the ground. */
+    private static void renderFireflies(PoseStack poseStack, MultiBufferSource buffers, float seconds, float stir)
+    {
+        VertexConsumer out = buffers.getBuffer(RenderType.entityTranslucent(WHITE));
+        PoseStack.Pose pose = poseStack.last();
+        float half = 0.045f / 16f;
+        for (int i = 0; i < 24; i++)
+        {
+            float[] seed = FLAKES[i];
+            float t = seconds * (0.15f + seed[3] * 0.1f) * (1 + stir * 6) + seed[4];
+            float x = 0.5f + (seed[0] * 0.6f + (float) Math.sin(t * 1.7f) * 0.15f) * BALL_RADIUS;
+            float z = 0.5f + (seed[1] * 0.6f + (float) Math.cos(t * 1.3f) * 0.15f) * BALL_RADIUS;
+            float y = BALL_CENTER_Y + (-0.15f + seed[2] * 0.45f + (float) Math.sin(t * 2.1f) * 0.06f + stir * 0.3f) * BALL_RADIUS;
+            float blink = (float) Math.sin(seconds * (1.5f + seed[3]) + seed[4] * 3);
+            if (blink < 0.2f)
+                continue;
+            box(out, pose, x, y, z, half, half, half, LightTexture.FULL_BRIGHT, 220, 255, 110, (int) (255 * blink), true);
+        }
+    }
+
+    // ---- Desert: sand blown across the dunes ----
+
+    private static void renderSand(PoseStack poseStack, MultiBufferSource buffers, int light, float seconds, float stir)
+    {
+        VertexConsumer out = buffers.getBuffer(RenderType.entityTranslucent(WHITE));
+        PoseStack.Pose pose = poseStack.last();
+        float half = 0.045f / 16f;
+        for (float[] seed : DROPS)
+        {
+            // Each grain crosses the ball on the wind, low over the ground, and starts over on the other side.
+            float u = (seconds * seed[3] * (0.22f + stir * 1.5f) + seed[2]) % 1f;
+            float x = -0.95f + u * 1.9f;
+            float h = -0.45f + (seed[1] + 1) * 0.12f + (float) Math.sin(seconds * 2 + seed[4]) * 0.04f;
+            h += stir * ((seed[1] + 1) * 0.55f);
+            float z = seed[0] * 0.7f;
+            if (x * x + h * h + z * z > 0.8f)
+                continue;
+            box(out, pose, 0.5f + x * BALL_RADIUS, BALL_CENTER_Y + h * BALL_RADIUS, 0.5f + z * BALL_RADIUS,
+                    half, half, half, light, 222, 196, 140, 230, true);
+        }
+    }
+
+    // ---- Stars: a night sky inside the ball, with shooting stars and the northern lights ----
+
+    private static void renderStars(PoseStack poseStack, MultiBufferSource buffers, float ticks, long seed, float stir)
+    {
+        VertexConsumer out = buffers.getBuffer(RenderType.entityTranslucent(WHITE));
+        PoseStack.Pose pose = poseStack.last();
+        float seconds = ticks / 20f;
+        float half = 0.035f / 16f;
+        for (float[] s : STARS)
+        {
+            double angle = Math.atan2(s[1], s[0]);
+            float y = 0.3f + 0.62f * s[2], r = (float) Math.sqrt(Math.max(0, 1 - y * y)) * 0.9f;
+            float twinkle = 0.55f + 0.45f * (float) Math.sin(seconds * (2 + s[3] * 3) + s[4] * 5);
+            box(out, pose, 0.5f + (float) Math.cos(angle) * r * BALL_RADIUS, BALL_CENTER_Y + y * 0.9f * BALL_RADIUS,
+                    0.5f + (float) Math.sin(angle) * r * BALL_RADIUS, half, half, half, LightTexture.FULL_BRIGHT,
+                    235, 240, 255, (int) (255 * twinkle), true);
+        }
+        // The northern lights: a wavering green curtain across the top of the ball.
+        for (int i = 0; i < 26; i++)
+        {
+            float t = i / 25f;
+            float x = -0.7f + t * 1.4f;
+            float z = -0.35f + (float) Math.sin(t * 4 + seconds * 0.4f) * 0.2f;
+            float y = 0.45f + (float) Math.sin(t * 7 + seconds * 0.9f) * 0.05f;
+            if (x * x + y * y + z * z > 0.8f)
+                continue;
+            int alpha = (int) (70 + 50 * Math.sin(t * 9 + seconds * 1.3f));
+            box(out, pose, 0.5f + x * BALL_RADIUS, BALL_CENTER_Y + y * BALL_RADIUS, 0.5f + z * BALL_RADIUS,
+                    0.03f / 16f, 0.55f / 16f, 0.03f / 16f, LightTexture.FULL_BRIGHT, 80, 255, 160 + i * 3, alpha, true);
+        }
+        // Shooting stars: now and then one streaks across; shaking the globe lets loose a shower.
+        int streaks = stir > 0 ? 4 : 1;
+        for (int n = 0; n < streaks; n++)
+        {
+            long slot = (long) Math.floor(ticks / 60) * 7 + n;
+            long hash = mix(slot + seed);
+            if (stir <= 0 && Math.floorMod(hash, 3) != 0)
+                continue;
+            float age = (ticks % 60) / 60f * (stir > 0 ? 3 : 1) - n * 0.2f;
+            if (age < 0 || age > 0.35f)
+                continue;
+            Random random = new Random(hash);
+            float sx = -0.6f + random.nextFloat() * 0.4f, sy = 0.5f + random.nextFloat() * 0.25f, sz = (random.nextFloat() - 0.5f) * 0.8f;
+            for (int k = 0; k < 6; k++)
+            {
+                float p = age / 0.35f - k * 0.04f;
+                if (p < 0)
+                    continue;
+                float x = sx + p * 1.1f, y = sy - p * 0.35f;
+                box(out, pose, 0.5f + x * BALL_RADIUS, BALL_CENTER_Y + y * BALL_RADIUS, 0.5f + sz * BALL_RADIUS,
+                        half, half, half, LightTexture.FULL_BRIGHT, 255, 250, 220, 255 - k * 40, true);
+            }
+        }
+    }
+
+    // ---- Aquarium: bubbles rising through the water ----
+
+    private static void renderBubbles(PoseStack poseStack, MultiBufferSource buffers, int light, float seconds, float stir)
+    {
+        VertexConsumer out = buffers.getBuffer(RenderType.entityTranslucent(WHITE));
+        PoseStack.Pose pose = poseStack.last();
+        float height = 9f / 16f;
+        for (float[] s : BUBBLES)
+        {
+            float rise = (seconds * s[3] * (0.25f + stir * 1.2f) + s[2]) % 1f;
+            float half = (0.035f + s[2] * 0.03f) / 16f;
+            float x = 0.5f + s[0] * CASE_WIDTH * 0.42f + (float) Math.sin(seconds * 3 + s[4]) * 0.004f;
+            float z = 0.5f + s[1] * CASE_WIDTH * 0.42f;
+            box(out, pose, x, CASE_FLOOR + 0.1f / 16f + rise * height, z, half, half, half, light, 225, 245, 255, 150, true);
+        }
+    }
+
+    // ---- Nether jar: embers rising from the lava, and the jar's glass ----
+
+    private static void renderEmbers(PoseStack poseStack, MultiBufferSource buffers, float seconds, float stir)
+    {
+        VertexConsumer out = buffers.getBuffer(RenderType.entityTranslucent(WHITE));
+        PoseStack.Pose pose = poseStack.last();
+        float half = 0.035f / 16f;
+        float height = JAR_TOP - JAR_FLOOR - 0.5f / 16f;
+        for (float[] s : EMBERS)
+        {
+            float t = (seconds * s[3] * (0.12f + stir * 0.8f) + s[2]) % 1f;
+            float swirl = stir * seconds * 5 + s[4];
+            float r = (float) Math.hypot(s[0], s[1]) * JAR_INNER * 0.85f;
+            double angle = Math.atan2(s[1], s[0]) + swirl * 0.3;
+            float x = 0.5f + (float) Math.cos(angle) * r + (float) Math.sin(seconds * 2 + s[4]) * 0.005f;
+            float z = 0.5f + (float) Math.sin(angle) * r;
+            int alpha = (int) (255 * (1 - t));
+            box(out, pose, x, JAR_FLOOR + t * height, z, half, half, half, LightTexture.FULL_BRIGHT,
+                    255, 120 + (int) (s[2] * 90), 40, alpha, true);
+        }
+    }
+
+    /** The jar's glass: its profile turned round the upright axis, faintly warm from the fire inside. */
+    private static void renderJar(PoseStack poseStack, MultiBufferSource buffers, boolean inWorld, int light, Vec3 eye)
+    {
+        TextureAtlasSprite glass = Minecraft.getInstance().getTextureAtlas(TextureAtlas.LOCATION_BLOCKS).apply(GLASS);
+        float u = glass.getU(0.5f), v = glass.getV(0.5f);
+        GlassRenderer.draw(poseStack.last(), buffers, inWorld, (out, pose) -> {
+            for (int i = 0; i + 1 < JAR_PROFILE.length; i++)
+            {
+                float y0 = JAR_PROFILE[i][0], r0 = JAR_PROFILE[i][1], y1 = JAR_PROFILE[i + 1][0], r1 = JAR_PROFILE[i + 1][1];
+                for (int s = 0; s < BOTTLE_SEGMENTS; s++)
+                {
+                    float[] a = jarPoint(y0, r0, y1, r1, s, false), b = jarPoint(y0, r0, y1, r1, s, true);
+                    float[] c = jarPoint(y0, r0, y1, r1, s + 1, true), d = jarPoint(y0, r0, y1, r1, s + 1, false);
+                    glassQuad(out, pose, a, b, c, d, eye, LightTexture.FULL_BRIGHT, u, v, 255, 214, 185, 0.1f);
+                }
+            }
+        });
+    }
+
+    /** A point on one band of the jar (at its start or end), with the band's outward normal. */
+    private static float[] jarPoint(float y0, float r0, float y1, float r1, int segment, boolean end)
+    {
+        double phi = Math.PI * 2 * segment / BOTTLE_SEGMENTS;
+        float cos = (float) Math.cos(phi), sin = (float) Math.sin(phi);
+        float y = end ? y1 : y0, r = end ? r1 : r0;
+        float dy = y1 - y0, dr = r1 - r0, len = (float) Math.sqrt(dy * dy + dr * dr);
+        float ny = -dr / len, nr = dy / len;
+        return new float[] {0.5f + r * cos / 16f, y / 16f, 0.5f + r * sin / 16f, nr * cos, ny, nr * sin};
     }
 
     // ---- Storm: clouds, rain and lightning ----
@@ -353,7 +651,8 @@ public class GlobeRenderer implements BlockEntityRenderer<GlobeBlockEntity>
     {
         long slot = Math.floorDiv(tick, STRIKE_SLOT);
         long hash = mix(slot * 31 + seed);
-        if (Math.floorMod(hash, 3) != 0)
+        int rarity = SnowGlobeConfig.lightningRarity();
+        if (rarity == 0 || Math.floorMod(hash, rarity) != 0)
             return Long.MIN_VALUE;
         return slot * STRIKE_SLOT + Math.floorMod(hash >> 8, STRIKE_SLOT - 10);
     }

@@ -32,6 +32,10 @@ final class GlobeScenes
             case TERRARIUM -> mossyGarden(scene);
             case STORM_GLOBE -> stormyLighthouse(scene);
             case SHIP_BOTTLE -> shipInBottle(scene);
+            case DESERT_GLOBE -> desertOasis(scene);
+            case AQUARIUM -> coralReef(scene);
+            case STAR_GLOBE -> starlitCamp(scene);
+            case NETHER_JAR -> lavaCavern(scene);
             default -> snowyCabin(scene);
         }
     }
@@ -328,6 +332,268 @@ final class GlobeScenes
 
         spawn(s, EntityType.TROPICAL_FISH, 2.5, 4.2, 8.5, mob -> {});
         spawn(s, EntityType.TROPICAL_FISH, 13.5, 4.2, 7.5, mob -> {});
+    }
+
+    // ---- Desert globe: rolling dunes, a little stepped pyramid, and an oasis with a palm, at sunset ----
+
+    private static void desertOasis(Scene s)
+    {
+        RandomSource random = RandomSource.create(1922L);
+        int size = GlobeSpace.DEFAULT_SIZE;
+        int[][] ground = new int[size][size];
+        for (int x = 0; x < size; x++)
+            for (int z = 0; z < size; z++)
+            {
+                // Dunes: gentle waves in the sand, around a ground level of 3.
+                int h = 3 + (int) Math.round(Math.sin(x * 0.55 + z * 0.25) * 0.8 + Math.cos(z * 0.6) * 0.5);
+                ground[x][z] = h;
+                for (int y = 0; y <= h; y++)
+                    s.set(x, y, z, (y < h - 1 ? Blocks.SANDSTONE : Blocks.SAND).defaultBlockState());
+            }
+
+        // A stepped pyramid in the back corner.
+        int px = 10, pz = 4, base = 3;
+        for (int step = 0; step < 4; step++)
+            for (int x = px - 3 + step; x <= px + 3 - step; x++)
+                for (int z = pz - 3 + step; z <= pz + 3 - step; z++)
+                    s.set(x, base + 1 + step, z, (step == 3 ? Blocks.CHISELED_SANDSTONE : Blocks.SMOOTH_SANDSTONE).defaultBlockState());
+
+        // The oasis: a pool in a dip, ringed with grass, with a palm leaning over it.
+        int ox = 5, oz = 10;
+        for (int x = ox - 3; x <= ox + 3; x++)
+            for (int z = oz - 3; z <= oz + 3; z++)
+            {
+                double d = Math.hypot(x - ox, z - oz);
+                if (d < 2.2)
+                {
+                    for (int y = 2; y <= ground[x][z]; y++)
+                        s.set(x, y, z, Blocks.AIR.defaultBlockState());
+                    s.set(x, 1, z, Blocks.SAND.defaultBlockState());
+                    s.set(x, 2, z, Blocks.WATER.defaultBlockState());
+                    ground[x][z] = 1;
+                }
+                else if (d < 3.4 && s.get(x, ground[x][z], z).is(Blocks.SAND))
+                {
+                    s.set(x, ground[x][z], z, Blocks.GRASS_BLOCK.defaultBlockState());
+                    if (random.nextInt(3) == 0 && s.empty(x, ground[x][z] + 1, z))
+                        s.set(x, ground[x][z] + 1, z, Blocks.SHORT_GRASS.defaultBlockState());
+                }
+            }
+        s.set(ox - 1, 2, oz + 1, Blocks.LILY_PAD.defaultBlockState());
+        // The palm: a jungle trunk bending one way, with a crown of leaves.
+        int tx = ox + 2, tz = oz - 2, ty = ground[tx][tz] + 1;
+        int[][] trunk = {{0, 0}, {0, 0}, {0, 0}, {-1, 0}, {-1, 0}};
+        int cx = tx;
+        for (int i = 0; i < trunk.length; i++)
+        {
+            cx += trunk[i][0];
+            s.set(cx, ty + i, tz, Blocks.JUNGLE_LOG.defaultBlockState());
+        }
+        int top = ty + trunk.length;
+        BlockState palm = Blocks.JUNGLE_LEAVES.defaultBlockState().setValue(LeavesBlock.PERSISTENT, true);
+        s.set(cx, top, tz, palm);
+        for (int[] d : new int[][] {{1, 0}, {-1, 0}, {0, 1}, {0, -1}})
+        {
+            s.set(cx + d[0], top, tz + d[1], palm);
+            s.set(cx + d[0] * 2, top - 1, tz + d[1] * 2, palm);
+        }
+        s.set(cx + 1, top - 1, tz + 1, Blocks.COCOA.defaultBlockState());
+
+        // Cacti and dry bushes dotted over the dunes.
+        int[][] cacti = {{2, 3}, {13, 12}, {8, 13}};
+        for (int[] c : cacti)
+            for (int i = 1; i <= 2 + random.nextInt(2); i++)
+                if (s.empty(c[0], ground[c[0]][c[1]] + i, c[1]))
+                    s.set(c[0], ground[c[0]][c[1]] + i, c[1], Blocks.CACTUS.defaultBlockState());
+        for (int i = 0; i < 9; i++)
+        {
+            int x = random.nextInt(size), z = random.nextInt(size);
+            if (s.get(x, ground[x][z], z).is(Blocks.SAND) && s.empty(x, ground[x][z] + 1, z))
+                s.set(x, ground[x][z] + 1, z, Blocks.DEAD_BUSH.defaultBlockState());
+        }
+
+        // Residents: a camel resting by the water, and a desert rabbit.
+        spawn(s, EntityType.CAMEL, 9.5, ground[9][11] + 1, 11.5, mob -> {});
+        spawn(s, EntityType.RABBIT, 3.5, ground[3][6] + 1, 6.5,
+                mob -> ((net.minecraft.world.entity.animal.Rabbit) mob).setVariant(net.minecraft.world.entity.animal.Rabbit.Variant.GOLD));
+    }
+
+    // ---- Aquarium: a coral reef on a sandy floor, with kelp, a sunken chest, fish and an axolotl ----
+
+    private static void coralReef(Scene s)
+    {
+        RandomSource random = RandomSource.create(1888L);
+        int size = GlobeSpace.DEFAULT_SIZE;
+        final int surface = 13;
+        for (int x = 0; x < size; x++)
+            for (int z = 0; z < size; z++)
+            {
+                int floor = 1 + (Math.hypot(x - 4, z - 11) < 3 ? 1 : 0);
+                for (int y = 0; y <= surface; y++)
+                    s.set(x, y, z, y <= floor ? (y == floor && random.nextInt(5) == 0 ? Blocks.GRAVEL : Blocks.SAND).defaultBlockState()
+                            : Blocks.WATER.defaultBlockState());
+            }
+
+        // Coral heads, with coral and fans growing on and around them.
+        Block[] corals = {Blocks.BRAIN_CORAL_BLOCK, Blocks.TUBE_CORAL_BLOCK, Blocks.FIRE_CORAL_BLOCK, Blocks.HORN_CORAL_BLOCK, Blocks.BUBBLE_CORAL_BLOCK};
+        Block[] plants = {Blocks.BRAIN_CORAL, Blocks.TUBE_CORAL, Blocks.FIRE_CORAL, Blocks.HORN_CORAL, Blocks.BUBBLE_CORAL,
+                Blocks.BRAIN_CORAL_FAN, Blocks.TUBE_CORAL_FAN, Blocks.FIRE_CORAL_FAN, Blocks.HORN_CORAL_FAN, Blocks.BUBBLE_CORAL_FAN};
+        int[][] heads = {{10, 10, 3}, {12, 5, 2}, {5, 4, 2}, {8, 13, 1}};
+        for (int[] h : heads)
+            for (int dx = -1; dx <= 1; dx++)
+                for (int dz = -1; dz <= 1; dz++)
+                    for (int dy = 0; dy < h[2]; dy++)
+                        if (Math.abs(dx) + Math.abs(dz) + dy <= h[2] && random.nextInt(5) > 0)
+                            s.set(h[0] + dx, 2 + dy, h[1] + dz, corals[random.nextInt(corals.length)].defaultBlockState());
+        for (int x = 0; x < size; x++)
+            for (int z = 0; z < size; z++)
+                for (int y = 2; y < 7; y++)
+                    if (s.get(x, y, z).is(Blocks.WATER) && !s.get(x, y - 1, z).is(Blocks.WATER) && !s.get(x, y - 1, z).isAir()
+                            && random.nextInt(100) < 30)
+                    {
+                        s.set(x, y, z, plants[random.nextInt(plants.length)].defaultBlockState());
+                        break;
+                    }
+
+        // Kelp swaying up towards the surface, and seagrass on the open sand.
+        for (int[] k : new int[][] {{2, 2}, {3, 8}, {13, 13}, {14, 8}})
+        {
+            int height = 6 + random.nextInt(4);
+            for (int i = 0; i < height; i++)
+                s.set(k[0], 2 + i, k[1], (i == height - 1 ? Blocks.KELP : Blocks.KELP_PLANT).defaultBlockState());
+        }
+        for (int i = 0; i < 26; i++)
+        {
+            int x = random.nextInt(size), z = random.nextInt(size);
+            for (int y = 2; y < 5; y++)
+                if (s.get(x, y, z).is(Blocks.WATER) && s.get(x, y - 1, z).is(Blocks.SAND))
+                {
+                    s.set(x, y, z, Blocks.SEAGRASS.defaultBlockState());
+                    break;
+                }
+        }
+        // A sunken chest in the sand, and sea pickles glowing beside it.
+        s.set(4, 3, 11, Blocks.CHEST.defaultBlockState().setValue(BlockStateProperties.WATERLOGGED, true));
+        s.set(5, 3, 12, Blocks.SEA_PICKLE.defaultBlockState().setValue(BlockStateProperties.PICKLES, 3));
+        s.set(3, 3, 10, Blocks.SEA_PICKLE.defaultBlockState().setValue(BlockStateProperties.PICKLES, 2));
+
+        spawn(s, EntityType.TROPICAL_FISH, 6.5, 8, 7.5, mob -> {});
+        spawn(s, EntityType.TROPICAL_FISH, 11.5, 9, 3.5, mob -> {});
+        spawn(s, EntityType.TROPICAL_FISH, 3.5, 7, 13.5, mob -> {});
+        spawn(s, EntityType.AXOLOTL, 9.5, 4, 8.5, mob -> {});
+    }
+
+    // ---- Star globe: a camp on a hilltop under the night sky, with a tent, a campfire and amethyst ----
+
+    private static void starlitCamp(Scene s)
+    {
+        RandomSource random = RandomSource.create(1610L);
+        int size = GlobeSpace.DEFAULT_SIZE;
+        int[][] ground = new int[size][size];
+        for (int x = 0; x < size; x++)
+            for (int z = 0; z < size; z++)
+            {
+                // A low, rounded hill.
+                double d = Math.hypot(x + 0.5 - 8, z + 0.5 - 8);
+                int h = 3 + (d < 3 ? 2 : d < 5.5 ? 1 : 0);
+                ground[x][z] = h;
+                for (int y = 0; y <= h; y++)
+                    s.set(x, y, z, (y == h ? Blocks.GRASS_BLOCK : y < h - 2 ? Blocks.STONE : Blocks.DIRT).defaultBlockState());
+            }
+
+        // A little white tent: a ridge of wool with sloped sides.
+        BlockState wool = Blocks.WHITE_WOOL.defaultBlockState();
+        BlockState stairs = Blocks.BIRCH_STAIRS.defaultBlockState();
+        int g = ground[7][7];
+        for (int x = 6; x <= 8; x++)
+        {
+            s.set(x, g + 1, 5, stairs.setValue(StairBlock.FACING, Direction.SOUTH));
+            s.set(x, g + 1, 7, stairs.setValue(StairBlock.FACING, Direction.NORTH));
+            s.set(x, g + 2, 6, wool);
+        }
+        s.set(6, g + 1, 6, wool);
+
+        // The campfire, with logs to sit on.
+        s.set(9, g + 1, 9, Blocks.CAMPFIRE.defaultBlockState());
+        s.set(11, ground[11][9] + 1, 9, Blocks.SPRUCE_LOG.defaultBlockState().setValue(RotatedPillarBlock.AXIS, Direction.Axis.Z));
+        s.set(9, ground[9][11] + 1, 11, Blocks.SPRUCE_LOG.defaultBlockState().setValue(RotatedPillarBlock.AXIS, Direction.Axis.X));
+
+        // Amethyst crystals poking out of the hillside, glowing faintly.
+        for (int[] a : new int[][] {{3, 4}, {12, 4}, {4, 12}, {13, 12}})
+        {
+            int y = ground[a[0]][a[1]];
+            s.set(a[0], y, a[1], Blocks.AMETHYST_BLOCK.defaultBlockState());
+            s.set(a[0], y + 1, a[1], Blocks.AMETHYST_CLUSTER.defaultBlockState());
+        }
+
+        spruce(s, 3, ground[3][8] + 1, 8, 4);
+        // Flowers in the grass.
+        for (int x = 0; x < size; x++)
+            for (int z = 0; z < size; z++)
+                if (s.get(x, ground[x][z], z).is(Blocks.GRASS_BLOCK) && s.empty(x, ground[x][z] + 1, z) && random.nextInt(100) < 18)
+                    s.set(x, ground[x][z] + 1, z, (random.nextBoolean() ? Blocks.SHORT_GRASS : Blocks.LILY_OF_THE_VALLEY).defaultBlockState());
+
+        // A fox, curled up by the fire.
+        spawn(s, EntityType.FOX, 10.5, g + 1, 7.5, mob -> {});
+    }
+
+    // ---- Nether jar: a cavern of netherrack and basalt around a lava pool, with fungi and a strider ----
+
+    private static void lavaCavern(Scene s)
+    {
+        RandomSource random = RandomSource.create(1321L);
+        int size = GlobeSpace.DEFAULT_SIZE;
+        int[][] ground = new int[size][size];
+        for (int x = 0; x < size; x++)
+            for (int z = 0; z < size; z++)
+            {
+                double d = Math.hypot(x + 0.5 - 8, z + 0.5 - 8);
+                // A lava pool in the middle, the floor rising towards the glass.
+                int h = d < 3.2 ? 1 : 2 + (d > 5 ? 1 : 0);
+                ground[x][z] = h;
+                for (int y = 0; y <= h; y++)
+                    s.set(x, y, z, (random.nextInt(9) == 0 ? Blocks.NETHER_QUARTZ_ORE : Blocks.NETHERRACK).defaultBlockState());
+                if (d < 3.2)
+                    s.set(x, 2, z, Blocks.LAVA.defaultBlockState());
+            }
+
+        // Basalt pillars, one with glowstone hanging from the top.
+        for (int[] p : new int[][] {{3, 4, 7}, {12, 11, 9}, {11, 3, 5}})
+        {
+            for (int y = ground[p[0]][p[1]] + 1; y <= ground[p[0]][p[1]] + p[2]; y++)
+                s.set(p[0], y, p[1], Blocks.BASALT.defaultBlockState());
+            s.set(p[0], ground[p[0]][p[1]] + p[2] + 1, p[1], Blocks.GLOWSTONE.defaultBlockState());
+        }
+
+        // A crimson patch and a warped patch, with fungi and roots.
+        for (int x = 0; x < size; x++)
+            for (int z = 0; z < size; z++)
+            {
+                int y = ground[x][z];
+                if (!s.get(x, y, z).is(Blocks.NETHERRACK) || !s.empty(x, y + 1, z))
+                    continue;
+                boolean crimson = x < 7 && z > 8, warped = x > 9 && z > 6 && z < 12;
+                if (!crimson && !warped)
+                    continue;
+                s.set(x, y, z, (crimson ? Blocks.CRIMSON_NYLIUM : Blocks.WARPED_NYLIUM).defaultBlockState());
+                if (random.nextInt(100) < 40)
+                    s.set(x, y + 1, z, (crimson ? (random.nextBoolean() ? Blocks.CRIMSON_ROOTS : Blocks.CRIMSON_FUNGUS)
+                            : (random.nextBoolean() ? Blocks.WARPED_ROOTS : Blocks.WARPED_FUNGUS)).defaultBlockState());
+            }
+
+        // A bit of ruined fortress: a nether brick arch, with a soul fire burning beside it.
+        for (int y = 3; y <= 6; y++)
+        {
+            s.set(6, y, 2, Blocks.NETHER_BRICKS.defaultBlockState());
+            s.set(9, y, 2, Blocks.NETHER_BRICKS.defaultBlockState());
+        }
+        for (int x = 6; x <= 9; x++)
+            s.set(x, 7, 2, Blocks.NETHER_BRICKS.defaultBlockState());
+        s.set(7, 7, 3, Blocks.NETHER_BRICK_FENCE.defaultBlockState());
+        s.set(12, ground[12][13], 13, Blocks.SOUL_SAND.defaultBlockState());
+        s.set(12, ground[12][13] + 1, 13, Blocks.SOUL_FIRE.defaultBlockState());
+
+        spawn(s, EntityType.STRIDER, 8.5, 2.5, 8.5, mob -> {});
     }
 
     /** Puts a mob in the globe that stays for good (it never despawns), with a natural look (variant, colours). */

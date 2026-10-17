@@ -10,7 +10,11 @@ public enum GlobeKind
     SNOW_GLOBE("snow_globe", Space.SPHERE, ballOnPedestal()),
     TERRARIUM("terrarium", Space.CUBE, Block.box(2, 0, 2, 14, 12, 14)),
     STORM_GLOBE("storm_globe", Space.SPHERE, ballOnPedestal()),
-    SHIP_BOTTLE("ship_bottle", Space.BOTTLE, Block.box(1.5, 0, 3.5, 15.6, 9.3, 12.5));
+    SHIP_BOTTLE("ship_bottle", Space.BOTTLE, Block.box(1.5, 0, 3.5, 15.6, 9.3, 12.5)),
+    DESERT_GLOBE("desert_globe", Space.SPHERE, ballOnPedestal()),
+    AQUARIUM("aquarium", Space.CUBE, Block.box(2, 0, 2, 14, 12, 14)),
+    STAR_GLOBE("star_globe", Space.SPHERE, ballOnPedestal()),
+    NETHER_JAR("nether_jar", Space.JAR, Block.box(3, 0, 3, 13, 14, 13));
 
     /** The shape of the build space inside its size³ cube. */
     public enum Space
@@ -20,7 +24,15 @@ public enum GlobeKind
         /** The whole cube. */
         CUBE,
         /** A bottle lying along the x axis: a cylinder about two thirds as wide as it is long. */
-        BOTTLE
+        BOTTLE,
+        /** A jar standing upright: a cylinder four fifths as wide as it is tall. */
+        JAR;
+
+        /** True for spaces with a flat floor at the bottom of the cube (they grow upwards from it). */
+        public boolean hasFloor()
+        {
+            return this == CUBE || this == JAR;
+        }
     }
 
     private final String name;
@@ -60,6 +72,12 @@ public enum GlobeKind
         return size * 11 / 32.0;
     }
 
+    /** Radius of a jar's build space, in blocks, for a globe of the given size. */
+    public static double jarRadius(int size)
+    {
+        return size * 0.4;
+    }
+
     /** True for the cells of the size³ cube that belong to this kind's build space. */
     public boolean inside(int x, int y, int z, int size)
     {
@@ -72,6 +90,7 @@ public enum GlobeKind
             case CUBE -> true;
             case SPHERE -> dx * dx + dy * dy + dz * dz <= c * c;
             case BOTTLE -> dy * dy + dz * dz <= bottleRadius(size) * bottleRadius(size);
+            case JAR -> dx * dx + dz * dz <= jarRadius(size) * jarRadius(size);
         };
     }
 
@@ -83,6 +102,7 @@ public enum GlobeKind
             case CUBE -> sx <= size && sy <= size && sz <= size;
             case SPHERE -> Math.sqrt(sx * sx + sy * sy + sz * sz) / 2 <= size / 2.0;
             case BOTTLE -> sx <= size && Math.sqrt(sy * sy + sz * sz) / 2 <= bottleRadius(size);
+            case JAR -> sy <= size && Math.sqrt(sx * sx + sz * sz) / 2 <= jarRadius(size);
         };
     }
 }

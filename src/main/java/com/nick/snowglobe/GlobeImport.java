@@ -293,7 +293,7 @@ public final class GlobeImport
         BlockPos min = GlobeSpace.interiorMin(server, id);
 
         // Centre it; a terrarium stands it on the floor, round globes and bottles float it in the middle.
-        int y = kind.space == GlobeKind.Space.CUBE ? 0 : (size - dims.getY()) / 2;
+        int y = kind.space.hasFloor() ? 0 : (size - dims.getY()) / 2;
         BlockPos origin = min.offset((size - dims.getX()) / 2, y, (size - dims.getZ()) / 2);
         StructurePlaceSettings settings = new StructurePlaceSettings().addProcessor(new InsideOnly(min, kind, size));
         template.placeInWorld(level, origin, origin, settings, level.random, Block.UPDATE_CLIENTS);
