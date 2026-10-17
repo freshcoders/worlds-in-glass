@@ -140,8 +140,10 @@ def rename(old="snow-globes"):
     found = requests.get(f"{API}/project/{SLUG}", headers=headers())
     current = SLUG if found.ok else old
     body = open(os.path.join(HERE, "description.md"), encoding="utf-8").read()
-    check(requests.patch(f"{API}/project/{current}", headers=headers(),
-                         json={"slug": SLUG, "title": TITLE, "description": SUMMARY, "body": body}), "Rename project")
+    fields = {"title": TITLE, "description": SUMMARY, "body": body}
+    if current != SLUG:
+        fields["slug"] = SLUG  # Modrinth refuses a slug the project already has
+    check(requests.patch(f"{API}/project/{current}", headers=headers(), json=fields), "Rename project")
     for v in check(requests.get(f"{API}/project/{SLUG}/version", headers=headers()), "List versions"):
         check(requests.patch(f"{API}/version/{v['id']}", headers=headers(), json={"name": f"{TITLE} {v['version_number']}"}),
               f"Rename version {v['version_number']}")
