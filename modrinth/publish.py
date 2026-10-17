@@ -1,0 +1,116 @@
+"""Puts Snow Globes on Modrinth, using your personal access token (from ~/.modrinth-token or MODRINTH_TOKEN).
+
+    python modrinth/publish.py create    # a draft project (only you can see it): icon, description, gallery, version 1.0.0
+    python modrinth/publish.py version   # upload build/libs/snowglobe-<version>.jar as a new version of the project
+    python modrinth/publish.py submit    # send the draft to Modrinth's moderators for review (then it goes public)
+
+The token never appears in output. Token scopes needed: Create projects, Write projects, Create versions.
+"""
+import json, os, re, sys
+import requests
+
+API = "https://api.modrinth.com/v2"
+HERE = os.path.dirname(os.path.abspath(__file__))
+ROOT = os.path.dirname(HERE)
+SLUG = "snow-globes"
+CREATE = "LNytGWDc"  # Create's project id, an optional dependency
+GALLERY = [
+    ("gallery.jpg", "A collector's gallery", True),
+    ("nether-jar.jpg", "Nether jar", False),
+    ("desert-globe.jpg", "Desert globe", False),
+    ("storm-globe.jpg", "Storm globe", False),
+    ("star-globe-and-nether-jar.jpg", "Star globe and nether jar on a collector's shelf", False),
+    ("inside-desert-globe.jpg", "From inside: the room outside, giant", False),
+    ("create-helicopter.jpg", "A Create schematic built inside a globe", False),
+    ("gallery-shelves.jpg", "Collector's shelves", False),
+]
+
+
+def token():
+    """From MODRINTH_TOKEN, or else the file ~/.modrinth-token (handy on Windows, where a new variable only reaches new programs)."""
+    value = os.environ.get("MODRINTH_TOKEN", "").strip()
+    path = os.path.join(os.path.expanduser("~"), ".modrinth-token")
+    if not value and os.path.exists(path):
+        value = open(path, encoding="utf-8").read().strip()
+    if not value:
+        sys.exit("No token: create one at https://modrinth.com/settings/pats and put it in ~/.modrinth-token (or MODRINTH_TOKEN).")
+    return value
+
+
+def headers():
+    return {"Authorization": token(), "User-Agent": "ikdekker/snow-globes publish script"}
+
+
+def mod_version():
+    props = open(os.path.join(ROOT, "gradle.properties"), encoding="utf-8").read()
+    return re.search(r"^mod_version=(.+)$", props, re.M).group(1).strip()
+
+
+def check(response, what):
+    if not response.ok:
+        sys.exit(f"{what} failed: {response.status_code} {response.text[:500]}")
+    print(f"{what}: ok")
+    return response.json() if response.text else None
+
+
+def create():
+    body = open(os.path.join(HERE, "description.md"), encoding="utf-8").read()
+    data = {
+        "slug": SLUG,
+        "title": "Snow Globes",
+        "description": "Build tiny worlds inside snow globes, terrariums and jars. Step inside to build, step out to see it in miniature.",
+        "categories": ["decoration", "adventure"],
+        "additional_categories": ["magic"],
+        "client_side": "required",
+        "server_side": "required",
+        "body": body,
+        "license_id": "MIT",
+        "project_type": "mod",
+        "is_draft": True,
+        "initial_versions": [],
+    }
+    with open(os.path.join(HERE, "icon.png"), "rb") as icon:
+        project = check(requests.post(f"{API}/project", headers=headers(),
+                                      files={"data": (None, json.dumps(data), "application/json"),
+                                             "icon": ("icon.png", icon, "image/png")}), "Create project")
+    print(f"Project id {project['id']}: https://modrinth.com/mod/{SLUG}")
+    for i, (name, title, featured) in enumerate(GALLERY):
+        with open(os.path.join(HERE, name), "rb") as image:
+            check(requests.post(f"{API}/project/{SLUG}/gallery", headers=headers(),
+                                params={"ext": "jpg", "featured": str(featured).lower(), "title": title, "ordering": i},
+                                data=image.read()), f"Gallery: {title}")
+    version()
+
+
+def version():
+    number = mod_version()
+    jar = os.path.join(ROOT, "build", "libs", f"snowglobe-{number}.jar")
+    if not os.path.exists(jar):
+        sys.exit(f"Build the jar first: {jar} is missing.")
+    project = check(requests.get(f"{API}/project/{SLUG}", headers=headers()), "Find project")
+    data = {
+        "name": f"Snow Globes {number}",
+        "version_number": number,
+        "changelog": open(os.path.join(HERE, "changelog.md"), encoding="utf-8").read(),
+        "dependencies": [{"project_id": CREATE, "dependency_type": "optional"}],
+        "game_versions": ["1.21.1"],
+        "version_type": "release",
+        "loaders": ["neoforge"],
+        "featured": True,
+        "project_id": project["id"],
+        "file_parts": ["jar"],
+        "primary_file": "jar",
+    }
+    with open(jar, "rb") as file:
+        check(requests.post(f"{API}/version", headers=headers(),
+                            files={"data": (None, json.dumps(data), "application/json"),
+                                   "jar": (os.path.basename(jar), file, "application/java-archive")}), f"Upload {number}")
+
+
+def submit():
+    check(requests.patch(f"{API}/project/{SLUG}", headers=headers(), json={"status": "processing"}), "Submit for review")
+
+
+if __name__ == "__main__":
+    action = sys.argv[1] if len(sys.argv) > 1 else ""
+    {"create": create, "version": version, "submit": submit}.get(action, lambda: sys.exit(__doc__))()

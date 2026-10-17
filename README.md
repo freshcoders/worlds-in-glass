@@ -58,3 +58,5 @@ Put the mod on the server and on every player's game. Create is optional; withou
 Java 21 is downloaded by Gradle if needed. Don't rebuild while `runClient` is running: the test game loads classes from `build/` and will crash. The Forge 1.20.1 version is under the git tag `forge-1.20.1`.
 
 Known limits: spinning Create parts may not show in miniatures, and it's only been tested in single player and LAN so far.
+
+Snow Globes is MIT licensed.
