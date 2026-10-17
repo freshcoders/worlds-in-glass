@@ -71,7 +71,7 @@ public class GlobeRenderer implements BlockEntityRenderer<GlobeBlockEntity>
     private static final float[][] BUBBLES = seeds(30, 4711);
 
     // Jar, standing on its base: a profile (y, radius) in pixels, turned round the jar's upright axis.
-    private static final float[][] JAR_PROFILE = {{1f, 0}, {1f, 4.75f}, {11.5f, 4.75f}, {12.5f, 4f}, {13f, 4f}};
+    private static final float[][] JAR_PROFILE = {{1f, 0}, {1f, 4.75f}, {12f, 4.75f}, {12.5f, 4.25f}};
     /** Ticks between possible lightning strikes; about one in three slots actually strikes. */
     private static final int STRIKE_SLOT = 50;
     /** How long a shake takes to settle, in ticks. */

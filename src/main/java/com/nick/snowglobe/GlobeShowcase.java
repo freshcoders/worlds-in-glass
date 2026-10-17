@@ -11,19 +11,37 @@ import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.component.CustomData;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.Blocks;
+import net.minecraft.world.level.block.CandleBlock;
+import net.minecraft.world.level.block.IronBarsBlock;
 import net.minecraft.world.level.block.LanternBlock;
+import net.minecraft.world.level.block.RotatedPillarBlock;
+import net.minecraft.world.level.block.state.BlockState;
 
 /**
- * Dev only: builds a display plaza in front of you for screenshots. Every kind of globe on its own pedestal in a
- * ring (each with its starter scene), a big snow globe with a music box in the middle, and two collector's shelves
- * at the back, all on a stone floor with lanterns.
+ * Dev only: builds a small collector's gallery in front of you, for screenshots. A wood-panelled room seen through
+ * a doorway: a row of collector's shelves on a low counter along the back wall, little pedestals under the side
+ * windows, a big snow globe on a rug in the middle, and lanterns hanging from the beams.
  */
 final class GlobeShowcase
 {
-    private static final int RADIUS = 10;
-    private static final int RING = 6;
+    /** Half the room's inside width, its inside depth and its inside height. */
+    private static final int HALF_WIDTH = 5, DEPTH = 9, HEIGHT = 5;
 
     private GlobeShowcase() {}
+
+    /** The room's own directions: {@code u} to the right, {@code v} away from the door, {@code y} up from the floor. */
+    private record Room(ServerLevel level, BlockPos origin, Direction look, Direction right)
+    {
+        BlockPos at(int u, int v, int y)
+        {
+            return origin.relative(right, u).relative(look, v).above(y);
+        }
+
+        void set(int u, int v, int y, BlockState state)
+        {
+            level.setBlock(at(u, v, y), state, Block.UPDATE_ALL);
+        }
+    }
 
     static int build(ServerPlayer player)
     {
@@ -35,71 +53,103 @@ final class GlobeShowcase
             return 0;
         }
         Direction look = player.getDirection();
-        BlockPos center = player.blockPosition().relative(look, RADIUS + 2);
-        int floorY = player.blockPosition().getY() - 1;
-        BlockPos.MutableBlockPos pos = new BlockPos.MutableBlockPos();
+        Direction right = look.getClockWise();
+        // The front wall starts two blocks ahead; the floor is the block you stand on.
+        Room room = new Room(level, player.blockPosition().relative(look, 2).below(), look, right);
 
-        // Clear the space and lay the floor: smooth stone, a ring of polished diorite, a spruce border.
-        for (int dx = -RADIUS - 1; dx <= RADIUS + 1; dx++)
-            for (int dz = -RADIUS - 1; dz <= RADIUS + 1; dz++)
+        // Clear the space, with a stone foundation under the floor.
+        for (int u = -HALF_WIDTH - 2; u <= HALF_WIDTH + 2; u++)
+            for (int v = -1; v <= DEPTH + 2; v++)
             {
-                double d = Math.hypot(dx, dz);
-                if (d > RADIUS + 0.5)
-                    continue;
-                for (int y = floorY + 1; y <= floorY + 12; y++)
-                    level.setBlock(pos.set(center.getX() + dx, y, center.getZ() + dz), Blocks.AIR.defaultBlockState(), Block.UPDATE_CLIENTS);
-                for (int y = floorY - 3; y < floorY; y++)
-                    if (level.getBlockState(pos.set(center.getX() + dx, y, center.getZ() + dz)).canBeReplaced())
-                        level.setBlock(pos, Blocks.STONE.defaultBlockState(), Block.UPDATE_CLIENTS);
-                Block floor = d > RADIUS - 0.5 ? Blocks.SPRUCE_PLANKS
-                        : Math.abs(d - RING) < 0.8 ? Blocks.POLISHED_DIORITE
-                        : d < 2.5 ? Blocks.POLISHED_DEEPSLATE
-                        : (dx + dz) % 2 == 0 ? Blocks.SMOOTH_STONE : Blocks.POLISHED_ANDESITE;
-                level.setBlock(pos.set(center.getX() + dx, floorY, center.getZ() + dz), floor.defaultBlockState(), Block.UPDATE_CLIENTS);
+                for (int y = 1; y <= HEIGHT + 3; y++)
+                    room.set(u, v, y, Blocks.AIR.defaultBlockState());
+                for (int y = -3; y < 0; y++)
+                    if (level.getBlockState(room.at(u, v, y)).canBeReplaced())
+                        room.set(u, v, y, Blocks.STONE.defaultBlockState());
             }
 
-        // Lanterns on posts around the edge.
-        for (int i = 0; i < 8; i++)
-        {
-            double a = Math.PI * 2 * (i + 0.5) / 8;
-            int x = center.getX() + (int) Math.round(Math.cos(a) * (RADIUS - 1.5)), z = center.getZ() + (int) Math.round(Math.sin(a) * (RADIUS - 1.5));
-            level.setBlock(pos.set(x, floorY + 1, z), Blocks.SPRUCE_FENCE.defaultBlockState(), Block.UPDATE_ALL);
-            level.setBlock(pos.set(x, floorY + 2, z), Blocks.SPRUCE_FENCE.defaultBlockState(), Block.UPDATE_ALL);
-            level.setBlock(pos.set(x, floorY + 3, z), Blocks.LANTERN.defaultBlockState().setValue(LanternBlock.HANGING, false), Block.UPDATE_ALL);
-        }
+        BlockState planks = Blocks.SPRUCE_PLANKS.defaultBlockState();
+        BlockState post = Blocks.STRIPPED_SPRUCE_LOG.defaultBlockState();
+        BlockState dark = Blocks.DARK_OAK_PLANKS.defaultBlockState();
+        int back = DEPTH + 1, side = HALF_WIDTH + 1;
+        for (int u = -side; u <= side; u++)
+            for (int v = 0; v <= back; v++)
+            {
+                boolean wall = Math.abs(u) == side || v == 0 || v == back;
+                boolean corner = Math.abs(u) == side && (v == 0 || v == back || v % 4 == 0) || v == 0 && Math.abs(u) == 2;
+                // Floor and ceiling.
+                room.set(u, v, 0, wall ? planks : dark);
+                room.set(u, v, HEIGHT + 1, v % 3 == 0 ? post.setValue(RotatedPillarBlock.AXIS, right.getAxis()) : dark);
+                if (!wall)
+                    continue;
+                for (int y = 1; y <= HEIGHT; y++)
+                {
+                    BlockState block = corner ? post : v == back && y <= 4 && Math.abs(u) < side ? Blocks.BOOKSHELF.defaultBlockState() : planks;
+                    room.set(u, v, y, block);
+                }
+            }
 
-        // Every kind on a pedestal, in a ring, side-on to someone standing in the middle.
-        GlobeKind[] kinds = GlobeKind.values();
-        for (int i = 0; i < kinds.length; i++)
-        {
-            double a = Math.PI * 2 * i / kinds.length;
-            int x = center.getX() + (int) Math.round(Math.cos(a) * RING), z = center.getZ() + (int) Math.round(Math.sin(a) * RING);
-            BlockPos at = new BlockPos(x, floorY + 1, z);
-            // A two-block pedestal puts each globe at eye height.
-            level.setBlock(at, Blocks.POLISHED_BLACKSTONE_BRICKS.defaultBlockState(), Block.UPDATE_ALL);
-            level.setBlock(at.above(), Blocks.CHISELED_POLISHED_BLACKSTONE.defaultBlockState(), Block.UPDATE_ALL);
-            Direction toCenter = Direction.getNearest(center.getX() - x, 0, center.getZ() - z);
-            placeGlobe(server, level, at.above(2), kinds[i], toCenter.getOpposite().getClockWise(), 0, false);
-        }
+        // A doorway in the front wall, three wide, to look in through.
+        for (int u = -1; u <= 1; u++)
+            for (int y = 1; y <= 3; y++)
+                room.set(u, 0, y, Blocks.AIR.defaultBlockState());
 
-        // The centrepiece: a big snow globe, with a music box to wind.
-        placeGlobe(server, level, center.atY(floorY + 1), GlobeKind.SNOW_GLOBE, look.getClockWise(), 48, true);
+        // Windows in the side walls, between the pedestals: panes joined along the wall.
+        BlockState pane = Blocks.GLASS_PANE.defaultBlockState()
+                .setValue(net.minecraft.world.level.block.PipeBlock.PROPERTY_BY_DIRECTION.get(look), true)
+                .setValue(net.minecraft.world.level.block.PipeBlock.PROPERTY_BY_DIRECTION.get(look.getOpposite()), true);
+        for (int u : new int[] {-side, side})
+            for (int v : new int[] {2, 6})
+                for (int y = 2; y <= 3; y++)
+                    room.set(u, v, y, pane);
 
-        // Two shelves at the back, raised on a plinth, with more globes on them.
-        Direction side = look.getClockWise();
-        BlockPos back = center.relative(look, RADIUS - 2).atY(floorY + 1);
-        GlobeKind[][] shelves = {{GlobeKind.TERRARIUM, GlobeKind.STAR_GLOBE}, {GlobeKind.AQUARIUM, GlobeKind.DESERT_GLOBE}};
-        for (int s = 0; s < 2; s++)
+        // A rug in the middle.
+        for (int u = -2; u <= 2; u++)
+            for (int v = 3; v <= 7; v++)
+                room.set(u, v, 1, (Math.abs(u) == 2 || v == 3 || v == 7 ? Blocks.BROWN_CARPET : Blocks.RED_CARPET).defaultBlockState());
+
+        // Lanterns hanging from the beams.
+        for (int u : new int[] {-3, 3})
+            for (int v : new int[] {3, 7})
+            {
+                room.set(u, v, HEIGHT, Blocks.CHAIN.defaultBlockState());
+                room.set(u, v, HEIGHT - 1, Blocks.LANTERN.defaultBlockState().setValue(LanternBlock.HANGING, true));
+            }
+
+        // Along the back wall: a low counter with five shelves side by side, candles at its ends.
+        GlobeKind[] onShelves = {GlobeKind.SNOW_GLOBE, GlobeKind.TERRARIUM, GlobeKind.STORM_GLOBE, GlobeKind.SHIP_BOTTLE,
+                GlobeKind.DESERT_GLOBE, GlobeKind.AQUARIUM, GlobeKind.STAR_GLOBE, GlobeKind.NETHER_JAR, GlobeKind.SNOW_GLOBE, GlobeKind.TERRARIUM};
+        for (int u = -side + 1; u <= side - 1; u++)
+            room.set(u, back - 1, 1, Blocks.SPRUCE_SLAB.defaultBlockState().setValue(net.minecraft.world.level.block.SlabBlock.TYPE,
+                    net.minecraft.world.level.block.state.properties.SlabType.TOP));
+        for (int i = 0; i < 5; i++)
         {
-            BlockPos at = back.relative(side, s == 0 ? -1 : 1);
-            level.setBlock(at, Blocks.SPRUCE_PLANKS.defaultBlockState(), Block.UPDATE_ALL);
-            level.setBlock(at.above(), SnowGlobeMod.SHELF.get().defaultBlockState().setValue(GlobeShelfBlock.FACING, look.getOpposite()), Block.UPDATE_ALL);
-            if (level.getBlockEntity(at.above()) instanceof GlobeShelfBlockEntity shelf)
+            int u = i - 2;
+            room.set(u, back - 1, 2, SnowGlobeMod.SHELF.get().defaultBlockState().setValue(GlobeShelfBlock.FACING, look.getOpposite()));
+            if (level.getBlockEntity(room.at(u, back - 1, 2)) instanceof GlobeShelfBlockEntity shelf)
                 for (int slot = 0; slot < 2; slot++)
-                    shelf.set(slot, globeItem(server, shelves[s][slot]));
+                    shelf.set(slot, globeItem(server, onShelves[i * 2 + slot]));
+        }
+        for (int u : new int[] {-4, 4})
+            room.set(u, back - 1, 2, Blocks.CANDLE.defaultBlockState().setValue(CandleBlock.CANDLES, 3).setValue(CandleBlock.LIT, true));
+
+        // Little pedestals along the side walls, under the windows' light, each globe side-on to the room.
+        GlobeKind[] left = {GlobeKind.TERRARIUM, GlobeKind.STAR_GLOBE, GlobeKind.AQUARIUM};
+        GlobeKind[] rightSide = {GlobeKind.STORM_GLOBE, GlobeKind.DESERT_GLOBE, GlobeKind.NETHER_JAR};
+        int[] rows = {3, 5, 7};
+        for (int i = 0; i < 3; i++)
+        {
+            room.set(-HALF_WIDTH, rows[i], 1, Blocks.POLISHED_DEEPSLATE.defaultBlockState());
+            placeGlobe(server, level, room.at(-HALF_WIDTH, rows[i], 2), left[i], right.getOpposite().getClockWise(), 0, false);
+            room.set(HALF_WIDTH, rows[i], 1, Blocks.POLISHED_DEEPSLATE.defaultBlockState());
+            placeGlobe(server, level, room.at(HALF_WIDTH, rows[i], 2), rightSide[i], right.getClockWise(), 0, false);
         }
 
-        player.sendSystemMessage(Component.literal("Built a globe showcase " + (RADIUS + 2) + " blocks " + look.getName() + " of you."));
+        // The centrepiece: a big snow globe on the rug, with a music box to wind.
+        room.set(0, 5, 1, Blocks.AIR.defaultBlockState());
+        placeGlobe(server, level, room.at(0, 5, 1), GlobeKind.SNOW_GLOBE, look.getClockWise(), 48, true);
+
+        player.sendSystemMessage(Component.literal("Built a globe gallery in front of you (" + look.getName() + "). Look in through the doorway."));
         return 1;
     }
 
