@@ -203,8 +203,8 @@ public class GlobeBlock extends BaseEntityBlock
     protected ItemInteractionResult useItemOn(ItemStack stack, BlockState state, Level level, BlockPos pos, Player player,
                                               InteractionHand hand, BlockHitResult hit)
     {
-        // Shears take the name plate off again, and give the name tag back.
-        if (stack.is(net.minecraft.world.item.Items.SHEARS) && level.getBlockEntity(pos) instanceof GlobeBlockEntity named && named.name() != null)
+        // An axe scrapes the name plate off again (like wax off copper), and gives the name tag back.
+        if (stack.getItem() instanceof net.minecraft.world.item.AxeItem && level.getBlockEntity(pos) instanceof GlobeBlockEntity named && named.name() != null)
         {
             if (!level.isClientSide)
             {
@@ -213,7 +213,7 @@ public class GlobeBlock extends BaseEntityBlock
                 popResource(level, pos.above(), tag);
                 named.setName(null);
                 stack.hurtAndBreak(1, player, net.minecraft.world.entity.LivingEntity.getSlotForHand(hand));
-                level.playSound(null, pos, SoundEvents.SHEEP_SHEAR, SoundSource.BLOCKS, 0.6f, 1.4f);
+                level.playSound(null, pos, SoundEvents.AXE_WAX_OFF, SoundSource.BLOCKS, 0.8f, 1.2f);
             }
             return ItemInteractionResult.sidedSuccess(level.isClientSide);
         }
