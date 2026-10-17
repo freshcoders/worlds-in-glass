@@ -376,6 +376,7 @@ public final class GlobeSpace
         List<net.minecraft.world.entity.Mob> friends = GlobeCreatures.leashedTo(player);
         BlockPos spawn = findSpawn(level, interiorMin(player.server, id), GlobeSavedData.get(player.server).sizeOf(id));
         player.teleportTo(level, spawn.getX() + 0.5, spawn.getY(), spawn.getZ() + 0.5, player.getYRot(), player.getXRot());
+        player.fallDistance = 0;
         if (GlobeCreatures.bringAlong(friends, player))
             GlobeAdvancements.award(player, "plus_one");
         player.displayClientMessage(Component.translatable("snowglobe.message.entered"), false);
@@ -454,6 +455,7 @@ public final class GlobeSpace
             }
         }
         player.teleportTo(target, x, y, z, back.getFloat("Yaw"), back.getFloat("Pitch"));
+        player.fallDistance = 0;
         GlobeCreatures.bringAlong(friends, player);
         // Back inside the outer globe: show its outside again.
         if (target.dimension() == LEVEL)
@@ -579,9 +581,13 @@ public final class GlobeSpace
         }
     }
 
-    /** Finds a free spot to stand, starting from the middle of the globe and working outwards. */
+    /**
+     * Finds a free spot to stand, starting from the middle of the globe and working outwards: on the ground, well
+     * inside the glass, out of water and lava. In a globe with nothing to stand on, the bottom of the glass.
+     */
     private static BlockPos findSpawn(ServerLevel level, BlockPos min, int size)
     {
+        GlobeKind kind = GlobeSavedData.get(level.getServer()).kindOf(idAt(level.getServer(), min));
         // Look near the middle first; a big empty globe would otherwise mean checking every column.
         for (int ring = 0; ring < Math.min(size / 2, 24); ring++)
             for (int dx = -ring; dx <= ring; dx++)
@@ -589,23 +595,32 @@ public final class GlobeSpace
                 {
                     if (Math.max(Math.abs(dx), Math.abs(dz)) != ring)
                         continue;
-                    BlockPos spot = standingSpot(level, min.offset(size / 2 + dx, 0, size / 2 + dz), size);
+                    BlockPos spot = standingSpot(level, min, size, kind, size / 2 + dx, size / 2 + dz);
                     if (spot != null)
                         return spot;
                 }
+        // Nothing built yet: stand on the glass at the bottom of the middle column.
+        for (int y = 0; y < size; y++)
+            if (kind.inside(size / 2, y, size / 2, size))
+                return min.offset(size / 2, y, size / 2);
         return min.offset(size / 2, size / 2, size / 2);
     }
 
-    /** The lowest spot in this column with ground below and two free, dry blocks above, if there is one. */
+    /**
+     * The lowest spot in this column with ground below and room to stand: the feet, the head and one more block
+     * above all free, dry and inside the glass (so never on top of something that reaches up to the glass).
+     */
     @Nullable
-    private static BlockPos standingSpot(ServerLevel level, BlockPos bottom, int size)
+    private static BlockPos standingSpot(ServerLevel level, BlockPos min, int size, GlobeKind kind, int x, int z)
     {
-        for (int y = 1; y < size - 1; y++)
+        for (int y = 0; y + 2 < size; y++)
         {
-            BlockPos feet = bottom.above(y);
-            if (solid(level, feet.below()) && !solid(level, feet) && !solid(level, feet.above())
-                    && level.getFluidState(feet).isEmpty()
-                    && level.getBlockState(feet.above()).getBlock() != SnowGlobeMod.GLOBE_WALL.get())
+            if (!kind.inside(x, y, z, size) || !kind.inside(x, y + 1, z, size) || !kind.inside(x, y + 2, z, size))
+                continue;
+            BlockPos feet = min.offset(x, y, z);
+            if (solid(level, feet.below()) && !solid(level, feet) && !solid(level, feet.above()) && !solid(level, feet.above(2))
+                    && level.getFluidState(feet).isEmpty() && level.getFluidState(feet.above()).isEmpty()
+                    && level.getFluidState(feet.below()).isEmpty())
                 return feet;
         }
         return null;
@@ -775,6 +790,11 @@ public final class GlobeSpace
             int id = idAt(server, player.blockPosition());
             if (id >= 0)
                 occupied.add(id);
+            // The globes round the one you're in keep running too: their mobs show up giant around you.
+            ListTag outer = player.getPersistentData().getList(OUTER_KEY, Tag.TAG_COMPOUND);
+            for (int i = 0; i < outer.size(); i++)
+                if (outer.getCompound(i).contains("Id"))
+                    occupied.add(outer.getCompound(i).getInt("Id"));
         }
         Set<Integer> active = new HashSet<>(occupied);
         lastSeen.entrySet().removeIf(e -> now - e.getValue() > ACTIVE_TICKS);
