@@ -83,6 +83,17 @@ public class SnowGlobeMod
     public static final DeferredHolder<BlockEntityType<?>, BlockEntityType<GlobeBlockEntity>> GLOBE_BLOCK_ENTITY = BLOCK_ENTITIES.register("snow_globe",
             () -> BlockEntityType.Builder.of(GlobeBlockEntity::new, GLOBES.values().stream().map(DeferredBlock::get).toArray(Block[]::new)).build(null));
 
+    /** The Globe Keeper's Handbook: lore, recipes and how globes work. */
+    public static final DeferredItem<HandbookItem> HANDBOOK = ITEMS.register("handbook", () -> new HandbookItem(new Item.Properties().stacksTo(1)));
+
+    /** A collector's shelf for two globes, showing their miniatures. */
+    public static final DeferredBlock<GlobeShelfBlock> SHELF = BLOCKS.register("globe_shelf", () -> new GlobeShelfBlock(BlockBehaviour.Properties.of()
+            .mapColor(MapColor.WOOD).strength(1.5f).sound(SoundType.WOOD).noOcclusion()));
+    public static final DeferredItem<net.minecraft.world.item.BlockItem> SHELF_ITEM = ITEMS.registerSimpleBlockItem(SHELF);
+    @SuppressWarnings("DataFlowIssue")
+    public static final DeferredHolder<BlockEntityType<?>, BlockEntityType<GlobeShelfBlockEntity>> SHELF_BLOCK_ENTITY = BLOCK_ENTITIES.register("globe_shelf",
+            () -> BlockEntityType.Builder.of(GlobeShelfBlockEntity::new, SHELF.get()).build(null));
+
     /** A globe's id and contents, carried by the item when you pick a globe up, so placing it again restores it. */
     public static final DeferredHolder<DataComponentType<?>, DataComponentType<CustomData>> GLOBE_DATA = COMPONENTS.registerComponentType("globe",
             builder -> builder.persistent(CustomData.CODEC).networkSynchronized(CustomData.STREAM_CODEC));
@@ -94,6 +105,8 @@ public class SnowGlobeMod
             .displayItems((parameters, output) -> {
                 for (GlobeKind kind : GlobeKind.values())
                     output.accept(GLOBE_ITEMS.get(kind).get());
+                output.accept(SHELF_ITEM.get());
+                output.accept(HANDBOOK.get());
             })
             .build());
 

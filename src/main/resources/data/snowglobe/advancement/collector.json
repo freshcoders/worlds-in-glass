@@ -1,0 +1,126 @@
+{
+  "display": {
+    "icon": {
+      "id": "snowglobe:nether_jar"
+    },
+    "title": {
+      "translate": "advancements.snowglobe.collector.title"
+    },
+    "description": {
+      "translate": "advancements.snowglobe.collector.description"
+    },
+    "frame": "challenge",
+    "show_toast": true,
+    "announce_to_chat": true,
+    "hidden": false
+  },
+  "parent": "snowglobe:on_display",
+  "criteria": {
+    "snow_globe": {
+      "trigger": "minecraft:inventory_changed",
+      "conditions": {
+        "items": [
+          {
+            "items": "snowglobe:snow_globe"
+          }
+        ]
+      }
+    },
+    "terrarium": {
+      "trigger": "minecraft:inventory_changed",
+      "conditions": {
+        "items": [
+          {
+            "items": "snowglobe:terrarium"
+          }
+        ]
+      }
+    },
+    "storm_globe": {
+      "trigger": "minecraft:inventory_changed",
+      "conditions": {
+        "items": [
+          {
+            "items": "snowglobe:storm_globe"
+          }
+        ]
+      }
+    },
+    "ship_bottle": {
+      "trigger": "minecraft:inventory_changed",
+      "conditions": {
+        "items": [
+          {
+            "items": "snowglobe:ship_bottle"
+          }
+        ]
+      }
+    },
+    "desert_globe": {
+      "trigger": "minecraft:inventory_changed",
+      "conditions": {
+        "items": [
+          {
+            "items": "snowglobe:desert_globe"
+          }
+        ]
+      }
+    },
+    "aquarium": {
+      "trigger": "minecraft:inventory_changed",
+      "conditions": {
+        "items": [
+          {
+            "items": "snowglobe:aquarium"
+          }
+        ]
+      }
+    },
+    "star_globe": {
+      "trigger": "minecraft:inventory_changed",
+      "conditions": {
+        "items": [
+          {
+            "items": "snowglobe:star_globe"
+          }
+        ]
+      }
+    },
+    "nether_jar": {
+      "trigger": "minecraft:inventory_changed",
+      "conditions": {
+        "items": [
+          {
+            "items": "snowglobe:nether_jar"
+          }
+        ]
+      }
+    }
+  },
+  "requirements": [
+    [
+      "snow_globe"
+    ],
+    [
+      "terrarium"
+    ],
+    [
+      "storm_globe"
+    ],
+    [
+      "ship_bottle"
+    ],
+    [
+      "desert_globe"
+    ],
+    [
+      "aquarium"
+    ],
+    [
+      "star_globe"
+    ],
+    [
+      "nether_jar"
+    ]
+  ]
+}

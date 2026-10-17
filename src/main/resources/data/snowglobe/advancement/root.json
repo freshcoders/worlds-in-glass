@@ -1,0 +1,35 @@
+{
+  "display": {
+    "icon": {
+      "id": "snowglobe:snow_globe"
+    },
+    "title": {
+      "translate": "advancements.snowglobe.root.title"
+    },
+    "description": {
+      "translate": "advancements.snowglobe.root.description"
+    },
+    "frame": "task",
+    "show_toast": true,
+    "announce_to_chat": false,
+    "hidden": false,
+    "background": "minecraft:textures/block/packed_ice.png"
+  },
+  "criteria": {
+    "has_globe": {
+      "trigger": "minecraft:inventory_changed",
+      "conditions": {
+        "items": [
+          {
+            "items": "#snowglobe:globes"
+          }
+        ]
+      }
+    }
+  },
+  "rewards": {
+    "loot": [
+      "snowglobe:handbook"
+    ]
+  }
+}

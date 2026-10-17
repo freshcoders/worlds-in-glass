@@ -1,0 +1,23 @@
+{
+  "display": {
+    "icon": {
+      "id": "snowglobe:storm_globe"
+    },
+    "title": {
+      "translate": "advancements.snowglobe.eye_of_the_storm.title"
+    },
+    "description": {
+      "translate": "advancements.snowglobe.eye_of_the_storm.description"
+    },
+    "frame": "goal",
+    "show_toast": true,
+    "announce_to_chat": true,
+    "hidden": false
+  },
+  "parent": "snowglobe:shake",
+  "criteria": {
+    "done": {
+      "trigger": "minecraft:impossible"
+    }
+  }
+}

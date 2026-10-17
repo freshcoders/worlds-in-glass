@@ -18,5 +18,16 @@ public class SnowGlobeClient
         container.registerExtensionPoint(IConfigScreenFactory.class, ConfigurationScreen::new);
         GlobeItem.shiftDown = Screen::hasShiftDown;
         com.nick.snowglobe.GlobeClientHooks.wound = MusicBoxes::wound;
+        com.nick.snowglobe.GlobeClientHooks.openHandbook = SnowGlobeClient::openHandbook;
+    }
+
+    /** Opens the handbook like a written book, its pages from the language file (so it can be translated). */
+    private static void openHandbook()
+    {
+        java.util.List<net.minecraft.network.chat.Component> pages = new java.util.ArrayList<>();
+        for (int i = 1; i <= com.nick.snowglobe.HandbookItem.PAGES; i++)
+            pages.add(net.minecraft.network.chat.Component.translatable("snowglobe.handbook.page." + i));
+        net.minecraft.client.Minecraft.getInstance().setScreen(new net.minecraft.client.gui.screens.inventory.BookViewScreen(
+                new net.minecraft.client.gui.screens.inventory.BookViewScreen.BookAccess(pages)));
     }
 }

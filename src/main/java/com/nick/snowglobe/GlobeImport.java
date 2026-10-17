@@ -299,6 +299,8 @@ public final class GlobeImport
         template.placeInWorld(level, origin, origin, settings, level.random, Block.UPDATE_CLIENTS);
 
         GlobeSpace.refreshSnapshot(server, id);
+        if (player != null)
+            GlobeAdvancements.award(player, "ship_shape");
         return Component.translatable("snowglobe.import.done", fileName, dimsText, size + "×" + size + "×" + size);
     }
 

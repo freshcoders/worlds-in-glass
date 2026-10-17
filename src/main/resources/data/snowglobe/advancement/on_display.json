@@ -1,0 +1,23 @@
+{
+  "display": {
+    "icon": {
+      "id": "snowglobe:globe_shelf"
+    },
+    "title": {
+      "translate": "advancements.snowglobe.on_display.title"
+    },
+    "description": {
+      "translate": "advancements.snowglobe.on_display.description"
+    },
+    "frame": "task",
+    "show_toast": true,
+    "announce_to_chat": true,
+    "hidden": false
+  },
+  "parent": "snowglobe:root",
+  "criteria": {
+    "done": {
+      "trigger": "minecraft:impossible"
+    }
+  }
+}

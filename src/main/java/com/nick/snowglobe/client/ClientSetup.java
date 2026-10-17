@@ -18,6 +18,7 @@ public final class ClientSetup
     public static void registerRenderers(EntityRenderersEvent.RegisterRenderers event)
     {
         event.registerBlockEntityRenderer(SnowGlobeMod.GLOBE_BLOCK_ENTITY.get(), GlobeRenderer::new);
+        event.registerBlockEntityRenderer(SnowGlobeMod.SHELF_BLOCK_ENTITY.get(), GlobeShelfRenderer::new);
     }
 
     /** Globe items are drawn with their miniature, so you can see what's inside before placing one. */

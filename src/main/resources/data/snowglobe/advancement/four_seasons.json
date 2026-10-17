@@ -1,0 +1,23 @@
+{
+  "display": {
+    "icon": {
+      "id": "minecraft:cherry_leaves"
+    },
+    "title": {
+      "translate": "advancements.snowglobe.four_seasons.title"
+    },
+    "description": {
+      "translate": "advancements.snowglobe.four_seasons.description"
+    },
+    "frame": "goal",
+    "show_toast": true,
+    "announce_to_chat": true,
+    "hidden": false
+  },
+  "parent": "snowglobe:shake",
+  "criteria": {
+    "done": {
+      "trigger": "minecraft:impossible"
+    }
+  }
+}
