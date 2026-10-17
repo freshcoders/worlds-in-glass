@@ -63,7 +63,6 @@ neoForge {
         configureEach {
             systemProperty 'forge.logging.markers', 'REGISTRIES'
             logLevel = org.slf4j.event.Level.DEBUG
-            jvmArguments.addAll('-XX:+UnlockDiagnosticVMOptions', '-XX:+DebugNonSafepoints')
         }
     }
 
@@ -80,9 +79,6 @@ configurations {
 }
 
 dependencies {
-    // Profiling mod (spark) for baseline & performance measurements
-    localRuntime "maven.modrinth:spark:1.10.124-neoforge-1.21.1"
-
     // Create, plus Create Aeronautics (which brings the "simulated" blocks) and the Sable library it needs.
     // Only for testing schematic import; Snow Globes itself works without them.
     localRuntime "maven.modrinth:create:${create_version}"

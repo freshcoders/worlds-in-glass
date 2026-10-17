@@ -3,7 +3,6 @@
   "block.snowglobe.terrarium": "Terrarium",
   "block.snowglobe.globe_wall": "Globe Wall",
   "snowglobe.message.entered": "You're inside! Build anything you like. To leave, right-click the glass wall with an empty hand.",
-  "snowglobe.message.nested": "You can't open a globe from inside another one.",
   "block.snowglobe.storm_globe": "Storm Globe",
   "block.snowglobe.ship_bottle": "Ship in a Bottle",
   "snowglobe.import.done": "Imported %s (%s blocks) into a %s globe.",
