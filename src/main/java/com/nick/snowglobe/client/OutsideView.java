@@ -64,16 +64,12 @@ public final class OutsideView
     @Nullable
     private static BakedMesh worldMesh;
     /**
-     * Inside a globe that stands in another globe: the world around the outermost globe (the overworld, usually),
-     * drawn far off behind the outer globe's glass. At its true size it would be hundreds of times giant and far
-     * beyond the view distance, so it's shown smaller: as a backdrop, behind everything else.
+     * Inside a globe that stands in other globes: the world round each globe further out, from the one this stands
+     * in to the outermost (the overworld, usually), each drawn far off behind the glass of the one before. Their
+     * meshes, built when first drawn, go in the matching slots.
      */
-    @Nullable
-    private static View backdrop;
-    @Nullable
-    private static BakedMesh backdropMesh;
-    private static BlockPos parentMin = BlockPos.ZERO;
-    private static int parentSize;
+    private static List<View> backdrops = List.of();
+    private static BakedMesh[] backdropMeshes = new BakedMesh[0];
 
     private static void dropWorldMesh()
     {
@@ -82,11 +78,15 @@ public final class OutsideView
             worldMesh.close();
             worldMesh = null;
         }
-        if (backdropMesh != null)
-        {
-            backdropMesh.close();
-            backdropMesh = null;
-        }
+        dropBackdrops();
+    }
+
+    private static void dropBackdrops()
+    {
+        for (BakedMesh mesh : backdropMeshes)
+            if (mesh != null)
+                mesh.close();
+        backdropMeshes = new BakedMesh[0];
     }
 
     private OutsideView() {}
@@ -168,18 +168,26 @@ public final class OutsideView
         }
         view = next;
 
-        View nextBackdrop = tag.contains("Backdrop") ? parse(tag.getCompound("Backdrop")) : null;
-        if ((nextBackdrop == null || !sameWorld(backdrop, nextBackdrop)) && backdropMesh != null)
+        List<View> next2 = new ArrayList<>();
+        ListTag list = tag.getList("Backdrops", Tag.TAG_COMPOUND);
+        for (int i = 0; i < list.size(); i++)
         {
-            backdropMesh.close();
-            backdropMesh = null;
+            View layer = parse(list.getCompound(i));
+            if (layer == null)
+                break;
+            next2.add(layer);
         }
-        backdrop = nextBackdrop;
-        if (nextBackdrop != null)
+        // Keep the meshes of the layers that haven't changed.
+        BakedMesh[] meshes = new BakedMesh[next2.size()];
+        for (int i = 0; i < backdropMeshes.length; i++)
         {
-            parentMin = BlockPos.of(tag.getCompound("Backdrop").getLong("ParentMin"));
-            parentSize = tag.getCompound("Backdrop").getInt("ParentSize");
+            if (i < meshes.length && i < backdrops.size() && sameWorld(backdrops.get(i), next2.get(i)))
+                meshes[i] = backdropMeshes[i];
+            else if (backdropMeshes[i] != null)
+                backdropMeshes[i].close();
         }
+        backdrops = next2;
+        backdropMeshes = meshes;
     }
 
     private static boolean enclosed(BlockState[] states, int[] size, int x, int y, int z)
@@ -314,7 +322,7 @@ public final class OutsideView
         if (level == null || level.dimension() != GlobeSpace.LEVEL)
         {
             view = null;
-            backdrop = null;
+            backdrops = List.of();
             giants.clear();
             mobs = new MiniEntities();
             dropWorldMesh();
@@ -364,6 +372,13 @@ public final class OutsideView
             poseStack.last().pose().mul(event.getModelViewMatrix());
         poseStack.scale(shrink, shrink, shrink);
         poseStack.translate(-camera.x, -camera.y, -camera.z);
+        placeOutside(poseStack, v);
+        return poseStack;
+    }
+
+    /** From a globe's build space to the world outside it: one glass further out, and giant. */
+    private static void placeOutside(PoseStack poseStack, View v)
+    {
         poseStack.translate(v.interiorMin().getX() + v.scale() * v.pivot().x, v.interiorMin().getY() + v.scale() * v.pivot().y,
                 v.interiorMin().getZ() + v.scale() * v.pivot().z);
         float giant = v.scale() / v.cell();
@@ -373,51 +388,56 @@ public final class OutsideView
         poseStack.mulPose(Axis.YP.rotationDegrees(90 * v.turns()));
         poseStack.scale(1f / v.display(), 1f / v.display(), 1f / v.display());
         poseStack.translate(-(v.globePos().getX() + 0.5), -v.globePos().getY(), -(v.globePos().getZ() + 0.5));
-        return poseStack;
+    }
+
+    /** How many times giant a view's world is drawn, seen from inside its globe. */
+    private static double giant(View v)
+    {
+        return v.scale() / (v.cell() * v.display());
     }
 
     /**
-     * The overworld round the outer globe, when in a globe inside a globe, exactly where it really is: twice giant
-     * (once for each glass), so hundreds of times life size, and far beyond the view distance. So it's drawn shrunk
-     * towards the camera, which looks the same from where you stand, only near enough to draw; right after the sky,
-     * without fog, and then forgotten by the depth buffer, so the rest is drawn over it as if it were the sky.
+     * In a globe inside other globes: the world round each globe further out, exactly where it really is. Each glass
+     * makes it giant again, so the outermost (the overworld, usually) is hundreds or thousands of times life size,
+     * far beyond the view distance. So each is drawn shrunk towards the camera, which looks the same from where you
+     * stand, only near enough to draw. Farthest first, right after the sky and without fog, each forgotten by the
+     * depth buffer once drawn, so everything nearer is drawn over it as if it were the sky.
      */
-    private static void drawBackdrop(RenderLevelStageEvent event)
+    private static void drawBackdrops(RenderLevelStageEvent event)
     {
-        View v = view, b = backdrop;
-        if (v == null || b == null)
+        View v = view;
+        List<View> layers = backdrops;
+        if (v == null || layers.isEmpty() || backdropMeshes.length != layers.size())
             return;
         Minecraft mc = Minecraft.getInstance();
-        if (backdropMesh == null)
-            backdropMesh = buildMesh(b, mc.getBlockRenderer());
-        // How far its edge would really be, and so how much to shrink it to fit well inside the view distance.
-        double giantInner = v.scale() / (v.cell() * v.display()), giantOuter = b.scale() / (b.cell() * b.display());
-        double edge = Math.max(b.sx(), b.sz()) / 2.0 * giantOuter * giantInner;
         double farthest = mc.options.getEffectiveRenderDistance() * 16 * 3;
-        float shrink = (float) Math.min(1, farthest / Math.max(1, edge));
-        // The inner globe's outside is the outer globe's build space; the outer globe's outside is the overworld.
-        PoseStack poseStack = viewPose(event, v, shrink);
-        poseStack.translate(b.interiorMin().getX() + b.scale() * b.pivot().x, b.interiorMin().getY() + b.scale() * b.pivot().y,
-                b.interiorMin().getZ() + b.scale() * b.pivot().z);
-        float giant = b.scale() / b.cell();
-        poseStack.scale(giant, giant, giant);
-        poseStack.translate(-b.center().x, -b.center().y, -b.center().z);
-        poseStack.translate(0.5, 0, 0.5);
-        poseStack.mulPose(Axis.YP.rotationDegrees(90 * b.turns()));
-        poseStack.scale(1f / b.display(), 1f / b.display(), 1f / b.display());
-        poseStack.translate(-(b.globePos().getX() + 0.5), -b.globePos().getY(), -(b.globePos().getZ() + 0.5));
-        poseStack.translate(b.origin().getX(), b.origin().getY(), b.origin().getZ());
-
         float fogStart = RenderSystem.getShaderFogStart(), fogEnd = RenderSystem.getShaderFogEnd();
         com.mojang.blaze3d.shaders.FogShape fogShape = RenderSystem.getShaderFogShape();
         float[] fogColour = RenderSystem.getShaderFogColor().clone();
         net.minecraft.client.renderer.FogRenderer.setupNoFog();
-        backdropMesh.draw(poseStack.last().pose());
+        for (int layer = layers.size() - 1; layer >= 0; layer--)
+        {
+            View b = layers.get(layer);
+            if (backdropMeshes[layer] == null)
+                backdropMeshes[layer] = buildMesh(b, mc.getBlockRenderer());
+            // How far its edge would really be (giant once for every glass in between), and so how much to shrink it.
+            double scale = giant(v);
+            for (int i = 0; i <= layer; i++)
+                scale *= giant(layers.get(i));
+            double edge = Math.max(b.sx(), b.sz()) / 2.0 * scale;
+            float shrink = (float) Math.min(1, farthest / Math.max(1, edge));
+            // Out through each glass in turn: this globe's outside is the next one's build space, and so on.
+            PoseStack poseStack = viewPose(event, v, shrink);
+            for (int i = 0; i <= layer; i++)
+                placeOutside(poseStack, layers.get(i));
+            poseStack.translate(b.origin().getX(), b.origin().getY(), b.origin().getZ());
+            backdropMeshes[layer].draw(poseStack.last().pose());
+            RenderSystem.clear(org.lwjgl.opengl.GL11.GL_DEPTH_BUFFER_BIT, Minecraft.ON_OSX);
+        }
         RenderSystem.setShaderFogStart(fogStart);
         RenderSystem.setShaderFogEnd(fogEnd);
         RenderSystem.setShaderFogShape(fogShape);
         RenderSystem.setShaderFogColor(fogColour[0], fogColour[1], fogColour[2], fogColour[3]);
-        RenderSystem.clear(org.lwjgl.opengl.GL11.GL_DEPTH_BUFFER_BIT, Minecraft.ON_OSX);
     }
 
     @SubscribeEvent
@@ -425,7 +445,7 @@ public final class OutsideView
     {
         if (event.getStage() == RenderLevelStageEvent.Stage.AFTER_SKY && active())
         {
-            drawBackdrop(event);
+            drawBackdrops(event);
             return;
         }
         // Drawn after the world's solid blocks but before its see-through ones, so the globe's glass walls go over it.

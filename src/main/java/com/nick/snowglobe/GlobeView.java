@@ -99,21 +99,20 @@ public final class GlobeView
         CompoundTag tag = captureView(player.server, outside, BlockPos.of(globe.getLong("Pos")), globe.getInt("Id"));
         if (tag == null)
             return;
+        // Each globe further out, from the one this stands in to the outermost: the world round each of them.
         ListTag outer = player.getPersistentData().getList(GlobeSpace.OUTER_KEY, net.minecraft.nbt.Tag.TAG_COMPOUND);
-        int parent = outside.dimension() == GlobeSpace.LEVEL ? GlobeSpace.idAt(player.server, BlockPos.of(globe.getLong("Pos"))) : -1;
-        if (!outer.isEmpty() && parent >= 0)
+        ListTag backdrops = new ListTag();
+        for (int i = outer.size() - 1; i >= 0; i--)
         {
-            CompoundTag root = outer.getCompound(0);
-            ServerLevel rootLevel = outsideLevel(player.server, root);
-            CompoundTag backdrop = rootLevel == null ? null : captureView(player.server, rootLevel, BlockPos.of(root.getLong("Pos")), root.getInt("Id"));
-            if (backdrop != null)
-            {
-                // Where the globe this one stands in is, for placing the backdrop round it.
-                backdrop.putLong("ParentMin", GlobeSpace.interiorMin(player.server, parent).asLong());
-                backdrop.putInt("ParentSize", GlobeSavedData.get(player.server).sizeOf(parent));
-                tag.put("Backdrop", backdrop);
-            }
+            CompoundTag around = outer.getCompound(i);
+            ServerLevel level = outsideLevel(player.server, around);
+            CompoundTag view = level == null ? null : captureView(player.server, level, BlockPos.of(around.getLong("Pos")), around.getInt("Id"));
+            if (view == null)
+                break;
+            backdrops.add(view);
         }
+        if (!backdrops.isEmpty())
+            tag.put("Backdrops", backdrops);
         GlobeNetwork.send(player, new GlobeNetwork.OutsideView(tag));
     }
 
