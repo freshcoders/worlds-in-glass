@@ -61,8 +61,6 @@ public final class GlobeNetwork
         public static final int DIVE_OUT = 3;
         /** You've arrived (inside or back outside): open up again. */
         public static final int ARRIVED = 4;
-        /** The music box of the globe you're in was wound. */
-        public static final int WOUND = 5;
 
         public static final Type<GlobeEvent> TYPE = new Type<>(ResourceLocation.fromNamespaceAndPath(SnowGlobeMod.MODID, "globe_event"));
         public static final StreamCodec<ByteBuf, GlobeEvent> CODEC = StreamCodec.composite(

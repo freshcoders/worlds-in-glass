@@ -26,7 +26,7 @@ import java.util.List;
 /**
  * Getting living things in and out of globes the way you would with real ones: fish poured in from a bucket (and
  * caught again with one), animals led in on a lead. Nothing is made from nothing: the fish leave their bucket of
- * water behind, and the mobs walk in themselves. Also fits music boxes into bases.
+ * water behind, and the mobs walk in themselves.
  */
 public final class GlobeCreatures
 {
@@ -99,26 +99,6 @@ public final class GlobeCreatures
         });
         List<BlockPos> from = under.isEmpty() ? any : under;
         return from.isEmpty() ? null : from.get(level.random.nextInt(from.size()));
-    }
-
-    // ---- Music boxes ----
-
-    /** A note block fitted into the base makes a music box; turning the base winds it. */
-    static void fitMusicBox(ServerPlayer player, InteractionHand hand, ItemStack stack, GlobeBlockEntity globe)
-    {
-        int id = globe.ensureGlobe(player.server);
-        GlobeSavedData data = GlobeSavedData.get(player.server);
-        if (data.hasMusicBox(id))
-        {
-            player.displayClientMessage(Component.translatable("snowglobe.music_box.already"), true);
-            return;
-        }
-        data.setMusicBox(id, true);
-        if (!player.getAbilities().instabuild)
-            stack.shrink(1);
-        player.level().playSound(null, globe.getBlockPos(), SoundEvents.NOTE_BLOCK_CHIME.value(), SoundSource.BLOCKS, 0.8f, 1.2f);
-        player.displayClientMessage(Component.translatable("snowglobe.music_box.fitted"), true);
-        globe.refreshExtras();
     }
 
     // ---- Animals on a lead ----

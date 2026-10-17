@@ -140,33 +140,60 @@ final class GlobeShowcase
         for (int i = 0; i < 3; i++)
         {
             room.set(-HALF_WIDTH, rows[i], 1, Blocks.POLISHED_DEEPSLATE.defaultBlockState());
-            placeGlobe(server, level, room.at(-HALF_WIDTH, rows[i], 2), left[i], right.getOpposite().getClockWise(), 0, false);
+            placeGlobe(server, level, room.at(-HALF_WIDTH, rows[i], 2), left[i], right.getOpposite().getClockWise(), 0);
             room.set(HALF_WIDTH, rows[i], 1, Blocks.POLISHED_DEEPSLATE.defaultBlockState());
-            placeGlobe(server, level, room.at(HALF_WIDTH, rows[i], 2), rightSide[i], right.getClockWise(), 0, false);
+            placeGlobe(server, level, room.at(HALF_WIDTH, rows[i], 2), rightSide[i], right.getClockWise(), 0);
         }
 
-        // The centrepiece: a big snow globe on the rug, with a music box to wind.
+        // The centrepiece: a big snow globe on the rug.
         room.set(0, 5, 1, Blocks.AIR.defaultBlockState());
-        placeGlobe(server, level, room.at(0, 5, 1), GlobeKind.SNOW_GLOBE, look.getClockWise(), 48, true);
+        placeGlobe(server, level, room.at(0, 5, 1), GlobeKind.SNOW_GLOBE, look.getClockWise(), 48);
 
         player.sendSystemMessage(Component.literal("Built a globe gallery in front of you (" + look.getName() + "). Look in through the doorway."));
         return 1;
     }
 
     /** Places a globe with its starter scene; {@code size} above 16 makes it bigger (and drawn bigger). */
-    private static void placeGlobe(MinecraftServer server, ServerLevel level, BlockPos at, GlobeKind kind, Direction facing, int size, boolean musicBox)
+    private static void placeGlobe(MinecraftServer server, ServerLevel level, BlockPos at, GlobeKind kind, Direction facing, int size)
     {
         level.setBlock(at, SnowGlobeMod.globe(kind).get().defaultBlockState().setValue(GlobeBlock.FACING, facing), Block.UPDATE_ALL);
         if (!(level.getBlockEntity(at) instanceof GlobeBlockEntity globe))
             return;
         int id = globe.ensureGlobe(server, true);
         if (size > GlobeSpace.DEFAULT_SIZE)
+        {
             GlobeSpace.resize(server, id, size);
-        if (musicBox)
-            GlobeSavedData.get(server).setMusicBox(id, true);
+            fillBelow(server, id);
+        }
         globe.updateDisplaySize();
         globe.refreshExtras();
         level.sendBlockUpdated(at, globe.getBlockState(), globe.getBlockState(), Block.UPDATE_CLIENTS);
+    }
+
+    /**
+     * A starter scene grown into a bigger round globe floats in the middle of it; fill the bowl underneath with earth
+     * (stone deeper down), so there's real ground all the way to the glass.
+     */
+    private static void fillBelow(MinecraftServer server, int id)
+    {
+        ServerLevel level = server.getLevel(GlobeSpace.LEVEL);
+        if (level == null)
+            return;
+        GlobeSavedData data = GlobeSavedData.get(server);
+        GlobeKind kind = data.kindOf(id);
+        int size = data.sizeOf(id);
+        BlockPos min = GlobeSpace.interiorMin(server, id);
+        int[] ground = {size};
+        GlobeSpace.forEachBlock(level, min, size, (x, y, z, state, pos) -> {
+            if (kind.inside(x, y, z, size))
+                ground[0] = Math.min(ground[0], y);
+        });
+        for (int x = 0; x < size; x++)
+            for (int z = 0; z < size; z++)
+                for (int y = 0; y < ground[0]; y++)
+                    if (kind.inside(x, y, z, size))
+                        level.setBlock(min.offset(x, y, z), (y < ground[0] - 3 ? Blocks.STONE : Blocks.DIRT).defaultBlockState(), Block.UPDATE_CLIENTS);
+        GlobeSpace.refreshSnapshot(server, id);
     }
 
     /** A globe item with a fresh starter scene, as if picked up after placing it. */

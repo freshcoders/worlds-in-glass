@@ -12,8 +12,6 @@ public final class SnowGlobeConfig
     public static final ModConfigSpec.DoubleValue WEATHER_INSIDE;
     /** Whether a storm globe's tiny thunder can be heard from outside. */
     public static final ModConfigSpec.BooleanValue THUNDER_OUTSIDE;
-    /** Whether music boxes play when wound. */
-    public static final ModConfigSpec.BooleanValue MUSIC_BOXES;
 
     static
     {
@@ -30,10 +28,6 @@ public final class SnowGlobeConfig
                 .comment("Whether you hear a storm globe's tiny thunder when standing near it.")
                 .translation("snowglobe.config.thunder_outside")
                 .define("thunderOutside", true);
-        MUSIC_BOXES = builder
-                .comment("Whether music boxes play their tune when wound.")
-                .translation("snowglobe.config.music_boxes")
-                .define("musicBoxes", true);
         SPEC = builder.build();
     }
 
@@ -53,10 +47,5 @@ public final class SnowGlobeConfig
     public static boolean thunderOutside()
     {
         return !SPEC.isLoaded() || THUNDER_OUTSIDE.get();
-    }
-
-    public static boolean musicBoxes()
-    {
-        return !SPEC.isLoaded() || MUSIC_BOXES.get();
     }
 }

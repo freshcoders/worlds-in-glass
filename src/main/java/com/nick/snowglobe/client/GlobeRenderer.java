@@ -161,7 +161,7 @@ public class GlobeRenderer implements BlockEntityRenderer<GlobeBlockEntity>
         float shaken = (level.getGameTime() - globe.shakeStart + partialTick) / SHAKE_TICKS;
         float ticks = level.getGameTime() % 240000 + partialTick;
         renderPlaced(blockState, globe.kind(), globe.getSnapshot(), poseStack, buffers, light, ticks, blocks, eye, state, level, pos,
-                shaken, false, new Look(globe.phase(), globe.season(), globe.hasMusicBox()));
+                shaken, false, new Look(globe.phase(), globe.season()));
     }
 
     /**
@@ -192,44 +192,20 @@ public class GlobeRenderer implements BlockEntityRenderer<GlobeBlockEntity>
         if (scale > 1 || base)
             blocks.renderSingleBlock(blockState.setValue(GlobeBlock.DISPLAY, DisplaySize.SMALL).setValue(GlobeBlock.FACING, Direction.EAST),
                     poseStack, buffers, light, OverlayTexture.NO_OVERLAY, ModelData.EMPTY, null);
-        if (look.musicBox())
-            renderKey(kind, poseStack, buffers, light, MusicBoxes.keyAngle(pos, ticks));
         renderGlobe(kind, snapshot, poseStack, buffers, light, ticks, blocks, eye, state, pos.asLong(), level, pos, stir, look);
         poseStack.popPose();
     }
 
-    /** What a globe shows besides its blocks: the time of day and season inside, and whether it has a music box. */
-    public record Look(int phase, int season, boolean musicBox)
+    /** What a globe shows besides its blocks: the time of day and season inside. */
+    public record Look(int phase, int season)
     {
-        public static final Look DEFAULT = new Look(0, 0, false);
+        public static final Look DEFAULT = new Look(0, 0);
 
         /** Read from a globe's saved fields (an item's data, or a neighbour sent to someone inside). */
         public static Look of(net.minecraft.nbt.CompoundTag tag)
         {
-            return new Look(tag.getInt("Phase"), tag.getInt("Season"), tag.getBoolean("MusicBox"));
+            return new Look(tag.getInt("Phase"), tag.getInt("Season"));
         }
-    }
-
-    /** The music box's winding key, sticking out of the back of the base; it turns while the tune plays. */
-    private static void renderKey(GlobeKind kind, PoseStack poseStack, MultiBufferSource buffers, int light, float angle)
-    {
-        float x = switch (kind)
-        {
-            case TERRARIUM, AQUARIUM -> 2f / 16;
-            case SHIP_BOTTLE -> 1.5f / 16;
-            case NETHER_JAR -> 3f / 16;
-            default -> 4f / 16;
-        };
-        float y = kind == GlobeKind.NETHER_JAR || kind == GlobeKind.TERRARIUM || kind == GlobeKind.AQUARIUM ? 0.6f / 16 : 1.1f / 16;
-        VertexConsumer out = buffers.getBuffer(RenderType.entityTranslucent(WHITE));
-        poseStack.pushPose();
-        poseStack.translate(x, y, 0.5f);
-        poseStack.mulPose(Axis.XP.rotationDegrees(angle));
-        PoseStack.Pose pose = poseStack.last();
-        // Stem, then the flat bow you'd hold to wind it.
-        box(out, pose, -0.6f / 16, 0, 0, 0.6f / 16, 0.25f / 16, 0.25f / 16, light, 230, 185, 60, 255);
-        box(out, pose, -1.5f / 16, 0, 0, 0.3f / 16, 0.9f / 16, 0.25f / 16, light, 240, 200, 80, 255);
-        poseStack.popPose();
     }
 
     /** Medium and large globes are drawn bigger than their block; keep drawing them while any of that is in view. */
@@ -602,7 +578,7 @@ public class GlobeRenderer implements BlockEntityRenderer<GlobeBlockEntity>
             double top = h + s * 0.6f, room = Math.sqrt(Math.max(0, 1 - top * top)) - s * 1.42 - 0.03;
             double angle = Math.atan2(c[1], c[0]) + turn, dist = Math.min(Math.hypot(c[0], c[1]) * 0.5, Math.max(0, room));
             box(out, pose, 0.5f + (float) (Math.cos(angle) * dist) * BALL_RADIUS, BALL_CENTER_Y + h * BALL_RADIUS,
-                    0.5f + (float) (Math.sin(angle) * dist) * BALL_RADIUS, size, size * 0.6f, size, light, 80, 85, 95, 235);
+                    0.5f + (float) (Math.sin(angle) * dist) * BALL_RADIUS, size, size * 0.6f, size, light, 90, 95, 105, 115);
         }
 
         // Rain: thin streaks falling fast from the clouds to the sea.

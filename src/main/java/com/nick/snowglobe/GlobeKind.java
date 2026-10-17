@@ -50,7 +50,7 @@ public enum GlobeKind
     {
         return Shapes.or(
                 Block.box(4, 0, 4, 12, 2.75, 12),          // pedestal
-                Block.box(3.5, 2, 3.5, 12.5, 11, 12.5));   // glass ball
+                Block.box(3.5, 2.75, 3.5, 12.5, 11.75, 12.5));   // glass ball
     }
 
     public String getName()

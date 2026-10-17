@@ -15,9 +15,10 @@ import org.jetbrains.annotations.Nullable;
  */
 public record MiniatureLayout(float cell, Vec3 center, Vec3 pivot, int scale)
 {
-    // Ball (snow and storm globes), in block units: sits on the pedestal's rim.
+    // Ball (snow and storm globes), in block units: resting on top of the pedestal's rim (2.75 px), not sunk into
+    // it, so the pedestal never reaches into the build space when seen giant from inside.
     public static final float BALL_RADIUS = 4.5f / 16f;
-    public static final float BALL_CENTER_Y = 6.5f / 16f;
+    public static final float BALL_CENTER_Y = 7.25f / 16f;
     // Terrarium: the miniature fills the glass case above the wooden base.
     public static final float CASE_WIDTH = 10f / 16f;
     public static final float CASE_FLOOR = 1f / 16f;

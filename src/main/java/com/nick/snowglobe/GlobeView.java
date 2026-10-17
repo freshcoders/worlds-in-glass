@@ -156,7 +156,6 @@ public final class GlobeView
                     neighbour.putLong("Pos", pos.asLong());
                     neighbour.putInt("Phase", data.phaseOf(other.globeId()));
                     neighbour.putInt("Season", data.seasonOf(other.globeId()));
-                    neighbour.putBoolean("MusicBox", data.hasMusicBox(other.globeId()));
                     neighbour.put("Snapshot", otherEntry.snapshot().toTag());
                     globes.add(neighbour);
                 }

@@ -44,8 +44,6 @@ public class GlobeItem extends BlockItem
                 int size = snapshot.getInt("Size") * Math.max(1, snapshot.getInt("Scale"));
                 tooltip.add(Component.translatable("snowglobe.tooltip.size", size, size, size).withStyle(ChatFormatting.DARK_AQUA));
             }
-            if (tag.getBoolean("MusicBox"))
-                tooltip.add(Component.translatable("snowglobe.tooltip.music_box").withStyle(ChatFormatting.GOLD));
         }
         if (shiftDown.getAsBoolean())
         {

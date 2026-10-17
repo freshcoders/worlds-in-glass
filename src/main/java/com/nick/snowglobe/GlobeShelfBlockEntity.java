@@ -61,7 +61,7 @@ public class GlobeShelfBlockEntity extends BlockEntity
             shelf.changed();
     }
 
-    /** Brings a globe item's saved miniature (and time of day, season, music box) up to date with its globe. */
+    /** Brings a globe item's saved miniature (and time of day and season) up to date with its globe. */
     private static boolean refresh(MinecraftServer server, ItemStack stack)
     {
         CustomData data = stack.get(SnowGlobeMod.GLOBE_DATA.get());
@@ -74,14 +74,13 @@ public class GlobeShelfBlockEntity extends BlockEntity
         if (entry == null)
             return false;
         boolean changed = entry.version() != tag.getLong("SnapshotVersion") || saved.phaseOf(id) != tag.getInt("Phase")
-                || saved.seasonOf(id) != tag.getInt("Season") || saved.hasMusicBox(id) != tag.getBoolean("MusicBox");
+                || saved.seasonOf(id) != tag.getInt("Season");
         if (!changed)
             return false;
         tag.put("Snapshot", entry.snapshot().toTag());
         tag.putLong("SnapshotVersion", entry.version());
         tag.putInt("Phase", saved.phaseOf(id));
         tag.putInt("Season", saved.seasonOf(id));
-        tag.putBoolean("MusicBox", saved.hasMusicBox(id));
         stack.set(SnowGlobeMod.GLOBE_DATA.get(), CustomData.of(tag));
         return true;
     }

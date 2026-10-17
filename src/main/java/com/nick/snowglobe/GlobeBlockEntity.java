@@ -35,10 +35,9 @@ public class GlobeBlockEntity extends BlockEntity
     public Object renderState;
     /** Client: game time this globe was last shaken. */
     public long shakeStart = Long.MIN_VALUE;
-    /** Copied from the globe's saved data for clients to draw: time of day inside, season, and the music box. */
+    /** Copied from the globe's saved data for clients to draw: time of day inside and season. */
     private int phase;
     private int season;
-    private boolean musicBox;
 
     public GlobeBlockEntity(BlockPos pos, BlockState state)
     {
@@ -69,27 +68,20 @@ public class GlobeBlockEntity extends BlockEntity
         return season;
     }
 
-    public boolean hasMusicBox()
-    {
-        return musicBox;
-    }
-
-    /** Server: copies time, season and music box from the saved data; true if any changed. */
+    /** Server: copies time and season from the saved data; true if any changed. */
     boolean pullExtras(MinecraftServer server)
     {
         GlobeSavedData data = GlobeSavedData.get(server);
         int newPhase = data.phaseOf(globeId), newSeason = data.seasonOf(globeId);
-        boolean newMusicBox = data.hasMusicBox(globeId);
-        if (newPhase == phase && newSeason == season && newMusicBox == musicBox)
+        if (newPhase == phase && newSeason == season)
             return false;
         phase = newPhase;
         season = newSeason;
-        musicBox = newMusicBox;
         setChanged();
         return true;
     }
 
-    /** Server: after changing this globe's time, season or music box, shows it right away. */
+    /** Server: after changing this globe's season, shows it right away. */
     public void refreshExtras()
     {
         if (level != null && level.getServer() != null && globeId >= 0 && pullExtras(level.getServer()))
@@ -202,7 +194,6 @@ public class GlobeBlockEntity extends BlockEntity
         {
             phase = tag.getInt("Phase");
             season = tag.getInt("Season");
-            musicBox = tag.getBoolean("MusicBox");
         }
     }
 
@@ -223,8 +214,6 @@ public class GlobeBlockEntity extends BlockEntity
     {
         tag.putInt("Phase", phase);
         tag.putInt("Season", season);
-        if (musicBox)
-            tag.putBoolean("MusicBox", true);
     }
 
     @Override
@@ -269,7 +258,6 @@ public class GlobeBlockEntity extends BlockEntity
         tag.remove("SnapshotVersion");
         tag.remove("Phase");
         tag.remove("Season");
-        tag.remove("MusicBox");
     }
 
     @Override

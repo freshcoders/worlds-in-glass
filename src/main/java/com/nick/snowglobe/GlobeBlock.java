@@ -52,8 +52,6 @@ public class GlobeBlock extends BaseEntityBlock
     public static final int EVENT_SHAKE = 1;
     /** Block event id for a knock on the glass, so everyone near hears it (as their settings allow). */
     public static final int EVENT_KNOCK = 2;
-    /** Block event id for winding a music box: everyone near hears the tune. */
-    public static final int EVENT_WIND = 3;
 
     private final GlobeKind kind;
     private final MapCodec<GlobeBlock> codec;
@@ -182,20 +180,17 @@ public class GlobeBlock extends BaseEntityBlock
 
     /**
      * Holding something that goes into a globe: a Create schematic imports it; a bucket of fish lets them swim in;
-     * a water bucket catches one back out; a note block fits a music box into the base.
+     * a water bucket catches one back out.
      */
     @Override
     protected ItemInteractionResult useItemOn(ItemStack stack, BlockState state, Level level, BlockPos pos, Player player,
                                               InteractionHand hand, BlockHitResult hit)
     {
-        if (stack.getItem() instanceof net.minecraft.world.item.MobBucketItem || stack.is(net.minecraft.world.item.Items.WATER_BUCKET)
-                || stack.is(net.minecraft.world.item.Items.NOTE_BLOCK))
+        if (stack.getItem() instanceof net.minecraft.world.item.MobBucketItem || stack.is(net.minecraft.world.item.Items.WATER_BUCKET))
         {
             if (player instanceof ServerPlayer serverPlayer && level.getBlockEntity(pos) instanceof GlobeBlockEntity globe)
             {
-                if (stack.is(net.minecraft.world.item.Items.NOTE_BLOCK))
-                    GlobeCreatures.fitMusicBox(serverPlayer, hand, stack, globe);
-                else if (stack.is(net.minecraft.world.item.Items.WATER_BUCKET))
+                if (stack.is(net.minecraft.world.item.Items.WATER_BUCKET))
                 {
                     if (!GlobeCreatures.catchFish(serverPlayer, hand, globe))
                         return ItemInteractionResult.PASS_TO_DEFAULT_BLOCK_INTERACTION;
@@ -242,8 +237,6 @@ public class GlobeBlock extends BaseEntityBlock
             {
                 level.setBlock(pos, state.setValue(FACING, state.getValue(FACING).getClockWise()), Block.UPDATE_ALL);
                 level.playSound(null, pos, SoundEvents.WOOD_HIT, SoundSource.BLOCKS, 0.6f, 1.4f);
-                if (level.getBlockEntity(pos) instanceof GlobeBlockEntity globe && player instanceof ServerPlayer serverPlayer)
-                    turned(serverPlayer, globe);
             }
             return InteractionResult.sidedSuccess(level.isClientSide);
         }
@@ -286,22 +279,6 @@ public class GlobeBlock extends BaseEntityBlock
         GlobeView.refreshOccupants(server, id);
     }
 
-    /** Turning the base winds a music box in it, which plays its tune. */
-    private void turned(ServerPlayer player, GlobeBlockEntity globe)
-    {
-        MinecraftServer server = player.server;
-        int id = globe.ensureGlobe(server);
-        GlobeSavedData data = GlobeSavedData.get(server);
-        if (data.hasMusicBox(id))
-        {
-            player.serverLevel().blockEvent(globe.getBlockPos(), this, EVENT_WIND, 0);
-            GlobeView.notifyOccupants(server, id, com.nick.snowglobe.net.GlobeNetwork.GlobeEvent.WOUND, kind);
-            GlobeAdvancements.award(player, "wind_it_up");
-        }
-        globe.refreshExtras();
-        GlobeView.refreshOccupants(server, id);
-    }
-
     /**
      * A storm globe's thunder, from outside: it must sound tiny, or people nearby would think a real storm is coming.
      * A little electric crackle, with the faintest high thunder under it, as the globe's own sound (not weather).
@@ -317,12 +294,6 @@ public class GlobeBlock extends BaseEntityBlock
     @Override
     protected boolean triggerEvent(BlockState state, Level level, BlockPos pos, int id, int param)
     {
-        if (id == EVENT_WIND)
-        {
-            if (level.isClientSide)
-                GlobeClientHooks.wound.accept(pos, kind);
-            return true;
-        }
         if (id == EVENT_KNOCK)
         {
             if (level.isClientSide)

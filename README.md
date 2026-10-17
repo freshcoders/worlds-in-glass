@@ -33,7 +33,7 @@ They're all in their own **Snow Globes** creative tab, with the collector's shel
 | Action | How |
 |---|---|
 | **Shake** | Right-click the glass. The globe wobbles and chimes, and the snow whirls up. Anyone inside feels it. A snow globe also turns to the next season. |
-| **Turn** | Right-click the base or stand: a quarter turn. Winds the music box, if it has one. |
+| **Turn** | Right-click the base or stand: a quarter turn. |
 | **Go inside** | Sneak + right-click, with an empty hand. |
 | **Leave** | Right-click the glass wall from inside, with an empty hand. |
 | **Knock** | Punch the glass, in survival. Anyone inside hears a giant knock. |
@@ -47,10 +47,9 @@ They're all in their own **Snow Globes** creative tab, with the collector's shel
 - **Weather falls around you**: the snow globe's season, blown sand, ash and embers, spores, rain.
 - Globes can stand **inside other globes**, and you can go in further. Leaving takes you out one glass at a time.
 
-## Seasons, music and company
+## Seasons and company
 
 - **Seasons:** shaking a snow globe turns the year: winter, spring (blossom), summer (fireflies), autumn (falling leaves). Shaken into winter, real snow settles on everything inside, and melts a few minutes later, or straight away in spring.
-- **Music boxes:** use a note block on a globe to fit a music box in its base. Turning the base winds it, and it plays the globe's own tune, slowing down as it runs out. Anyone inside hears it as a huge, deep bell.
 - **Fish:** use a bucket of fish (or an axolotl, or tadpoles) on a globe with water inside, and they swim in. The bucket keeps its water. A water bucket catches one back out.
 - **Animals:** anything you're leading on a lead comes in and out with you.
 - **Collector's shelf:** holds two globes side by side and keeps their miniatures up to date.
@@ -98,7 +97,7 @@ In the test game only (`runClient`), `/globe debug knock|shake` acts from inside
 
 ## Settings
 
-In **Mods → Snow Globes → Config**: how rare lightning is, how much weather falls inside globes, whether you hear a storm globe's tiny thunder from outside, and whether music boxes play.
+In **Mods → Snow Globes → Config**: how rare lightning is, how much weather falls inside globes, whether you hear a storm globe's tiny thunder from outside,.
 
 ## Crafting
 

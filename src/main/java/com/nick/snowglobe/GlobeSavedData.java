@@ -31,8 +31,6 @@ public class GlobeSavedData extends SavedData
     private final Map<Integer, Integer> sizes = new HashMap<>();
     /** The snow globes' seasons. */
     private final Map<Integer, Integer> seasons = new HashMap<>();
-    /** Globes fitted with a music box. */
-    private final java.util.Set<Integer> musicBoxes = new java.util.HashSet<>();
     /** Snow that settled in a globe after a shake: where it lies, and the game time it melts. */
     private final Map<Integer, Map<Long, Long>> settledSnow = new HashMap<>();
     /** Where each globe's slot starts along x (its wall), for globes with a slot of their own. */
@@ -79,17 +77,6 @@ public class GlobeSavedData extends SavedData
     {
         seasons.put(id, Math.floorMod(season, 4));
         setDirty();
-    }
-
-    public boolean hasMusicBox(int id)
-    {
-        return musicBoxes.contains(id);
-    }
-
-    public void setMusicBox(int id, boolean has)
-    {
-        if (has ? musicBoxes.add(id) : musicBoxes.remove(id))
-            setDirty();
     }
 
     /** Settled snow in a globe, by position, with when it melts. Call {@link #setDirty()} after changing it. */
@@ -200,7 +187,6 @@ public class GlobeSavedData extends SavedData
         CompoundTag seasonsTag = new CompoundTag();
         seasons.forEach((id, season) -> seasonsTag.putInt(Integer.toString(id), season));
         tag.put("Seasons", seasonsTag);
-        tag.putIntArray("MusicBoxes", musicBoxes.stream().mapToInt(Integer::intValue).toArray());
         CompoundTag snowTag = new CompoundTag();
         settledSnow.forEach((id, snow) -> {
             if (snow.isEmpty())
@@ -246,8 +232,6 @@ public class GlobeSavedData extends SavedData
         CompoundTag seasonsTag = tag.getCompound("Seasons");
         for (String key : seasonsTag.getAllKeys())
             parseId(key, id -> data.seasons.put(id, seasonsTag.getInt(key)));
-        for (int id : tag.getIntArray("MusicBoxes"))
-            data.musicBoxes.add(id);
         CompoundTag snowTag = tag.getCompound("SettledSnow");
         for (String key : snowTag.getAllKeys())
             parseId(key, id -> {

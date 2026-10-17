@@ -88,7 +88,7 @@ final class MiniBlockEntities
         poseStack.translate(pos.getX(), pos.getY(), pos.getZ());
         GlobeRenderer.renderPlaced(globe.getBlockState(), globe.kind(), globe.getSnapshot(), poseStack, buffers, light, ticks,
                 Minecraft.getInstance().getBlockRenderer(), null, null, level, pos, -1, false,
-                new GlobeRenderer.Look(globe.phase(), globe.season(), globe.hasMusicBox()));
+                new GlobeRenderer.Look(globe.phase(), globe.season()));
         poseStack.popPose();
     }
 

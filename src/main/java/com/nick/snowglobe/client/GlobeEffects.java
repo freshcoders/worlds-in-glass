@@ -106,7 +106,6 @@ public final class GlobeEffects
                     }
                 }
             }
-            case GlobeEvent.WOUND -> MusicBoxes.woundInside(kind);
             case GlobeEvent.KNOCKED ->
             {
                 // Someone huge knocking on the glass.
