@@ -2,6 +2,7 @@
 
     python modrinth/publish.py create    # a draft project (only you can see it): icon, description, gallery, version 1.0.0
     python modrinth/publish.py version   # upload build/libs/snowglobe-<version>.jar as a new version of the project
+    python modrinth/publish.py replace   # delete the version with this number and upload the current jar in its place
     python modrinth/publish.py submit    # send the draft to Modrinth's moderators for review (then it goes public)
 
 The token never appears in output. Token scopes needed: Create projects, Write projects, Create versions.
@@ -121,10 +122,20 @@ def version():
                                    "jar": (os.path.basename(jar), file, "application/java-archive")}), f"Upload {number}")
 
 
+def replace():
+    """Takes down the version with the current number (still in draft, so nobody has it) and uploads the jar again."""
+    number = mod_version()
+    versions = check(requests.get(f"{API}/project/{SLUG}/version", headers=headers()), "List versions")
+    for v in versions:
+        if v["version_number"] == number:
+            check(requests.delete(f"{API}/version/{v['id']}", headers=headers()), f"Delete old {number}")
+    version()
+
+
 def submit():
     check(requests.patch(f"{API}/project/{SLUG}", headers=headers(), json={"status": "processing"}), "Submit for review")
 
 
 if __name__ == "__main__":
     action = sys.argv[1] if len(sys.argv) > 1 else ""
-    {"create": create, "version": version, "submit": submit}.get(action, lambda: sys.exit(__doc__))()
+    {"create": create, "version": version, "replace": replace, "submit": submit}.get(action, lambda: sys.exit(__doc__))()
