@@ -2,7 +2,7 @@ package com.nick.snowglobe;
 
 import net.neoforged.neoforge.common.ModConfigSpec;
 
-/** Settings each player can change for themselves (Mods > Snow Globes > Config). Only affects what they see and hear. */
+/** Settings each player can change for themselves (Mods > Worlds in Glass > Config). Only affects what they see and hear. */
 public final class SnowGlobeConfig
 {
     public static final ModConfigSpec SPEC;

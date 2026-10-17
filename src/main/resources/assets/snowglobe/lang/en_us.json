@@ -15,7 +15,7 @@
   "snowglobe.size.would_lose": "Shrinking to %s would cut off %s blocks. Clear them out first (in creative, add 'force' to cut them anyway).",
   "snowglobe.import.not_empty": "This globe isn't empty. Clear it out first; importing never throws your blocks away.",
   "snowglobe.import.missing": "Not enough materials to build %s. Still needed: %s.",
-  "itemGroup.snowglobe": "Snow Globes",
+  "itemGroup.snowglobe": "Worlds in Glass",
   "block.snowglobe.desert_globe": "Desert Globe",
   "block.snowglobe.aquarium": "Aquarium",
   "block.snowglobe.star_globe": "Star Globe",

@@ -84,7 +84,7 @@ dependencies {
         localRuntime "maven.modrinth:spark:1.10.124-neoforge-1.21.1"
 
     // Create, plus Create Aeronautics (which brings the "simulated" blocks) and the Sable library it needs.
-    // Only for testing schematic import; Snow Globes itself works without them.
+    // Only for testing schematic import; Worlds in Glass itself works without them.
     localRuntime "maven.modrinth:create:${create_version}"
     localRuntime "maven.modrinth:sable:${sable_version}"
     localRuntime "maven.modrinth:create-aeronautics:${aeronautics_version}"

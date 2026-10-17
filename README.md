@@ -1,4 +1,4 @@
-# Snow Globes
+# Worlds in Glass
 
 A Minecraft mod for building tiny worlds. Place a globe, step inside and build in a space of its own. Step back out and your build is there in miniature under the glass, with its water and mobs moving live.
 
@@ -42,7 +42,7 @@ In survival nothing comes from nowhere: a new globe starts empty, an import uses
 
 Operator commands: `/globe import <file>` and `/globe size <16–256> [force]`, for the globe you're looking at or standing in. In the test game, `/globe debug showcase` builds a small gallery of globes in front of you, for screenshots.
 
-Settings (Mods → Snow Globes → Config): how often lightning strikes, how much weather falls inside globes, and whether storm globes thunder for people outside.
+Settings (Mods → Worlds in Glass → Config): how often lightning strikes, how much weather falls inside globes, and whether storm globes thunder for people outside.
 
 ## Installing
 
@@ -59,4 +59,4 @@ Java 21 is downloaded by Gradle if needed. Don't rebuild while `runClient` is ru
 
 Known limits: spinning Create parts may not show in miniatures, and it's only been tested in single player and LAN so far.
 
-Snow Globes is MIT licensed.
+Worlds in Glass is MIT licensed.

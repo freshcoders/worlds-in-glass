@@ -9,7 +9,7 @@ import net.neoforged.fml.common.Mod;
 import net.neoforged.neoforge.client.gui.ConfigurationScreen;
 import net.neoforged.neoforge.client.gui.IConfigScreenFactory;
 
-/** Client-only setup: the settings screen (Mods > Snow Globes > Config) and hooks the common code calls on clients. */
+/** Client-only setup: the settings screen (Mods > Worlds in Glass > Config) and hooks the common code calls on clients. */
 @Mod(value = SnowGlobeMod.MODID, dist = Dist.CLIENT)
 public class SnowGlobeClient
 {
