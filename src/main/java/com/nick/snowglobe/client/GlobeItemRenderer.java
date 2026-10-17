@@ -16,6 +16,7 @@ import net.minecraft.world.item.ItemDisplayContext;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.component.CustomData;
 import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.phys.Vec3;
 import net.neoforged.neoforge.client.model.data.ModelData;
 import org.jetbrains.annotations.Nullable;
 
@@ -57,16 +58,36 @@ public class GlobeItemRenderer extends BlockEntityWithoutLevelRenderer
         ClientLevel level = Minecraft.getInstance().level;
         BlockPos where = Minecraft.getInstance().player != null ? Minecraft.getInstance().player.blockPosition() : BlockPos.ZERO;
 
+        // When dropped on the ground, calculate camera distance from the model-view matrix translation.
+        boolean isGround = context == ItemDisplayContext.GROUND;
+        boolean isFixed = context == ItemDisplayContext.FIXED;
+        Vec3 eye = null;
+        if (isGround || isFixed)
+        {
+            var mat = poseStack.last().pose();
+            float tx = mat.m30(), ty = mat.m31(), tz = mat.m32();
+            float distSq = tx * tx + ty * ty + tz * tz;
+            // Distant dropped items on the floor are tiny dots; draw only the block model.
+            if (isGround && distSq > 10.0f * 10.0f)
+            {
+                blocks.renderSingleBlock(state, poseStack, buffers, light, overlay, ModelData.EMPTY, null);
+                return;
+            }
+            double len = Math.sqrt(distSq);
+            if (len > 1e-4)
+                eye = new Vec3(-tx / len, -ty / len, -tz / len);
+        }
+
         // The terrarium's glass is part of its model, so draw it after the miniature or it would hide it.
         if (block.kind() == GlobeKind.TERRARIUM || block.kind() == GlobeKind.AQUARIUM)
         {
-            GlobeRenderer.renderGlobe(block.kind(), snapshot, poseStack, buffers, light, ticks, blocks, null, null, 0, level, where, 0, look);
+            GlobeRenderer.renderGlobe(block.kind(), snapshot, poseStack, buffers, light, ticks, blocks, eye, null, 0, level, where, 0, look);
             blocks.renderSingleBlock(state, poseStack, buffers, light, overlay, ModelData.EMPTY, null);
         }
         else
         {
             blocks.renderSingleBlock(state, poseStack, buffers, light, overlay, ModelData.EMPTY, null);
-            GlobeRenderer.renderGlobe(block.kind(), snapshot, poseStack, buffers, light, ticks, blocks, null, null, 0, level, where, 0, look);
+            GlobeRenderer.renderGlobe(block.kind(), snapshot, poseStack, buffers, light, ticks, blocks, eye, null, 0, level, where, 0, look);
         }
     }
 

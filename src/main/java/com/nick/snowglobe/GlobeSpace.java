@@ -348,6 +348,17 @@ public final class GlobeSpace
         back.putDouble("Z", player.getZ());
         back.putFloat("Yaw", player.getYRot());
         back.putFloat("Pitch", player.getXRot());
+        // Inside another globe: also remember where in that globe, so coming back finds the spot even if its
+        // world has moved to another slot since (when it grew, for one).
+        int outerId = nested ? idAt(player.server, player.blockPosition()) : -1;
+        if (outerId >= 0)
+        {
+            BlockPos outerMin = interiorMin(player.server, outerId);
+            back.putInt("Id", outerId);
+            back.putDouble("RX", player.getX() - outerMin.getX());
+            back.putDouble("RY", player.getY() - outerMin.getY());
+            back.putDouble("RZ", player.getZ() - outerMin.getZ());
+        }
         CompoundTag data = player.getPersistentData();
         ListTag returns = data.getList(RETURNS_KEY, Tag.TAG_COMPOUND);
         if (returns.isEmpty() && data.contains(RETURN_KEY))
@@ -416,7 +427,33 @@ public final class GlobeSpace
             player.teleportTo(target, spawn.getX() + 0.5, spawn.getY(), spawn.getZ() + 0.5, player.getYRot(), player.getXRot());
             return;
         }
-        player.teleportTo(target, back.getDouble("X"), back.getDouble("Y"), back.getDouble("Z"), back.getFloat("Yaw"), back.getFloat("Pitch"));
+        double x = back.getDouble("X"), y = back.getDouble("Y"), z = back.getDouble("Z");
+        if (target.dimension() == LEVEL)
+        {
+            // Back into an outer globe: wherever its world is now, and inside it (never out in the empty dimension).
+            int outerId = back.contains("Id") ? back.getInt("Id") : idAt(server, BlockPos.containing(x, y, z));
+            if (outerId >= 0)
+            {
+                BlockPos outerMin = interiorMin(server, outerId);
+                if (back.contains("RX"))
+                {
+                    x = outerMin.getX() + back.getDouble("RX");
+                    y = outerMin.getY() + back.getDouble("RY");
+                    z = outerMin.getZ() + back.getDouble("RZ");
+                }
+                GlobeSavedData saved = GlobeSavedData.get(server);
+                int size = saved.sizeOf(outerId);
+                BlockPos cell = BlockPos.containing(x, y, z).subtract(outerMin);
+                if (!saved.kindOf(outerId).inside(cell.getX(), cell.getY(), cell.getZ(), size))
+                {
+                    BlockPos spot = findSpawn(target, outerMin, size);
+                    x = spot.getX() + 0.5;
+                    y = spot.getY();
+                    z = spot.getZ() + 0.5;
+                }
+            }
+        }
+        player.teleportTo(target, x, y, z, back.getFloat("Yaw"), back.getFloat("Pitch"));
         GlobeCreatures.bringAlong(friends, player);
         // Back inside the outer globe: show its outside again.
         if (target.dimension() == LEVEL)
@@ -719,6 +756,8 @@ public final class GlobeSpace
         GlobeSavedData data = GlobeSavedData.get(server);
         if (now % 40 == 0)
             meltSnow(server, level);
+        if (now % 10 == 0)
+            catchFalling(server, level, data);
 
         Set<Integer> occupied = new HashSet<>();
         for (ServerPlayer player : level.players())
@@ -767,6 +806,29 @@ public final class GlobeSpace
             boolean big = data.sizeOf(id) > LIVE_CAPTURE_SIZE;
             if (!big && now % 20 == 0 || big && occupied.contains(id) && now % 100 == 0)
                 refreshSnapshot(server, id);
+        }
+    }
+
+    /**
+     * A safety net: anyone below every globe's floor in the globe dimension has somehow got out of a globe (a world
+     * that moved, a glitch) and is falling into the void. Put them back inside the globe they're under, or out.
+     */
+    private static void catchFalling(MinecraftServer server, ServerLevel level, GlobeSavedData data)
+    {
+        for (ServerPlayer player : List.copyOf(level.players()))
+        {
+            if (player.getY() > BASE_Y - 3 || player.isSpectator())
+                continue;
+            int id = idAt(server, player.blockPosition());
+            player.fallDistance = 0;
+            player.setDeltaMovement(net.minecraft.world.phys.Vec3.ZERO);
+            if (id >= 0)
+            {
+                BlockPos spot = findSpawn(level, interiorMin(server, id), data.sizeOf(id));
+                player.teleportTo(level, spot.getX() + 0.5, spot.getY(), spot.getZ() + 0.5, player.getYRot(), player.getXRot());
+            }
+            else
+                leave(player);
         }
     }
 

@@ -26,14 +26,28 @@ GALLERY = [
 ]
 
 
+TOKEN_CACHE = []
+
+
 def token():
     """From MODRINTH_TOKEN, or else the file ~/.modrinth-token (handy on Windows, where a new variable only reaches new programs)."""
+    if TOKEN_CACHE:
+        return TOKEN_CACHE[0]
     value = os.environ.get("MODRINTH_TOKEN", "").strip()
     path = os.path.join(os.path.expanduser("~"), ".modrinth-token")
     if not value and os.path.exists(path):
         value = open(path, encoding="utf-8").read().strip()
+    if not value and sys.stdin.isatty():
+        # Typed in once (not shown on screen), then kept in ~/.modrinth-token for next time.
+        import getpass
+        value = getpass.getpass("Modrinth token (mrp_..., not shown as you type): ").strip()
+        if value:
+            with open(path, "w", encoding="utf-8") as saved:
+                saved.write(value)
+            print(f"Saved in {path} for next time.")
     if not value:
-        sys.exit("No token: create one at https://modrinth.com/settings/pats and put it in ~/.modrinth-token (or MODRINTH_TOKEN).")
+        sys.exit("No token: create one at https://modrinth.com/settings/pats, then run this in a terminal and paste it when asked.")
+    TOKEN_CACHE.append(value)
     return value
 
 

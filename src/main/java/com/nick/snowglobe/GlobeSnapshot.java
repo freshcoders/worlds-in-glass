@@ -41,8 +41,16 @@ public final class GlobeSnapshot
     private List<BlockPos> visible;
     private List<BlockPos> fluids;
     private double contentRadius = -1;
+    private MiniatureLayout cachedLayout;
     /** Client: whatever the renderer builds from this snapshot (its block entities). Not touched on the server. */
     public Object clientCache;
+
+    public MiniatureLayout layout(GlobeKind kind)
+    {
+        if (cachedLayout == null)
+            cachedLayout = MiniatureLayout.compute(kind, this);
+        return cachedLayout;
+    }
 
     private GlobeSnapshot(int size, int scale, List<BlockState> palette, int[] cells, Map<Integer, CompoundTag> blockEntities)
     {

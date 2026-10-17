@@ -57,19 +57,25 @@ final class BakedMesh implements AutoCloseable
         return buffers.isEmpty();
     }
 
+    private static final Matrix4f SCRATCH_MODEL_VIEW = new Matrix4f();
+
     /** Draws the mesh through {@code pose} (on top of the render system's current model-view). */
     void draw(Matrix4f pose)
     {
         if (buffers.isEmpty())
             return;
-        Matrix4f modelView = new Matrix4f(RenderSystem.getModelViewMatrix()).mul(pose);
-        buffers.forEach((type, buffer) -> {
+        Matrix4f modelView = SCRATCH_MODEL_VIEW.set(RenderSystem.getModelViewMatrix()).mul(pose);
+        Matrix4f proj = RenderSystem.getProjectionMatrix();
+        for (Map.Entry<RenderType, VertexBuffer> entry : buffers.entrySet())
+        {
+            RenderType type = entry.getKey();
+            VertexBuffer buffer = entry.getValue();
             type.setupRenderState();
             buffer.bind();
-            buffer.drawWithShader(modelView, RenderSystem.getProjectionMatrix(), RenderSystem.getShader());
+            buffer.drawWithShader(modelView, proj, RenderSystem.getShader());
             VertexBuffer.unbind();
             type.clearRenderState();
-        });
+        }
     }
 
     @Override

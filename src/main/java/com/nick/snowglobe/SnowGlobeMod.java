@@ -90,8 +90,8 @@ public class SnowGlobeMod
             () -> BlockEntityType.Builder.of(GlobeBlockEntity::new, GLOBES.values().stream().map(DeferredBlock::get).toArray(Block[]::new)).build(null));
 
     /** A display turntable: a globe standing on it slowly spins round. */
-    public static final DeferredBlock<Block> TURNTABLE = BLOCKS.register("globe_turntable", () -> new Block(BlockBehaviour.Properties.of()
-            .mapColor(MapColor.WOOD).strength(1.5f).sound(SoundType.WOOD)));
+    public static final DeferredBlock<Block> TURNTABLE = BLOCKS.register("globe_turntable", () -> new TurntableBlock(BlockBehaviour.Properties.of()
+            .mapColor(MapColor.WOOD).strength(1.5f).sound(SoundType.WOOD).noOcclusion()));
     public static final DeferredItem<net.minecraft.world.item.BlockItem> TURNTABLE_ITEM = ITEMS.registerSimpleBlockItem(TURNTABLE);
 
     /** The glassblower's pipe, and the glass bulb it blows: every globe starts as one. */

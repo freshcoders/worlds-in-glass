@@ -38,6 +38,8 @@ import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.phys.Vec3;
 import org.jetbrains.annotations.Nullable;
 
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Random;
 
 /**
@@ -322,67 +324,91 @@ public class GlobeRenderer implements BlockEntityRenderer<GlobeBlockEntity>
         Vec3 view = eye != null ? eye : ITEM_EYE;
         float partialTick = ticks - (float) Math.floor(ticks);
         MiniatureLayout layout = MiniatureLayout.of(kind, snapshot);
+        // Far-away placed globes skip what would be too small to see: their mobs, then half and finally all of their
+        // weather. Items, and the globes seen giant from inside another, always get everything.
+        boolean detailed = true;
+        boolean showMobs = true;
+        int weatherCount = FLAKES.length;
+        if (inWorld && level != null && where != null)
+        {
+            Vec3 cam = Minecraft.getInstance().gameRenderer.getMainCamera().getPosition();
+            BlockState placed = level.getBlockState(where);
+            double size = placed.hasProperty(GlobeBlock.DISPLAY) ? placed.getValue(GlobeBlock.DISPLAY).scale : 1;
+            double dist = Math.sqrt(cam.distanceToSqr(where.getX() + 0.5, where.getY() + 0.5, where.getZ() + 0.5)) / size;
+            detailed = dist < 40;
+            showMobs = dist < 24;
+            if (dist > 24)
+                weatherCount = 0;
+            else if (dist > 12)
+                weatherCount = FLAKES.length / 2;
+        }
+
         switch (kind)
         {
             case SNOW_GLOBE ->
             {
                 pushMiniature(poseStack, layout);
-                renderContents(snapshot, state, level, where, partialTick, poseStack, buffers, light, blocks);
+                renderContents(snapshot, state, level, where, partialTick, poseStack, buffers, light, blocks, detailed, showMobs);
                 poseStack.popPose();
-                renderSnow(poseStack, buffers, outsideLight, ticks / 20f, stir, look.season());
+                if (detailed && weatherCount > 0)
+                    renderSnow(poseStack, buffers, outsideLight, ticks / 20f, stir, look.season(), weatherCount);
                 renderBall(poseStack, buffers, inWorld, outsideLight, view, 255, 255, 255, 0);
             }
             case DESERT_GLOBE ->
             {
                 pushMiniature(poseStack, layout);
-                renderContents(snapshot, state, level, where, partialTick, poseStack, buffers, light, blocks);
+                renderContents(snapshot, state, level, where, partialTick, poseStack, buffers, light, blocks, detailed, showMobs);
                 poseStack.popPose();
-                renderSand(poseStack, buffers, outsideLight, ticks / 20f, stir);
+                if (detailed && weatherCount > 0)
+                    renderSand(poseStack, buffers, outsideLight, ticks / 20f, stir, weatherCount);
                 renderBall(poseStack, buffers, inWorld, outsideLight, view, 255, 236, 205, 0.02f);
             }
             case STAR_GLOBE ->
             {
                 pushMiniature(poseStack, layout);
-                renderContents(snapshot, state, level, where, partialTick, poseStack, buffers, light, blocks);
+                renderContents(snapshot, state, level, where, partialTick, poseStack, buffers, light, blocks, detailed, showMobs);
                 poseStack.popPose();
-                renderStars(poseStack, buffers, ticks, seed, stir);
+                if (detailed && weatherCount > 0)
+                    renderStars(poseStack, buffers, ticks, seed, stir, weatherCount);
                 renderBall(poseStack, buffers, inWorld, outsideLight, view, 200, 212, 255, 0.04f);
             }
             case AQUARIUM ->
             {
                 pushMiniature(poseStack, layout);
-                renderContents(snapshot, state, level, where, partialTick, poseStack, buffers, light, blocks);
+                renderContents(snapshot, state, level, where, partialTick, poseStack, buffers, light, blocks, detailed, showMobs);
                 poseStack.popPose();
-                renderBubbles(poseStack, buffers, outsideLight, ticks / 20f, stir);
+                if (detailed && weatherCount > 0)
+                    renderBubbles(poseStack, buffers, outsideLight, ticks / 20f, stir, weatherCount);
             }
             case NETHER_JAR ->
             {
                 pushMiniature(poseStack, layout);
-                renderContents(snapshot, state, level, where, partialTick, poseStack, buffers, light, blocks);
+                renderContents(snapshot, state, level, where, partialTick, poseStack, buffers, light, blocks, detailed, showMobs);
                 poseStack.popPose();
-                renderEmbers(poseStack, buffers, ticks / 20f, stir);
+                if (detailed && weatherCount > 0)
+                    renderEmbers(poseStack, buffers, ticks / 20f, stir, weatherCount);
                 renderJar(poseStack, buffers, inWorld, outsideLight, view);
             }
             case STORM_GLOBE ->
             {
                 pushMiniature(poseStack, layout);
-                renderContents(snapshot, state, level, where, partialTick, poseStack, buffers, light, blocks);
+                renderContents(snapshot, state, level, where, partialTick, poseStack, buffers, light, blocks, detailed, showMobs);
                 poseStack.popPose();
-                float flash = renderStorm(poseStack, buffers, outsideLight, ticks, seed, state, level, where, stir);
+                float flash = renderStorm(poseStack, buffers, outsideLight, ticks, seed, state, level, where, stir, detailed && weatherCount > 0);
                 int grey = (int) (150 + 105 * flash);
                 renderBall(poseStack, buffers, inWorld, outsideLight, view, grey, grey + (int) (10 * (1 - flash)), grey + (int) (30 * (1 - flash)), flash * 0.35f);
             }
             case SHIP_BOTTLE ->
             {
                 pushMiniature(poseStack, layout);
-                renderContents(snapshot, state, level, where, partialTick, poseStack, buffers, light, blocks);
+                renderContents(snapshot, state, level, where, partialTick, poseStack, buffers, light, blocks, detailed, showMobs);
                 poseStack.popPose();
                 renderBottle(poseStack, buffers, inWorld, outsideLight, view);
             }
             default ->
             {
                 pushMiniature(poseStack, layout);
-                renderContents(snapshot, state, level, where, partialTick, poseStack, buffers, light, blocks);
+                renderContents(snapshot, state, level, where, partialTick, poseStack, buffers, light, blocks, detailed, showMobs);
                 poseStack.popPose();
             }
         }
@@ -399,7 +425,7 @@ public class GlobeRenderer implements BlockEntityRenderer<GlobeBlockEntity>
 
     private static void renderContents(@Nullable GlobeSnapshot snapshot, @Nullable ClientGlobeState state, @Nullable ClientLevel level,
                                        BlockPos where, float partialTick, PoseStack poseStack, MultiBufferSource buffers, int light,
-                                       BlockRenderDispatcher blocks)
+                                       BlockRenderDispatcher blocks, boolean detailed, boolean showMobs)
     {
         if (snapshot != null && level != null)
         {
@@ -408,7 +434,7 @@ public class GlobeRenderer implements BlockEntityRenderer<GlobeBlockEntity>
             cache.mesh(snapshot, light, level, where, blocks).draw(poseStack.last().pose());
             cache.blockEntities.renderDynamic(poseStack, buffers, light, partialTick);
         }
-        if (state != null && level != null)
+        if (state != null && level != null && detailed && showMobs)
         {
             // Mob positions are in blocks; a downsampled snapshot has several blocks per cell.
             float perCell = snapshot != null ? 1f / snapshot.scale() : 1f;
@@ -428,8 +454,10 @@ public class GlobeRenderer implements BlockEntityRenderer<GlobeBlockEntity>
      * What drifts through the snow globe, by season: snowflakes in winter, blossom petals in spring, fireflies in
      * summer and falling leaves in autumn.
      */
-    private static void renderSnow(PoseStack poseStack, MultiBufferSource buffers, int light, float seconds, float stir, int season)
+    private static void renderSnow(PoseStack poseStack, MultiBufferSource buffers, int light, float seconds, float stir, int season, int count)
     {
+        if (count <= 0)
+            return;
         if (season == GlobeSavedData.SUMMER)
         {
             renderFireflies(poseStack, buffers, seconds, stir);
@@ -441,7 +469,8 @@ public class GlobeRenderer implements BlockEntityRenderer<GlobeBlockEntity>
         float half = (leaves ? 0.1f : petals ? 0.08f : 0.06f) / 16f;
         // Petals and leaves float down more slowly than snow, and swing further as they fall.
         float speed = leaves ? 0.6f : petals ? 0.75f : 1f, swing = leaves ? 2.2f : petals ? 1.6f : 1f;
-        for (int i = 0; i < FLAKES.length; i++)
+        int max = Math.min(count, FLAKES.length);
+        for (int i = 0; i < max; i++)
         {
             float[] seed = FLAKES[i];
             if ((leaves || petals) && i % 2 == 1)
@@ -474,9 +503,9 @@ public class GlobeRenderer implements BlockEntityRenderer<GlobeBlockEntity>
             float y = BALL_CENTER_Y + h * BALL_RADIUS;
             float z = 0.5f + (sz * spread) * BALL_RADIUS;
             if (leaves || petals)
-                box(out, pose, x, y, z, half, half * 0.3f, half, light, r, g, b, 255, true);
+                crossQuad(out, pose, x, y, z, half, half * 0.3f, half, light, r, g, b, 255);
             else
-                box(out, pose, x, y, z, half, half, half, light, r, g, b, 255, true);
+                crossQuad(out, pose, x, y, z, half, half, half, light, r, g, b, 255);
         }
     }
 
@@ -502,13 +531,17 @@ public class GlobeRenderer implements BlockEntityRenderer<GlobeBlockEntity>
 
     // ---- Desert: sand blown across the dunes ----
 
-    private static void renderSand(PoseStack poseStack, MultiBufferSource buffers, int light, float seconds, float stir)
+    private static void renderSand(PoseStack poseStack, MultiBufferSource buffers, int light, float seconds, float stir, int count)
     {
+        if (count <= 0)
+            return;
         VertexConsumer out = buffers.getBuffer(RenderType.entityTranslucent(WHITE));
         PoseStack.Pose pose = poseStack.last();
         float half = 0.045f / 16f;
-        for (float[] seed : DROPS)
+        int max = Math.min(count, DROPS.length);
+        for (int i = 0; i < max; i++)
         {
+            float[] seed = DROPS[i];
             // Each grain crosses the ball on the wind, low over the ground, and starts over on the other side.
             float u = (seconds * seed[3] * (0.22f + stir * 1.5f) + seed[2]) % 1f;
             float x = -0.95f + u * 1.9f;
@@ -517,27 +550,31 @@ public class GlobeRenderer implements BlockEntityRenderer<GlobeBlockEntity>
             float z = seed[0] * 0.7f;
             if (x * x + h * h + z * z > 0.8f)
                 continue;
-            box(out, pose, 0.5f + x * BALL_RADIUS, BALL_CENTER_Y + h * BALL_RADIUS, 0.5f + z * BALL_RADIUS,
-                    half, half, half, light, 222, 196, 140, 230, true);
+            crossQuad(out, pose, 0.5f + x * BALL_RADIUS, BALL_CENTER_Y + h * BALL_RADIUS, 0.5f + z * BALL_RADIUS,
+                    half, half, half, light, 222, 196, 140, 230);
         }
     }
 
     // ---- Stars: a night sky inside the ball, with shooting stars and the northern lights ----
 
-    private static void renderStars(PoseStack poseStack, MultiBufferSource buffers, float ticks, long seed, float stir)
+    private static void renderStars(PoseStack poseStack, MultiBufferSource buffers, float ticks, long seed, float stir, int weatherCount)
     {
+        if (weatherCount <= 0)
+            return;
         VertexConsumer out = buffers.getBuffer(RenderType.entityTranslucent(WHITE));
         PoseStack.Pose pose = poseStack.last();
         float seconds = ticks / 20f;
         float half = 0.035f / 16f;
-        for (float[] s : STARS)
+        int count = Math.min(STARS.length, weatherCount * STARS.length / FLAKES.length);
+        for (int i = 0; i < count; i++)
         {
+            float[] s = STARS[i];
             double angle = Math.atan2(s[1], s[0]);
             float y = 0.3f + 0.62f * s[2], r = (float) Math.sqrt(Math.max(0, 1 - y * y)) * 0.9f;
             float twinkle = 0.55f + 0.45f * (float) Math.sin(seconds * (2 + s[3] * 3) + s[4] * 5);
-            box(out, pose, 0.5f + (float) Math.cos(angle) * r * BALL_RADIUS, BALL_CENTER_Y + y * 0.9f * BALL_RADIUS,
+            crossQuad(out, pose, 0.5f + (float) Math.cos(angle) * r * BALL_RADIUS, BALL_CENTER_Y + y * 0.9f * BALL_RADIUS,
                     0.5f + (float) Math.sin(angle) * r * BALL_RADIUS, half, half, half, LightTexture.FULL_BRIGHT,
-                    235, 240, 255, (int) (255 * twinkle), true);
+                    235, 240, 255, (int) (255 * twinkle));
         }
         // The northern lights: a wavering green curtain across the top of the ball.
         for (int i = 0; i < 26; i++)
@@ -579,31 +616,39 @@ public class GlobeRenderer implements BlockEntityRenderer<GlobeBlockEntity>
 
     // ---- Aquarium: bubbles rising through the water ----
 
-    private static void renderBubbles(PoseStack poseStack, MultiBufferSource buffers, int light, float seconds, float stir)
+    private static void renderBubbles(PoseStack poseStack, MultiBufferSource buffers, int light, float seconds, float stir, int weatherCount)
     {
+        if (weatherCount <= 0)
+            return;
         VertexConsumer out = buffers.getBuffer(RenderType.entityTranslucent(WHITE));
         PoseStack.Pose pose = poseStack.last();
         float height = 9f / 16f;
-        for (float[] s : BUBBLES)
+        int count = Math.min(BUBBLES.length, weatherCount * BUBBLES.length / FLAKES.length);
+        for (int i = 0; i < count; i++)
         {
+            float[] s = BUBBLES[i];
             float rise = (seconds * s[3] * (0.25f + stir * 1.2f) + s[2]) % 1f;
             float half = (0.035f + s[2] * 0.03f) / 16f;
             float x = 0.5f + s[0] * CASE_WIDTH * 0.42f + (float) Math.sin(seconds * 3 + s[4]) * 0.004f;
             float z = 0.5f + s[1] * CASE_WIDTH * 0.42f;
-            box(out, pose, x, CASE_FLOOR + 0.1f / 16f + rise * height, z, half, half, half, light, 225, 245, 255, 150, true);
+            crossQuad(out, pose, x, CASE_FLOOR + 0.1f / 16f + rise * height, z, half, half, half, light, 225, 245, 255, 150);
         }
     }
 
     // ---- Nether jar: embers rising from the lava, and the jar's glass ----
 
-    private static void renderEmbers(PoseStack poseStack, MultiBufferSource buffers, float seconds, float stir)
+    private static void renderEmbers(PoseStack poseStack, MultiBufferSource buffers, float seconds, float stir, int weatherCount)
     {
+        if (weatherCount <= 0)
+            return;
         VertexConsumer out = buffers.getBuffer(RenderType.entityTranslucent(WHITE));
         PoseStack.Pose pose = poseStack.last();
         float half = 0.035f / 16f;
         float height = JAR_TOP - JAR_FLOOR - 0.5f / 16f;
-        for (float[] s : EMBERS)
+        int count = Math.min(EMBERS.length, weatherCount * EMBERS.length / FLAKES.length);
+        for (int i = 0; i < count; i++)
         {
+            float[] s = EMBERS[i];
             float t = (seconds * s[3] * (0.12f + stir * 0.8f) + s[2]) % 1f;
             float swirl = stir * seconds * 5 + s[4];
             float r = (float) Math.hypot(s[0], s[1]) * JAR_INNER * 0.85f;
@@ -611,8 +656,8 @@ public class GlobeRenderer implements BlockEntityRenderer<GlobeBlockEntity>
             float x = 0.5f + (float) Math.cos(angle) * r + (float) Math.sin(seconds * 2 + s[4]) * 0.005f;
             float z = 0.5f + (float) Math.sin(angle) * r;
             int alpha = (int) (255 * (1 - t));
-            box(out, pose, x, JAR_FLOOR + t * height, z, half, half, half, LightTexture.FULL_BRIGHT,
-                    255, 120 + (int) (s[2] * 90), 40, alpha, true);
+            crossQuad(out, pose, x, JAR_FLOOR + t * height, z, half, half, half, LightTexture.FULL_BRIGHT,
+                    255, 120 + (int) (s[2] * 90), 40, alpha);
         }
     }
 
@@ -621,17 +666,12 @@ public class GlobeRenderer implements BlockEntityRenderer<GlobeBlockEntity>
     {
         TextureAtlasSprite glass = Minecraft.getInstance().getTextureAtlas(TextureAtlas.LOCATION_BLOCKS).apply(GLASS);
         float u = glass.getU(0.5f), v = glass.getV(0.5f);
+        Vec3 half = eye.add(LIGHT).normalize();
+        double eyeX = eye.x, eyeY = eye.y, eyeZ = eye.z;
+        double halfX = half.x, halfY = half.y, halfZ = half.z;
         GlassRenderer.draw(poseStack.last(), buffers, inWorld, (out, pose) -> {
-            for (int i = 0; i + 1 < JAR_PROFILE.length; i++)
-            {
-                float y0 = JAR_PROFILE[i][0], r0 = JAR_PROFILE[i][1], y1 = JAR_PROFILE[i + 1][0], r1 = JAR_PROFILE[i + 1][1];
-                for (int s = 0; s < BOTTLE_SEGMENTS; s++)
-                {
-                    float[] a = jarPoint(y0, r0, y1, r1, s, false), b = jarPoint(y0, r0, y1, r1, s, true);
-                    float[] c = jarPoint(y0, r0, y1, r1, s + 1, true), d = jarPoint(y0, r0, y1, r1, s + 1, false);
-                    glassQuad(out, pose, a, b, c, d, eye, LightTexture.FULL_BRIGHT, u, v, 255, 214, 185, 0.1f);
-                }
-            }
+            for (GlassQuad q : JAR_QUADS)
+                drawGlassQuad(out, pose, q, eyeX, eyeY, eyeZ, halfX, halfY, halfZ, LightTexture.FULL_BRIGHT, u, v, 255, 214, 185, 0.1f);
         });
     }
 
@@ -650,33 +690,36 @@ public class GlobeRenderer implements BlockEntityRenderer<GlobeBlockEntity>
 
     /** Draws the storm and returns how bright a lightning flash is right now (0 to 1). */
     private static float renderStorm(PoseStack poseStack, MultiBufferSource buffers, int light, float ticks, long seed,
-                                     @Nullable ClientGlobeState state, @Nullable ClientLevel level, BlockPos where, float stir)
+                                     @Nullable ClientGlobeState state, @Nullable ClientLevel level, BlockPos where, float stir, boolean detailed)
     {
         VertexConsumer out = buffers.getBuffer(RenderType.entityTranslucent(WHITE));
         PoseStack.Pose pose = poseStack.last();
         float seconds = ticks / 20f;
 
-        // Dark clouds hanging under the top of the ball, slowly turning; each kept clear of the glass, corners and all.
-        double turn = seconds * 0.05;
-        for (float[] c : CLOUDS)
+        if (detailed)
         {
-            float h = 0.5f + c[2] * 0.14f;
-            float size = (0.5f + c[3] * 0.4f) / 16f;
-            float s = size / BALL_RADIUS;
-            double top = h + s * 0.6f, room = Math.sqrt(Math.max(0, 1 - top * top)) - s * 1.42 - 0.03;
-            double angle = Math.atan2(c[1], c[0]) + turn, dist = Math.min(Math.hypot(c[0], c[1]) * 0.5, Math.max(0, room));
-            box(out, pose, 0.5f + (float) (Math.cos(angle) * dist) * BALL_RADIUS, BALL_CENTER_Y + h * BALL_RADIUS,
-                    0.5f + (float) (Math.sin(angle) * dist) * BALL_RADIUS, size, size * 0.6f, size, light, 90, 95, 105, 115);
-        }
+            // Dark clouds hanging under the top of the ball, slowly turning; each kept clear of the glass, corners and all.
+            double turn = seconds * 0.05;
+            for (float[] c : CLOUDS)
+            {
+                float h = 0.5f + c[2] * 0.14f;
+                float size = (0.5f + c[3] * 0.4f) / 16f;
+                float s = size / BALL_RADIUS;
+                double top = h + s * 0.6f, room = Math.sqrt(Math.max(0, 1 - top * top)) - s * 1.42 - 0.03;
+                double angle = Math.atan2(c[1], c[0]) + turn, dist = Math.min(Math.hypot(c[0], c[1]) * 0.5, Math.max(0, room));
+                box(out, pose, 0.5f + (float) (Math.cos(angle) * dist) * BALL_RADIUS, BALL_CENTER_Y + h * BALL_RADIUS,
+                        0.5f + (float) (Math.sin(angle) * dist) * BALL_RADIUS, size, size * 0.6f, size, light, 90, 95, 105, 115);
+            }
 
-        // Rain: thin streaks falling fast from the clouds to the sea.
-        for (float[] d : DROPS)
-        {
-            float fall = (seconds * d[3] * 1.4f + d[2]) % 1f;
-            float h = 0.58f - fall * 0.85f;
-            float spread = (float) Math.sqrt(Math.max(0, 1 - h * h)) * 0.85f;
-            box(out, pose, 0.5f + d[0] * spread * BALL_RADIUS, BALL_CENTER_Y + h * BALL_RADIUS, 0.5f + d[1] * spread * BALL_RADIUS,
-                    0.035f / 16f, 0.3f / 16f, 0.035f / 16f, light, 175, 195, 225, 170, true);
+            // Rain: thin streaks falling fast from the clouds to the sea.
+            for (float[] d : DROPS)
+            {
+                float fall = (seconds * d[3] * 1.4f + d[2]) % 1f;
+                float h = 0.58f - fall * 0.85f;
+                float spread = (float) Math.sqrt(Math.max(0, 1 - h * h)) * 0.85f;
+                crossQuad(out, pose, 0.5f + d[0] * spread * BALL_RADIUS, BALL_CENTER_Y + h * BALL_RADIUS, 0.5f + d[1] * spread * BALL_RADIUS,
+                        0.035f / 16f, 0.3f / 16f, 0.035f / 16f, light, 175, 195, 225, 170);
+            }
         }
 
         // Shaken: a strike right away, flickering as the shake starts.
@@ -755,80 +798,76 @@ public class GlobeRenderer implements BlockEntityRenderer<GlobeBlockEntity>
 
     // ---- Glass ----
 
-    /** Clear where you look straight through, brighter towards the outline, plus a glint where light reflects. */
-    private static int glassAlpha(float nx, float ny, float nz, Vec3 eye, float extra)
+    private record GlassVertex(float x, float y, float z, float nx, float ny, float nz, int index) {}
+    private record GlassQuad(GlassVertex v0, GlassVertex v1, GlassVertex v2, GlassVertex v3) {}
+
+    private static GlassVertex[] buildBallVertices()
     {
-        double facing = nx * eye.x + ny * eye.y + nz * eye.z;
-        double edge = 1 - Math.abs(facing);
-        double opacity = 0.12 + 0.8 * edge * edge * edge + extra;
-        if (facing > 0)
+        GlassVertex[] vertices = new GlassVertex[(BALL_LATITUDES + 1) * BALL_LONGITUDES];
+        for (int lat = 0; lat <= BALL_LATITUDES; lat++)
         {
-            Vec3 half = eye.add(LIGHT).normalize();
-            double shine = Math.max(0, nx * half.x + ny * half.y + nz * half.z);
-            opacity += Math.pow(shine, 60) * 1.5;
-        }
-        return (int) (255 * Math.min(1, opacity));
-    }
-
-    /** The glass ball, tinted (r, g, b). */
-    private static void renderBall(PoseStack poseStack, MultiBufferSource buffers, boolean inWorld, int light, Vec3 eye,
-                                   int r, int g, int b, float extra)
-    {
-        TextureAtlasSprite glass = Minecraft.getInstance().getTextureAtlas(TextureAtlas.LOCATION_BLOCKS).apply(GLASS);
-        float u = glass.getU(0.5f), v = glass.getV(0.5f);
-        GlassRenderer.draw(poseStack.last(), buffers, inWorld, (out, pose) -> {
-            for (int lat = 0; lat < BALL_LATITUDES; lat++)
-                for (int lon = 0; lon < BALL_LONGITUDES; lon++)
-                {
-                    float[] a = ballPoint(lat, lon), bb = ballPoint(lat + 1, lon), c = ballPoint(lat + 1, lon + 1), d = ballPoint(lat, lon + 1);
-                    glassQuad(out, pose, a, bb, c, d, eye, light, u, v, r, g, b, extra);
-                }
-        });
-    }
-
-    /** A point on the ball: x, y, z in the block, then its outward normal. */
-    private static float[] ballPoint(int lat, int lon)
-    {
-        double theta = Math.PI * lat / BALL_LATITUDES, phi = Math.PI * 2 * lon / BALL_LONGITUDES;
-        float nx = (float) (Math.sin(theta) * Math.cos(phi)), ny = (float) Math.cos(theta), nz = (float) (Math.sin(theta) * Math.sin(phi));
-        return new float[] {0.5f + nx * BALL_RADIUS, BALL_CENTER_Y + ny * BALL_RADIUS, 0.5f + nz * BALL_RADIUS, nx, ny, nz};
-    }
-
-    /** The green glass bottle lying on its side: its profile turned round the bottle's axis. */
-    private static void renderBottle(PoseStack poseStack, MultiBufferSource buffers, boolean inWorld, int light, Vec3 eye)
-    {
-        TextureAtlasSprite glass = Minecraft.getInstance().getTextureAtlas(TextureAtlas.LOCATION_BLOCKS).apply(GLASS);
-        float u = glass.getU(0.5f), v = glass.getV(0.5f);
-        GlassRenderer.draw(poseStack.last(), buffers, inWorld, (out, pose) -> {
-            for (int i = 0; i + 1 < BOTTLE_PROFILE.length; i++)
+            double theta = Math.PI * lat / BALL_LATITUDES;
+            float sinTheta = (float) Math.sin(theta);
+            float cosTheta = (float) Math.cos(theta);
+            for (int lon = 0; lon < BALL_LONGITUDES; lon++)
             {
-                float x0 = BOTTLE_PROFILE[i][0], r0 = BOTTLE_PROFILE[i][1], x1 = BOTTLE_PROFILE[i + 1][0], r1 = BOTTLE_PROFILE[i + 1][1];
-                for (int s = 0; s < BOTTLE_SEGMENTS; s++)
-                {
-                    float[] a = bottlePoint(x0, r0, x1, r1, s, false), b = bottlePoint(x0, r0, x1, r1, s, true);
-                    float[] c = bottlePoint(x0, r0, x1, r1, s + 1, true), d = bottlePoint(x0, r0, x1, r1, s + 1, false);
-                    // Green bottle glass, and a bit more of it than the ball: a long cylinder has less outline to catch the eye.
-                    glassQuad(out, pose, a, b, c, d, eye, light, u, v, 165, 222, 180, 0.14f);
-                }
+                double phi = Math.PI * 2 * lon / BALL_LONGITUDES;
+                float nx = (float) (sinTheta * Math.cos(phi));
+                float ny = cosTheta;
+                float nz = (float) (sinTheta * Math.sin(phi));
+                int idx = lat * BALL_LONGITUDES + lon;
+                vertices[idx] = new GlassVertex(
+                        0.5f + nx * BALL_RADIUS,
+                        BALL_CENTER_Y + ny * BALL_RADIUS,
+                        0.5f + nz * BALL_RADIUS,
+                        nx, ny, nz, idx
+                );
             }
-        });
+        }
+        return vertices;
     }
 
-    /** A point on one band of the bottle (at its start or end), with the band's outward normal. */
-    private static float[] bottlePoint(float x0, float r0, float x1, float r1, int segment, boolean end)
+    private static final GlassVertex[] BALL_VERTICES = buildBallVertices();
+    private static final int[] BALL_ALPHAS = new int[BALL_VERTICES.length];
+
+    private static List<GlassQuad> buildBallQuads()
     {
-        double phi = Math.PI * 2 * segment / BOTTLE_SEGMENTS;
-        float cos = (float) Math.cos(phi), sin = (float) Math.sin(phi);
-        float x = end ? x1 : x0, r = end ? r1 : r0;
-        // Normal of a band in the profile: perpendicular to its slope, pointing away from the axis.
-        float dx = x1 - x0, dr = r1 - r0, len = (float) Math.sqrt(dx * dx + dr * dr);
-        float nx = -dr / len, nr = dx / len;
-        return new float[] {x / 16f, BOTTLE_Y + r * cos / 16f, 0.5f + r * sin / 16f, nx, nr * cos, nr * sin};
+        List<GlassQuad> list = new ArrayList<>(BALL_LATITUDES * BALL_LONGITUDES);
+        for (int lat = 0; lat < BALL_LATITUDES; lat++)
+            for (int lon = 0; lon < BALL_LONGITUDES; lon++)
+            {
+                int nextLon = (lon + 1) % BALL_LONGITUDES;
+                GlassVertex a = BALL_VERTICES[lat * BALL_LONGITUDES + lon];
+                GlassVertex b = BALL_VERTICES[(lat + 1) * BALL_LONGITUDES + lon];
+                GlassVertex c = BALL_VERTICES[(lat + 1) * BALL_LONGITUDES + nextLon];
+                GlassVertex d = BALL_VERTICES[lat * BALL_LONGITUDES + nextLon];
+
+                float ex = b.x - a.x, ey = b.y - a.y, ez = b.z - a.z;
+                float fx = c.x - a.x, fy = c.y - a.y, fz = c.z - a.z;
+                if (ex * ex + ey * ey + ez * ez < 1e-12f)
+                {
+                    ex = d.x - a.x;
+                    ey = d.y - a.y;
+                    ez = d.z - a.z;
+                    float tx = ex, ty = ey, tz = ez;
+                    ex = fx;
+                    ey = fy;
+                    ez = fz;
+                    fx = tx;
+                    fy = ty;
+                    fz = tz;
+                }
+                float cx = ey * fz - ez * fy, cy = ez * fx - ex * fz, cz = ex * fy - ey * fx;
+                float nx = a.nx + b.nx + c.nx + d.nx, ny = a.ny + b.ny + c.ny + d.ny, nz = a.nz + b.nz + c.nz + d.nz;
+                if (cx * nx + cy * ny + cz * nz >= 0)
+                    list.add(new GlassQuad(a, b, c, d));
+                else
+                    list.add(new GlassQuad(a, d, c, b));
+            }
+        return List.copyOf(list);
     }
 
-    /** One glass quad, wound so its front faces outwards (the translucent sheet hides back faces). */
-    private static void glassQuad(VertexConsumer out, PoseStack.Pose pose, float[] a, float[] b, float[] c, float[] d, Vec3 eye,
-                                  int light, float u, float v, int r, int g, int bl, float extra)
+    private static GlassQuad buildGlassQuad(float[] a, float[] b, float[] c, float[] d)
     {
         float ex = b[0] - a[0], ey = b[1] - a[1], ez = b[2] - a[2];
         float fx = c[0] - a[0], fy = c[1] - a[1], fz = c[2] - a[2];
@@ -849,9 +888,150 @@ public class GlobeRenderer implements BlockEntityRenderer<GlobeBlockEntity>
         float cx = ey * fz - ez * fy, cy = ez * fx - ex * fz, cz = ex * fy - ey * fx;
         float nx = a[3] + b[3] + c[3] + d[3], ny = a[4] + b[4] + c[4] + d[4], nz = a[5] + b[5] + c[5] + d[5];
         float[][] order = cx * nx + cy * ny + cz * nz >= 0 ? new float[][] {a, b, c, d} : new float[][] {a, d, c, b};
-        for (float[] p : order)
-            vertex(out, pose, p[0], p[1], p[2], u, v, p[3], p[4], p[5], light,
-                    r, g, bl, glassAlpha(p[3], p[4], p[5], eye, extra));
+        return new GlassQuad(
+                new GlassVertex(order[0][0], order[0][1], order[0][2], order[0][3], order[0][4], order[0][5], -1),
+                new GlassVertex(order[1][0], order[1][1], order[1][2], order[1][3], order[1][4], order[1][5], -1),
+                new GlassVertex(order[2][0], order[2][1], order[2][2], order[2][3], order[2][4], order[2][5], -1),
+                new GlassVertex(order[3][0], order[3][1], order[3][2], order[3][3], order[3][4], order[3][5], -1)
+        );
+    }
+
+    private static List<GlassQuad> buildBottleQuads()
+    {
+        List<GlassQuad> list = new ArrayList<>();
+        for (int i = 0; i + 1 < BOTTLE_PROFILE.length; i++)
+        {
+            float x0 = BOTTLE_PROFILE[i][0], r0 = BOTTLE_PROFILE[i][1], x1 = BOTTLE_PROFILE[i + 1][0], r1 = BOTTLE_PROFILE[i + 1][1];
+            for (int s = 0; s < BOTTLE_SEGMENTS; s++)
+            {
+                float[] a = bottlePoint(x0, r0, x1, r1, s, false), b = bottlePoint(x0, r0, x1, r1, s, true);
+                float[] c = bottlePoint(x0, r0, x1, r1, s + 1, true), d = bottlePoint(x0, r0, x1, r1, s + 1, false);
+                list.add(buildGlassQuad(a, b, c, d));
+            }
+        }
+        return List.copyOf(list);
+    }
+
+    private static List<GlassQuad> buildJarQuads()
+    {
+        List<GlassQuad> list = new ArrayList<>();
+        for (int i = 0; i + 1 < JAR_PROFILE.length; i++)
+        {
+            float y0 = JAR_PROFILE[i][0], r0 = JAR_PROFILE[i][1], y1 = JAR_PROFILE[i + 1][0], r1 = JAR_PROFILE[i + 1][1];
+            for (int s = 0; s < BOTTLE_SEGMENTS; s++)
+            {
+                float[] a = jarPoint(y0, r0, y1, r1, s, false), b = jarPoint(y0, r0, y1, r1, s, true);
+                float[] c = jarPoint(y0, r0, y1, r1, s + 1, true), d = jarPoint(y0, r0, y1, r1, s + 1, false);
+                list.add(buildGlassQuad(a, b, c, d));
+            }
+        }
+        return List.copyOf(list);
+    }
+
+    private static final List<GlassQuad> BALL_QUADS = buildBallQuads();
+    private static final List<GlassQuad> BOTTLE_QUADS = buildBottleQuads();
+    private static final List<GlassQuad> JAR_QUADS = buildJarQuads();
+
+    /** Clear where you look straight through, brighter towards the outline, plus a glint where light reflects. */
+    private static int glassAlpha(float nx, float ny, float nz, double eyeX, double eyeY, double eyeZ,
+                                  double halfX, double halfY, double halfZ, float extra)
+    {
+        double facing = nx * eyeX + ny * eyeY + nz * eyeZ;
+        double edge = 1 - Math.abs(facing);
+        double opacity = 0.12 + 0.8 * edge * edge * edge + extra;
+        if (facing > 0)
+        {
+            double shine = nx * halfX + ny * halfY + nz * halfZ;
+            // Below 0.85, shine^60 * 1.5 * 255 rounds to 0. Above 0.85, use repeated squaring instead of Math.pow.
+            if (shine > 0.85)
+            {
+                double s2 = shine * shine;
+                double s4 = s2 * s2;
+                double s8 = s4 * s4;
+                double s16 = s8 * s8;
+                double s32 = s16 * s16;
+                double s60 = s32 * s16 * s8 * s4;
+                opacity += s60 * 1.5;
+            }
+        }
+        return (int) (255 * Math.min(1, opacity));
+    }
+
+    private static void drawGlassQuad(VertexConsumer out, PoseStack.Pose pose, GlassQuad q,
+                                      double eyeX, double eyeY, double eyeZ,
+                                      double halfX, double halfY, double halfZ,
+                                      int light, float u, float v, int r, int g, int bl, float extra)
+    {
+        renderGlassVertex(out, pose, q.v0, eyeX, eyeY, eyeZ, halfX, halfY, halfZ, light, u, v, r, g, bl, extra);
+        renderGlassVertex(out, pose, q.v1, eyeX, eyeY, eyeZ, halfX, halfY, halfZ, light, u, v, r, g, bl, extra);
+        renderGlassVertex(out, pose, q.v2, eyeX, eyeY, eyeZ, halfX, halfY, halfZ, light, u, v, r, g, bl, extra);
+        renderGlassVertex(out, pose, q.v3, eyeX, eyeY, eyeZ, halfX, halfY, halfZ, light, u, v, r, g, bl, extra);
+    }
+
+    private static void renderGlassVertex(VertexConsumer out, PoseStack.Pose pose, GlassVertex v,
+                                          double eyeX, double eyeY, double eyeZ,
+                                          double halfX, double halfY, double halfZ,
+                                          int light, float u, float texV, int r, int g, int bl, float extra)
+    {
+        int a = glassAlpha(v.nx, v.ny, v.nz, eyeX, eyeY, eyeZ, halfX, halfY, halfZ, extra);
+        out.addVertex(pose, v.x, v.y, v.z).setColor(r, g, bl, a)
+                .setUv(u, texV).setOverlay(OverlayTexture.NO_OVERLAY).setLight(light).setNormal(pose, v.nx, v.ny, v.nz);
+    }
+
+    /** The glass ball, tinted (r, g, b). */
+    private static void renderBall(PoseStack poseStack, MultiBufferSource buffers, boolean inWorld, int light, Vec3 eye,
+                                   int r, int g, int b, float extra)
+    {
+        TextureAtlasSprite glass = Minecraft.getInstance().getTextureAtlas(TextureAtlas.LOCATION_BLOCKS).apply(GLASS);
+        float u = glass.getU(0.5f), v = glass.getV(0.5f);
+        Vec3 half = eye.add(LIGHT).normalize();
+        double eyeX = eye.x, eyeY = eye.y, eyeZ = eye.z;
+        double halfX = half.x, halfY = half.y, halfZ = half.z;
+        GlassRenderer.draw(poseStack.last(), buffers, inWorld, (out, pose) -> {
+            for (int i = 0; i < BALL_VERTICES.length; i++)
+            {
+                GlassVertex vert = BALL_VERTICES[i];
+                BALL_ALPHAS[i] = glassAlpha(vert.nx, vert.ny, vert.nz, eyeX, eyeY, eyeZ, halfX, halfY, halfZ, extra);
+            }
+            for (GlassQuad q : BALL_QUADS)
+            {
+                GlassVertex v0 = q.v0, v1 = q.v1, v2 = q.v2, v3 = q.v3;
+                out.addVertex(pose, v0.x, v0.y, v0.z).setColor(r, g, b, BALL_ALPHAS[v0.index])
+                        .setUv(u, v).setOverlay(OverlayTexture.NO_OVERLAY).setLight(light).setNormal(pose, v0.nx, v0.ny, v0.nz);
+                out.addVertex(pose, v1.x, v1.y, v1.z).setColor(r, g, b, BALL_ALPHAS[v1.index])
+                        .setUv(u, v).setOverlay(OverlayTexture.NO_OVERLAY).setLight(light).setNormal(pose, v1.nx, v1.ny, v1.nz);
+                out.addVertex(pose, v2.x, v2.y, v2.z).setColor(r, g, b, BALL_ALPHAS[v2.index])
+                        .setUv(u, v).setOverlay(OverlayTexture.NO_OVERLAY).setLight(light).setNormal(pose, v2.nx, v2.ny, v2.nz);
+                out.addVertex(pose, v3.x, v3.y, v3.z).setColor(r, g, b, BALL_ALPHAS[v3.index])
+                        .setUv(u, v).setOverlay(OverlayTexture.NO_OVERLAY).setLight(light).setNormal(pose, v3.nx, v3.ny, v3.nz);
+            }
+        });
+    }
+
+    /** The green glass bottle lying on its side: its profile turned round the bottle's axis. */
+    private static void renderBottle(PoseStack poseStack, MultiBufferSource buffers, boolean inWorld, int light, Vec3 eye)
+    {
+        TextureAtlasSprite glass = Minecraft.getInstance().getTextureAtlas(TextureAtlas.LOCATION_BLOCKS).apply(GLASS);
+        float u = glass.getU(0.5f), v = glass.getV(0.5f);
+        Vec3 half = eye.add(LIGHT).normalize();
+        double eyeX = eye.x, eyeY = eye.y, eyeZ = eye.z;
+        double halfX = half.x, halfY = half.y, halfZ = half.z;
+        GlassRenderer.draw(poseStack.last(), buffers, inWorld, (out, pose) -> {
+            for (GlassQuad q : BOTTLE_QUADS)
+                drawGlassQuad(out, pose, q, eyeX, eyeY, eyeZ, halfX, halfY, halfZ, light, u, v, 165, 222, 180, 0.14f);
+        });
+    }
+
+    /** A point on one band of the bottle (at its start or end), with the band's outward normal. */
+    private static float[] bottlePoint(float x0, float r0, float x1, float r1, int segment, boolean end)
+    {
+        double phi = Math.PI * 2 * segment / BOTTLE_SEGMENTS;
+        float cos = (float) Math.cos(phi), sin = (float) Math.sin(phi);
+        float x = end ? x1 : x0, r = end ? r1 : r0;
+        // Normal of a band in the profile: perpendicular to its slope, pointing away from the axis.
+        float dx = x1 - x0, dr = r1 - r0, len = (float) Math.sqrt(dx * dx + dr * dr);
+        float nx = -dr / len, nr = dx / len;
+        return new float[] {x / 16f, BOTTLE_Y + r * cos / 16f, 0.5f + r * sin / 16f, nx, nr * cos, nr * sin};
     }
 
     // ---- Helpers ----
@@ -868,23 +1048,31 @@ public class GlobeRenderer implements BlockEntityRenderer<GlobeBlockEntity>
     {
         PoseStack.Pose m = pose;
         float x0 = x - hx, x1 = x + hx, y0 = y - hy, y1 = y + hy, z0 = z - hz, z1 = z + hz;
-        int[] c = {r, g, b, a};
-        quad(out, m, light, c, even ? 0 : 0, even ? 1 : 1, even ? 0 : 0, x0, y1, z0, x0, y1, z1, x1, y1, z1, x1, y1, z0);
-        quad(out, m, light, c, even ? 0 : 0, even ? 1 : -1, even ? 0 : 0, x0, y0, z0, x1, y0, z0, x1, y0, z1, x0, y0, z1);
-        quad(out, m, light, c, even ? 0 : 0, even ? 1 : 0, even ? 0 : -1, x0, y0, z0, x0, y1, z0, x1, y1, z0, x1, y0, z0);
-        quad(out, m, light, c, even ? 0 : 0, even ? 1 : 0, even ? 0 : 1, x0, y0, z1, x1, y0, z1, x1, y1, z1, x0, y1, z1);
-        quad(out, m, light, c, even ? 0 : -1, even ? 1 : 0, even ? 0 : 0, x0, y0, z0, x0, y0, z1, x0, y1, z1, x0, y1, z0);
-        quad(out, m, light, c, even ? 0 : 1, even ? 1 : 0, even ? 0 : 0, x1, y0, z0, x1, y1, z0, x1, y1, z1, x1, y0, z1);
+        quad(out, m, light, r, g, b, a, even ? 0 : 0, even ? 1 : 1, even ? 0 : 0, x0, y1, z0, x0, y1, z1, x1, y1, z1, x1, y1, z0);
+        quad(out, m, light, r, g, b, a, even ? 0 : 0, even ? 1 : -1, even ? 0 : 0, x0, y0, z0, x1, y0, z0, x1, y0, z1, x0, y0, z1);
+        quad(out, m, light, r, g, b, a, even ? 0 : 0, even ? 1 : 0, even ? 0 : -1, x0, y0, z0, x0, y1, z0, x1, y1, z0, x1, y0, z0);
+        quad(out, m, light, r, g, b, a, even ? 0 : 0, even ? 1 : 0, even ? 0 : 1, x0, y0, z1, x1, y0, z1, x1, y1, z1, x0, y1, z1);
+        quad(out, m, light, r, g, b, a, even ? 0 : -1, even ? 1 : 0, even ? 0 : 0, x0, y0, z0, x0, y0, z1, x0, y1, z1, x0, y1, z0);
+        quad(out, m, light, r, g, b, a, even ? 0 : 1, even ? 1 : 0, even ? 0 : 0, x1, y0, z0, x1, y1, z0, x1, y1, z1, x1, y0, z1);
     }
 
-    private static void quad(VertexConsumer out, PoseStack.Pose m, int light, int[] c, float nx, float ny, float nz,
+    /** Two crossed vertical quads: 8 vertices instead of 24 for weather particles and sparks. */
+    private static void crossQuad(VertexConsumer out, PoseStack.Pose m, float x, float y, float z, float hx, float hy, float hz,
+                                  int light, int r, int g, int b, int a)
+    {
+        float x0 = x - hx, x1 = x + hx, y0 = y - hy, y1 = y + hy, z0 = z - hz, z1 = z + hz;
+        quad(out, m, light, r, g, b, a, 0, 1, 0, x0, y1, z, x1, y1, z, x1, y0, z, x0, y0, z);
+        quad(out, m, light, r, g, b, a, 0, 1, 0, x, y1, z0, x, y1, z1, x, y0, z1, x, y0, z0);
+    }
+
+    private static void quad(VertexConsumer out, PoseStack.Pose m, int light, int r, int g, int b, int a, float nx, float ny, float nz,
                              float ax, float ay, float az, float bx, float by, float bz,
                              float cx, float cy, float cz, float dx, float dy, float dz)
     {
-        vertex(out, m, ax, ay, az, 0, 0, nx, ny, nz, light, c[0], c[1], c[2], c[3]);
-        vertex(out, m, bx, by, bz, 0, 1, nx, ny, nz, light, c[0], c[1], c[2], c[3]);
-        vertex(out, m, cx, cy, cz, 1, 1, nx, ny, nz, light, c[0], c[1], c[2], c[3]);
-        vertex(out, m, dx, dy, dz, 1, 0, nx, ny, nz, light, c[0], c[1], c[2], c[3]);
+        vertex(out, m, ax, ay, az, 0, 0, nx, ny, nz, light, r, g, b, a);
+        vertex(out, m, bx, by, bz, 0, 1, nx, ny, nz, light, r, g, b, a);
+        vertex(out, m, cx, cy, cz, 1, 1, nx, ny, nz, light, r, g, b, a);
+        vertex(out, m, dx, dy, dz, 1, 0, nx, ny, nz, light, r, g, b, a);
     }
 
     private static void vertex(VertexConsumer out, PoseStack.Pose pose, float x, float y, float z, float u, float v,

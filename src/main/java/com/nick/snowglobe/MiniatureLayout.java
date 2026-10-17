@@ -32,7 +32,19 @@ public record MiniatureLayout(float cell, Vec3 center, Vec3 pivot, int scale)
     public static final float JAR_FLOOR = 1f / 16f;
     public static final float JAR_TOP = 12.5f / 16f;
 
+    private static final java.util.Map<GlobeKind, MiniatureLayout> DEFAULT_LAYOUTS = new java.util.EnumMap<>(GlobeKind.class);
+    static
+    {
+        for (GlobeKind k : GlobeKind.values())
+            DEFAULT_LAYOUTS.put(k, compute(k, null));
+    }
+
     public static MiniatureLayout of(GlobeKind kind, @Nullable GlobeSnapshot snapshot)
+    {
+        return snapshot != null ? snapshot.layout(kind) : DEFAULT_LAYOUTS.get(kind);
+    }
+
+    public static MiniatureLayout compute(GlobeKind kind, @Nullable GlobeSnapshot snapshot)
     {
         int size = snapshot != null ? snapshot.size() : GlobeSpace.DEFAULT_SIZE;
         int scale = snapshot != null ? snapshot.scale() : 1;
