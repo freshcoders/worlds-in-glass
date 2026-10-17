@@ -247,6 +247,9 @@ public class GlobeRenderer implements BlockEntityRenderer<GlobeBlockEntity>
      * A little brass plate on the front of the base with the globe's name engraved on it. In the model's own frame
      * (facing east), the front is the +z side: the side you face when you place it.
      */
+    /** How wide each name is in font pixels, worked out once rather than every frame. */
+    private static final java.util.Map<String, Integer> NAME_WIDTHS = new java.util.HashMap<>();
+
     private static void renderNamePlate(GlobeKind kind, net.minecraft.network.chat.Component name, PoseStack poseStack,
                                         MultiBufferSource buffers, int light)
     {
@@ -260,13 +263,23 @@ public class GlobeRenderer implements BlockEntityRenderer<GlobeBlockEntity>
             default -> { front = 12; middle = 1; width = 7; }
         }
         net.minecraft.client.gui.Font font = Minecraft.getInstance().font;
-        int textWidth = font.width(name);
+        int textWidth = NAME_WIDTHS.computeIfAbsent(name.getString(), k -> font.width(name));
+        if (NAME_WIDTHS.size() > 256)
+            NAME_WIDTHS.clear();
+        // Past about 12 of the globe's own blocks the letters are too small to read: just the brass plate then.
+        // (The pose is relative to the camera, so its offset is the distance; its scale says how big the globe is drawn.)
+        org.joml.Matrix4f m = poseStack.last().pose();
+        float size = (float) Math.sqrt(m.m00() * m.m00() + m.m01() * m.m01() + m.m02() * m.m02());
+        float distance = (float) Math.sqrt(m.m30() * m.m30() + m.m31() * m.m31() + m.m32() * m.m32());
+        boolean readable = distance < 12 * Math.max(size, 1e-6f);
         // Text 1.1 px tall, made smaller if the name is too long for the plate.
         float scale = Math.min(1.1f / 16 / 8, width * 0.9f / 16 / Math.max(1, textWidth));
         float plateHalf = Math.min(width / 2 / 16, (textWidth * scale) / 2 + 0.4f / 16);
         float plateHeight = Math.min(middle, 0.8f) / 16;
         VertexConsumer out = buffers.getBuffer(RenderType.entityTranslucent(WHITE));
         box(out, poseStack.last(), 0.5f, middle / 16, front / 16 + 0.1f / 16, plateHalf, plateHeight, 0.1f / 16, light, 205, 160, 70, 255);
+        if (!readable)
+            return;
         poseStack.pushPose();
         poseStack.translate(0.5f, middle / 16, front / 16 + 0.21f / 16);
         poseStack.scale(scale, -scale, scale);
@@ -368,7 +381,7 @@ public class GlobeRenderer implements BlockEntityRenderer<GlobeBlockEntity>
             double size = placed.hasProperty(GlobeBlock.DISPLAY) ? placed.getValue(GlobeBlock.DISPLAY).scale : 1;
             double dist = Math.sqrt(cam.distanceToSqr(where.getX() + 0.5, where.getY() + 0.5, where.getZ() + 0.5)) / size;
             detailed = dist < 40;
-            showMobs = dist < 24;
+            showMobs = dist < 16;
             if (dist > 24)
                 weatherCount = 0;
             else if (dist > 12)
