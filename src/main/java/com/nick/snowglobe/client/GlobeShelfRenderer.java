@@ -44,7 +44,8 @@ public class GlobeShelfRenderer implements BlockEntityRenderer<GlobeShelfBlockEn
             double cx = 0.5 + along.getStepX() * offset, cz = 0.5 + along.getStepZ() * offset;
             BlockState state = block.defaultBlockState().setValue(GlobeBlock.FACING, facing);
             CustomData data = stack.get(SnowGlobeMod.GLOBE_DATA.get());
-            GlobeRenderer.Look look = data != null ? GlobeRenderer.Look.of(data.getUnsafe()) : GlobeRenderer.Look.DEFAULT;
+            GlobeRenderer.Look look = (data != null ? GlobeRenderer.Look.of(data.getUnsafe()) : GlobeRenderer.Look.DEFAULT)
+                    .named(stack.get(net.minecraft.core.component.DataComponents.CUSTOM_NAME));
 
             // Where you're looking from, in the globe's own (turned) frame, for the glint on its glass.
             float turn = (float) Math.toRadians(-90 * GlobeBlock.quarterTurns(facing));

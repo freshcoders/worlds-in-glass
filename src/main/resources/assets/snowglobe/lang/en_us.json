@@ -35,7 +35,7 @@
   "snowglobe.tooltip.how.enter": "Sneak + right-click: step inside",
   "snowglobe.tooltip.how.turn": "Right-click the base: turn it",
   "snowglobe.tooltip.how.knock": "Punch the glass: knock, for anyone inside",
-  "snowglobe.tooltip.how.more": "A fish bucket lets fish in; a water bucket catches one.",
+  "snowglobe.tooltip.how.more": "A fish bucket lets fish in; a water bucket catches one. A name tag names it. On a turntable, it spins.",
   "snowglobe.config.lightning_rarity": "Lightning rarity",
   "snowglobe.config.lightning_rarity.tooltip": "One in this many chances strikes, in storm globes. 0 turns lightning off.",
   "snowglobe.config.weather_inside": "Weather inside globes",
@@ -77,10 +77,12 @@
   "snowglobe.handbook.page.9": "§lSkies§r\n\nEvery globe has a sky of its own: blue over the snow, an endless sunset over the dunes, night in the star globe, storm grey, deep water blue in the aquarium, and red in the nether jar.\n\nThe light inside follows it.",
   "snowglobe.handbook.page.10": "§lCompany§r\n\nAnimals on a lead come in with you.\n\nFish go in from their bucket, into the globe's water (there must be some). A water bucket catches one back out.",
   "snowglobe.handbook.page.11": "§lOn display§r\n\nA §8collector's shelf§r holds two globes side by side, and keeps up with whatever is built inside them.\n\nTwo sticks over three wooden slabs make a pair.",
-  "snowglobe.handbook.page.12": "§lBigger worlds§r\n\nA Create schematic, right-clicked onto an empty globe, is built inside it, and the globe grows to fit. In survival, you pay for every block.\n\nBig globes look big, too.",
+  "snowglobe.handbook.page.12": "§lBigger worlds§r\n\nA Create schematic, right-clicked onto an empty globe, is built inside it, and the globe grows to fit. In survival, you pay for every block.\n\nAn ender pearl and an empty globe make a §8twin§r of a globe: two globes, one world inside.",
   "snowglobe.handbook.page.13": "§lGlobes in globes§r\n\nA globe can stand inside another, and you can go in deeper still. Leaving takes you out one glass at a time.",
   "snowglobe.handbook.page.14": "Keep them out of the sun, and dust them now and then.\n\nAnd if you ever hear a knock from inside one of yours, it's only polite to knock back.\n\n§o- O.",
   "item.snowglobe.handbook": "Globe Keeper's Handbook",
   "block.snowglobe.globe_shelf": "Collector's Shelf",
-  "snowglobe.creatures.no_water": "There's no water in this globe for them to swim in."
+  "snowglobe.creatures.no_water": "There's no water in this globe for them to swim in.",
+  "block.snowglobe.globe_turntable": "Globe Turntable",
+  "snowglobe.tooltip.scene": "A little world is waiting inside"
 }

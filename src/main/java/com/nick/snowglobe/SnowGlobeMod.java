@@ -36,6 +36,12 @@ public class SnowGlobeMod
     public static final DeferredRegister<BlockEntityType<?>> BLOCK_ENTITIES = DeferredRegister.create(Registries.BLOCK_ENTITY_TYPE, MODID);
     public static final DeferredRegister.DataComponents COMPONENTS = DeferredRegister.createDataComponents(Registries.DATA_COMPONENT_TYPE, MODID);
     public static final DeferredRegister<CreativeModeTab> TABS = DeferredRegister.create(Registries.CREATIVE_MODE_TAB, MODID);
+    public static final DeferredRegister<net.minecraft.world.item.crafting.RecipeSerializer<?>> RECIPES =
+            DeferredRegister.create(Registries.RECIPE_SERIALIZER, MODID);
+
+    /** Twin globes: two globes opening onto one world. */
+    public static final DeferredHolder<net.minecraft.world.item.crafting.RecipeSerializer<?>, net.minecraft.world.item.crafting.RecipeSerializer<TwinGlobeRecipe>> TWIN_GLOBE =
+            RECIPES.register("twin_globe", () -> new net.minecraft.world.item.crafting.SimpleCraftingRecipeSerializer<>(TwinGlobeRecipe::new));
 
     /** The globes you place in the world, each showing its build space in miniature: one block and item per kind. */
     public static final Map<GlobeKind, DeferredBlock<GlobeBlock>> GLOBES = new EnumMap<>(GlobeKind.class);
@@ -83,6 +89,11 @@ public class SnowGlobeMod
     public static final DeferredHolder<BlockEntityType<?>, BlockEntityType<GlobeBlockEntity>> GLOBE_BLOCK_ENTITY = BLOCK_ENTITIES.register("snow_globe",
             () -> BlockEntityType.Builder.of(GlobeBlockEntity::new, GLOBES.values().stream().map(DeferredBlock::get).toArray(Block[]::new)).build(null));
 
+    /** A display turntable: a globe standing on it slowly spins round. */
+    public static final DeferredBlock<Block> TURNTABLE = BLOCKS.register("globe_turntable", () -> new Block(BlockBehaviour.Properties.of()
+            .mapColor(MapColor.WOOD).strength(1.5f).sound(SoundType.WOOD)));
+    public static final DeferredItem<net.minecraft.world.item.BlockItem> TURNTABLE_ITEM = ITEMS.registerSimpleBlockItem(TURNTABLE);
+
     /** The Globe Keeper's Handbook: lore, recipes and how globes work. */
     public static final DeferredItem<HandbookItem> HANDBOOK = ITEMS.register("handbook", () -> new HandbookItem(new Item.Properties().stacksTo(1)));
 
@@ -106,6 +117,7 @@ public class SnowGlobeMod
                 for (GlobeKind kind : GlobeKind.values())
                     output.accept(GLOBE_ITEMS.get(kind).get());
                 output.accept(SHELF_ITEM.get());
+                output.accept(TURNTABLE_ITEM.get());
                 output.accept(HANDBOOK.get());
             })
             .build());
@@ -117,6 +129,7 @@ public class SnowGlobeMod
         BLOCK_ENTITIES.register(modEventBus);
         COMPONENTS.register(modEventBus);
         TABS.register(modEventBus);
+        RECIPES.register(modEventBus);
         modEventBus.addListener(GlobeNetwork::register);
         container.registerConfig(ModConfig.Type.CLIENT, SnowGlobeConfig.SPEC);
 
@@ -124,5 +137,6 @@ public class SnowGlobeMod
         NeoForge.EVENT_BUS.addListener(GlobeSpace::onServerStopped);
         NeoForge.EVENT_BUS.addListener(GlobeImport::registerCommands);
         NeoForge.EVENT_BUS.addListener(GlobeView::onLeftClickBlock);
+        NeoForge.EVENT_BUS.addListener(GlobeTrades::onWandererTrades);
     }
 }

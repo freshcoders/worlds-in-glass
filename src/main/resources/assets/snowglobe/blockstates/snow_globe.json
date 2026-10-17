@@ -1,47 +1,92 @@
 {
   "variants": {
-    "display=s,facing=east": {
+    "display=s,facing=east,spinning=false": {
       "model": "snowglobe:block/snow_globe"
     },
-    "display=m,facing=east": {
+    "display=s,facing=east,spinning=true": {
       "model": "snowglobe:block/snow_globe_hidden"
     },
-    "display=l,facing=east": {
+    "display=m,facing=east,spinning=false": {
       "model": "snowglobe:block/snow_globe_hidden"
     },
-    "display=s,facing=south": {
+    "display=m,facing=east,spinning=true": {
+      "model": "snowglobe:block/snow_globe_hidden"
+    },
+    "display=l,facing=east,spinning=false": {
+      "model": "snowglobe:block/snow_globe_hidden"
+    },
+    "display=l,facing=east,spinning=true": {
+      "model": "snowglobe:block/snow_globe_hidden"
+    },
+    "display=s,facing=south,spinning=false": {
       "model": "snowglobe:block/snow_globe",
       "y": 90
     },
-    "display=m,facing=south": {
+    "display=s,facing=south,spinning=true": {
       "model": "snowglobe:block/snow_globe_hidden",
       "y": 90
     },
-    "display=l,facing=south": {
+    "display=m,facing=south,spinning=false": {
       "model": "snowglobe:block/snow_globe_hidden",
       "y": 90
     },
-    "display=s,facing=west": {
+    "display=m,facing=south,spinning=true": {
+      "model": "snowglobe:block/snow_globe_hidden",
+      "y": 90
+    },
+    "display=l,facing=south,spinning=false": {
+      "model": "snowglobe:block/snow_globe_hidden",
+      "y": 90
+    },
+    "display=l,facing=south,spinning=true": {
+      "model": "snowglobe:block/snow_globe_hidden",
+      "y": 90
+    },
+    "display=s,facing=west,spinning=false": {
       "model": "snowglobe:block/snow_globe",
       "y": 180
     },
-    "display=m,facing=west": {
+    "display=s,facing=west,spinning=true": {
       "model": "snowglobe:block/snow_globe_hidden",
       "y": 180
     },
-    "display=l,facing=west": {
+    "display=m,facing=west,spinning=false": {
       "model": "snowglobe:block/snow_globe_hidden",
       "y": 180
     },
-    "display=s,facing=north": {
+    "display=m,facing=west,spinning=true": {
+      "model": "snowglobe:block/snow_globe_hidden",
+      "y": 180
+    },
+    "display=l,facing=west,spinning=false": {
+      "model": "snowglobe:block/snow_globe_hidden",
+      "y": 180
+    },
+    "display=l,facing=west,spinning=true": {
+      "model": "snowglobe:block/snow_globe_hidden",
+      "y": 180
+    },
+    "display=s,facing=north,spinning=false": {
       "model": "snowglobe:block/snow_globe",
       "y": 270
     },
-    "display=m,facing=north": {
+    "display=s,facing=north,spinning=true": {
       "model": "snowglobe:block/snow_globe_hidden",
       "y": 270
     },
-    "display=l,facing=north": {
+    "display=m,facing=north,spinning=false": {
+      "model": "snowglobe:block/snow_globe_hidden",
+      "y": 270
+    },
+    "display=m,facing=north,spinning=true": {
+      "model": "snowglobe:block/snow_globe_hidden",
+      "y": 270
+    },
+    "display=l,facing=north,spinning=false": {
+      "model": "snowglobe:block/snow_globe_hidden",
+      "y": 270
+    },
+    "display=l,facing=north,spinning=true": {
       "model": "snowglobe:block/snow_globe_hidden",
       "y": 270
     }

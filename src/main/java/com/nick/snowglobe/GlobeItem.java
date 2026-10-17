@@ -38,6 +38,8 @@ public class GlobeItem extends BlockItem
         if (data != null)
         {
             CompoundTag tag = data.copyTag();
+            if (tag.getBoolean("Scene") && !tag.contains("GlobeId"))
+                tooltip.add(Component.translatable("snowglobe.tooltip.scene").withStyle(ChatFormatting.DARK_AQUA));
             if (tag.contains("Snapshot"))
             {
                 CompoundTag snapshot = tag.getCompound("Snapshot");

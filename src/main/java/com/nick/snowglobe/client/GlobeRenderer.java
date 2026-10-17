@@ -160,8 +160,21 @@ public class GlobeRenderer implements BlockEntityRenderer<GlobeBlockEntity>
         // A shake: a wobble that dies down over a couple of seconds, and the contents stirred up.
         float shaken = (level.getGameTime() - globe.shakeStart + partialTick) / SHAKE_TICKS;
         float ticks = level.getGameTime() % 240000 + partialTick;
+        // On a turntable: a full turn every 24 seconds, base and all (the block model leaves the globe to us then).
+        boolean spinning = blockState.hasProperty(GlobeBlock.SPINNING) && blockState.getValue(GlobeBlock.SPINNING);
+        if (spinning)
+        {
+            float angle = ticks * 0.75f % 360;
+            poseStack.pushPose();
+            poseStack.translate(0.5f, 0, 0.5f);
+            poseStack.mulPose(Axis.YP.rotationDegrees(angle));
+            poseStack.translate(-0.5f, 0, -0.5f);
+            eye = eye.yRot((float) Math.toRadians(angle));
+        }
         renderPlaced(blockState, globe.kind(), globe.getSnapshot(), poseStack, buffers, light, ticks, blocks, eye, state, level, pos,
-                shaken, false, new Look(globe.phase(), globe.season()));
+                shaken, spinning, new Look(globe.phase(), globe.season(), globe.name()));
+        if (spinning)
+            poseStack.popPose();
     }
 
     /**
@@ -193,16 +206,62 @@ public class GlobeRenderer implements BlockEntityRenderer<GlobeBlockEntity>
         poseStack.translate(-0.5f, 0, -0.5f);
         // A small globe's base is part of the world's block model; bigger globes draw theirs here, scaled up.
         if (scale > 1 || base)
-            blocks.renderSingleBlock(blockState.setValue(GlobeBlock.DISPLAY, DisplaySize.SMALL).setValue(GlobeBlock.FACING, Direction.EAST),
+            blocks.renderSingleBlock(blockState.setValue(GlobeBlock.DISPLAY, DisplaySize.SMALL).setValue(GlobeBlock.FACING, Direction.EAST)
+                            .setValue(GlobeBlock.SPINNING, false),
                     poseStack, buffers, light, OverlayTexture.NO_OVERLAY, ModelData.EMPTY, null);
+        if (look.name() != null)
+            renderNamePlate(kind, look.name(), poseStack, buffers, light);
         renderGlobe(kind, snapshot, poseStack, buffers, light, ticks, blocks, eye, state, pos.asLong(), level, pos, stir, look);
         poseStack.popPose();
     }
 
+    /**
+     * A little brass plate on the front of the base with the globe's name engraved on it. In the model's own frame
+     * (facing east), the front is the +z side: the side you face when you place it.
+     */
+    private static void renderNamePlate(GlobeKind kind, net.minecraft.network.chat.Component name, PoseStack poseStack,
+                                        MultiBufferSource buffers, int light)
+    {
+        // Where the base's front face is (in pixels), how high its middle is, and how wide a plate it takes.
+        float front, middle, width;
+        switch (kind)
+        {
+            case TERRARIUM, AQUARIUM -> { front = 14; middle = 0.5f; width = 10; }
+            case SHIP_BOTTLE -> { front = 12.5f; middle = 1.25f; width = 9; }
+            case NETHER_JAR -> { front = 13; middle = 0.5f; width = 8; }
+            default -> { front = 12; middle = 1; width = 7; }
+        }
+        net.minecraft.client.gui.Font font = Minecraft.getInstance().font;
+        int textWidth = font.width(name);
+        // Text 1.1 px tall, made smaller if the name is too long for the plate.
+        float scale = Math.min(1.1f / 16 / 8, width * 0.9f / 16 / Math.max(1, textWidth));
+        float plateHalf = Math.min(width / 2 / 16, (textWidth * scale) / 2 + 0.4f / 16);
+        float plateHeight = Math.min(middle, 0.8f) / 16;
+        VertexConsumer out = buffers.getBuffer(RenderType.entityTranslucent(WHITE));
+        box(out, poseStack.last(), 0.5f, middle / 16, front / 16 + 0.1f / 16, plateHalf, plateHeight, 0.1f / 16, light, 205, 160, 70, 255);
+        poseStack.pushPose();
+        poseStack.translate(0.5f, middle / 16, front / 16 + 0.21f / 16);
+        poseStack.scale(scale, -scale, scale);
+        font.drawInBatch(name, -textWidth / 2f, -4, 0x3A2810, false, poseStack.last().pose(), buffers,
+                net.minecraft.client.gui.Font.DisplayMode.POLYGON_OFFSET, 0, light);
+        poseStack.popPose();
+    }
+
     /** What a globe shows besides its blocks: the time of day and season inside. */
-    public record Look(int phase, int season)
+    public record Look(int phase, int season, @Nullable net.minecraft.network.chat.Component name)
     {
         public static final Look DEFAULT = new Look(0, 0);
+
+        public Look(int phase, int season)
+        {
+            this(phase, season, null);
+        }
+
+        /** The same, with the globe's name for its plate. */
+        public Look named(@Nullable net.minecraft.network.chat.Component name)
+        {
+            return new Look(phase, season, name);
+        }
 
         /** Read from a globe's saved fields (an item's data, or a neighbour sent to someone inside). */
         public static Look of(net.minecraft.nbt.CompoundTag tag)

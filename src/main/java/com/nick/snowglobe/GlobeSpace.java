@@ -605,10 +605,10 @@ public final class GlobeSpace
         return frames.get(id);
     }
 
-    /** Positions of the living things in a globe (not players), relative to the build space. */
+    /** Positions of the living things in a globe, players too, relative to the build space. */
     private static void captureEntities(ServerLevel level, int id, BlockPos min, int size)
     {
-        ListTag list = entityTags(level, spaceBox(min, size), min);
+        ListTag list = entityTags(level, spaceBox(min, size), min, true);
         EntityFrame old = frames.get(id);
         if (old == null || !old.entities().equals(list))
             frames.put(id, new EntityFrame(list, old == null ? 1 : old.version() + 1));
@@ -620,8 +620,17 @@ public final class GlobeSpace
      */
     static ListTag entityTags(ServerLevel level, AABB box, BlockPos origin)
     {
+        return entityTags(level, box, origin, false);
+    }
+
+    /**
+     * As above, with the players in the box too if asked: who they are (for their skin), and whether they're
+     * crouching. Players in a globe show up tiny in its miniature.
+     */
+    static ListTag entityTags(ServerLevel level, AABB box, BlockPos origin, boolean players)
+    {
         ListTag list = new ListTag();
-        for (LivingEntity entity : level.getEntitiesOfClass(LivingEntity.class, box, e -> e.isAlive() && !(e instanceof Player)))
+        for (LivingEntity entity : level.getEntitiesOfClass(LivingEntity.class, box, e -> e.isAlive() && (players ? !e.isSpectator() : !(e instanceof Player))))
         {
             ResourceLocation type = BuiltInRegistries.ENTITY_TYPE.getKey(entity.getType());
             CompoundTag tag = new CompoundTag();
@@ -634,6 +643,16 @@ public final class GlobeSpace
             tag.putFloat("H", entity.yHeadRot);
             if (entity.isInWater())
                 tag.putBoolean("W", true);
+            if (entity instanceof Player player)
+            {
+                tag.putUUID("P", player.getUUID());
+                tag.putString("N", player.getGameProfile().getName());
+                tag.putFloat("Xr", player.getXRot());
+                if (player.isCrouching())
+                    tag.putBoolean("C", true);
+                list.add(tag);
+                continue;
+            }
             CompoundTag looks = looks(entity);
             if (!looks.isEmpty())
                 tag.put("L", looks);

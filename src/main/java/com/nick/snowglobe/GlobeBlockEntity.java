@@ -38,6 +38,9 @@ public class GlobeBlockEntity extends BlockEntity
     /** Copied from the globe's saved data for clients to draw: time of day inside and season. */
     private int phase;
     private int season;
+    /** The name it was given (in an anvil, or with a name tag), shown on a plate on its base. */
+    @Nullable
+    private net.minecraft.network.chat.Component name;
 
     public GlobeBlockEntity(BlockPos pos, BlockState state)
     {
@@ -85,6 +88,21 @@ public class GlobeBlockEntity extends BlockEntity
     public void refreshExtras()
     {
         if (level != null && level.getServer() != null && globeId >= 0 && pullExtras(level.getServer()))
+            level.sendBlockUpdated(worldPosition, getBlockState(), getBlockState(), Block.UPDATE_CLIENTS);
+    }
+
+    @Nullable
+    public net.minecraft.network.chat.Component name()
+    {
+        return name;
+    }
+
+    /** Server: names the globe (a name tag used on it), or takes the name away with null. */
+    public void setName(@Nullable net.minecraft.network.chat.Component name)
+    {
+        this.name = name;
+        setChanged();
+        if (level != null)
             level.sendBlockUpdated(worldPosition, getBlockState(), getBlockState(), Block.UPDATE_CLIENTS);
     }
 
@@ -194,6 +212,7 @@ public class GlobeBlockEntity extends BlockEntity
         {
             phase = tag.getInt("Phase");
             season = tag.getInt("Season");
+            name = tag.contains("Name") && level != null ? parseCustomNameSafe(tag.getString("Name"), level.registryAccess()) : null;
         }
     }
 
@@ -214,6 +233,8 @@ public class GlobeBlockEntity extends BlockEntity
     {
         tag.putInt("Phase", phase);
         tag.putInt("Season", season);
+        if (name != null && level != null)
+            tag.putString("Name", net.minecraft.network.chat.Component.Serializer.toJson(name, level.registryAccess()));
     }
 
     @Override
@@ -221,6 +242,8 @@ public class GlobeBlockEntity extends BlockEntity
     {
         super.loadAdditional(tag, registries);
         readGlobe(tag);
+        if (tag.contains("CustomName"))
+            name = parseCustomNameSafe(tag.getString("CustomName"), registries);
     }
 
     @Override
@@ -228,6 +251,8 @@ public class GlobeBlockEntity extends BlockEntity
     {
         super.saveAdditional(tag, registries);
         writeGlobe(tag);
+        if (name != null)
+            tag.putString("CustomName", net.minecraft.network.chat.Component.Serializer.toJson(name, registries));
     }
 
     // The item keeps the globe's id and contents: picked up and placed again, it opens the same space.
@@ -238,6 +263,8 @@ public class GlobeBlockEntity extends BlockEntity
         super.collectImplicitComponents(components);
         if (globeId >= 0)
             components.set(SnowGlobeMod.GLOBE_DATA.get(), CustomData.of(writeGlobe(new CompoundTag())));
+        if (name != null)
+            components.set(net.minecraft.core.component.DataComponents.CUSTOM_NAME, name);
     }
 
     @Override
@@ -247,6 +274,7 @@ public class GlobeBlockEntity extends BlockEntity
         CustomData data = components.get(SnowGlobeMod.GLOBE_DATA.get());
         if (data != null)
             readGlobe(data.copyTag());
+        name = components.get(net.minecraft.core.component.DataComponents.CUSTOM_NAME);
     }
 
     @Override
@@ -258,6 +286,8 @@ public class GlobeBlockEntity extends BlockEntity
         tag.remove("SnapshotVersion");
         tag.remove("Phase");
         tag.remove("Season");
+        tag.remove("Name");
+        tag.remove("CustomName");
     }
 
     @Override

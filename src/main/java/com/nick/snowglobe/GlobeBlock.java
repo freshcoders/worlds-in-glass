@@ -48,6 +48,9 @@ public class GlobeBlock extends BaseEntityBlock
 {
     public static final DirectionProperty FACING = BlockStateProperties.HORIZONTAL_FACING;
     public static final EnumProperty<DisplaySize> DISPLAY = EnumProperty.create("display", DisplaySize.class);
+    /** Standing on a turntable: the whole globe, base and all, is drawn spinning by the renderer instead of the model. */
+    public static final net.minecraft.world.level.block.state.properties.BooleanProperty SPINNING =
+            net.minecraft.world.level.block.state.properties.BooleanProperty.create("spinning");
     /** Block event id for a shake, sent to everyone watching so they see it too. */
     public static final int EVENT_SHAKE = 1;
     /** Block event id for a knock on the glass, so everyone near hears it (as their settings allow). */
@@ -64,7 +67,7 @@ public class GlobeBlock extends BaseEntityBlock
         this.codec = simpleCodec(p -> new GlobeBlock(kind, p));
         for (Direction facing : Direction.Plane.HORIZONTAL)
             shapes.put(facing, rotate(kind.shape, facing));
-        registerDefaultState(stateDefinition.any().setValue(FACING, Direction.EAST).setValue(DISPLAY, DisplaySize.SMALL));
+        registerDefaultState(stateDefinition.any().setValue(FACING, Direction.EAST).setValue(DISPLAY, DisplaySize.SMALL).setValue(SPINNING, false));
     }
 
     public GlobeKind kind()
@@ -115,7 +118,7 @@ public class GlobeBlock extends BaseEntityBlock
     @Override
     protected void createBlockStateDefinition(StateDefinition.Builder<Block, BlockState> builder)
     {
-        builder.add(FACING, DISPLAY);
+        builder.add(FACING, DISPLAY, SPINNING);
     }
 
     @Nullable
@@ -123,7 +126,18 @@ public class GlobeBlock extends BaseEntityBlock
     public BlockState getStateForPlacement(BlockPlaceContext context)
     {
         // Side-on to you: a bottle lies across your view, its cork to your right.
-        return defaultBlockState().setValue(FACING, context.getHorizontalDirection().getClockWise());
+        return defaultBlockState().setValue(FACING, context.getHorizontalDirection().getClockWise())
+                .setValue(SPINNING, context.getLevel().getBlockState(context.getClickedPos().below()).is(SnowGlobeMod.TURNTABLE.get()));
+    }
+
+    /** Starts or stops spinning when a turntable is put under it or taken away. */
+    @Override
+    protected BlockState updateShape(BlockState state, Direction direction, BlockState neighbour, net.minecraft.world.level.LevelAccessor level,
+                                     BlockPos pos, BlockPos neighbourPos)
+    {
+        if (direction == Direction.DOWN)
+            return state.setValue(SPINNING, neighbour.is(SnowGlobeMod.TURNTABLE.get()));
+        return super.updateShape(state, direction, neighbour, level, pos, neighbourPos);
     }
 
     @Override
@@ -171,8 +185,11 @@ public class GlobeBlock extends BaseEntityBlock
         // A fresh globe gets its build space right away; a globe picked up and placed again keeps its old one.
         if (level instanceof ServerLevel serverLevel && level.getBlockEntity(pos) instanceof GlobeBlockEntity globe)
         {
-            // Placed in creative, a new globe comes with a starter scene; in survival it starts empty.
-            globe.ensureGlobe(serverLevel.getServer(), placer instanceof Player player && player.getAbilities().instabuild);
+            // Placed in creative, a new globe comes with a starter scene; in survival it starts empty, unless it's one
+            // bought or found with a little world already waiting in it.
+            net.minecraft.world.item.component.CustomData data = stack.get(SnowGlobeMod.GLOBE_DATA.get());
+            boolean scene = data != null && data.copyTag().getBoolean("Scene");
+            globe.ensureGlobe(serverLevel.getServer(), scene || placer instanceof Player player && player.getAbilities().instabuild);
             globe.updateDisplaySize();
             level.sendBlockUpdated(pos, state, state, Block.UPDATE_CLIENTS);
         }
@@ -186,6 +203,17 @@ public class GlobeBlock extends BaseEntityBlock
     protected ItemInteractionResult useItemOn(ItemStack stack, BlockState state, Level level, BlockPos pos, Player player,
                                               InteractionHand hand, BlockHitResult hit)
     {
+        // A name tag with a name on it: the globe takes the name, on a little plate on its base.
+        if (stack.is(net.minecraft.world.item.Items.NAME_TAG) && stack.has(net.minecraft.core.component.DataComponents.CUSTOM_NAME))
+        {
+            if (!level.isClientSide && level.getBlockEntity(pos) instanceof GlobeBlockEntity globe)
+            {
+                globe.setName(stack.getHoverName());
+                stack.consume(1, player);
+                level.playSound(null, pos, SoundEvents.CHAIN_PLACE, SoundSource.BLOCKS, 0.6f, 1.6f);
+            }
+            return ItemInteractionResult.sidedSuccess(level.isClientSide);
+        }
         if (stack.getItem() instanceof net.minecraft.world.item.MobBucketItem || stack.is(net.minecraft.world.item.Items.WATER_BUCKET))
         {
             if (player instanceof ServerPlayer serverPlayer && level.getBlockEntity(pos) instanceof GlobeBlockEntity globe)

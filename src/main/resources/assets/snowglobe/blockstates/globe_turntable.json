@@ -1,0 +1,7 @@
+{
+  "variants": {
+    "": {
+      "model": "snowglobe:block/globe_turntable"
+    }
+  }
+}

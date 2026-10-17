@@ -13,6 +13,12 @@ import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.level.Level;
+import net.minecraft.world.entity.Pose;
+import net.minecraft.client.multiplayer.ClientLevel;
+import net.minecraft.client.multiplayer.PlayerInfo;
+import net.minecraft.client.player.RemotePlayer;
+import com.mojang.authlib.GameProfile;
+import java.util.UUID;
 import net.neoforged.fml.util.ObfuscationReflectionHelper;
 import net.minecraft.core.registries.BuiltInRegistries;
 
@@ -22,7 +28,7 @@ import java.util.Map;
 import java.util.Set;
 
 /**
- * The mobs living in one globe, as stand-in copies on this client. The server sends their positions a few
+ * The mobs living in one globe, and the players inside it, as stand-in copies on this client. The server sends their positions a few
  * times a second; in between they glide smoothly, with legs and heads animating as they walk.
  */
 public final class MiniEntities
@@ -86,6 +92,16 @@ public final class MiniEntities
         return name == null || !BuiltInRegistries.ENTITY_TYPE.containsKey(name) ? null : BuiltInRegistries.ENTITY_TYPE.get(name);
     }
 
+    /** A stand-in for a player inside the globe, with their own skin if they're in the player list. */
+    private static Entity tinyPlayer(CompoundTag tag, Level level)
+    {
+        if (!(level instanceof ClientLevel clientLevel) || !tag.hasUUID("P"))
+            return null;
+        UUID id = tag.getUUID("P");
+        PlayerInfo info = Minecraft.getInstance().getConnection() == null ? null : Minecraft.getInstance().getConnection().getPlayerInfo(id);
+        return new RemotePlayer(clientLevel, info != null ? info.getProfile() : new GameProfile(id, tag.getString("N")));
+    }
+
     public void update(ListTag list, Level level)
     {
         long now = level.getGameTime();
@@ -100,11 +116,21 @@ public final class MiniEntities
             boolean fresh = mini == null || mini.entity.getType() != type;
             if (fresh)
             {
-                Entity entity = type == null ? null : type.create(level);
+                Entity entity = type == EntityType.PLAYER ? tinyPlayer(tag, level) : type == null ? null : type.create(level);
                 if (entity == null)
                     continue;
                 mini = new Mini(entity);
                 minis.put(id, mini);
+            }
+            if (mini.entity instanceof RemotePlayer player)
+            {
+                // A player inside: crouching or standing, looking up or down.
+                player.setPose(tag.getBoolean("C") ? Pose.CROUCHING : Pose.STANDING);
+                player.setXRot(tag.getFloat("Xr"));
+                player.xRotO = player.getXRot();
+                mini.moveTo(tag, now, fresh);
+                seen.add(id);
+                continue;
             }
             // Variants and colours: apply when new, and again if they change (a sheep sheared, a baby grown up).
             if (fresh || !looks.equals(mini.looks))

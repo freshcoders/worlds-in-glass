@@ -328,7 +328,7 @@ public final class OutsideView
                 poseStack.pushPose();
                 poseStack.translate(globe.pos().getX(), globe.pos().getY(), globe.pos().getZ());
                 GlobeRenderer.renderPlaced(state, block.kind(), globe.snapshot(), poseStack, buffers, LightTexture.pack(packed & 15, packed >> 4),
-                        ticks, blocks, null, null, level, globe.pos(), -1, false, globe.look());
+                        ticks, blocks, null, null, level, globe.pos(), -1, state.getValue(GlobeBlock.SPINNING), globe.look());
                 poseStack.popPose();
             }
         }
