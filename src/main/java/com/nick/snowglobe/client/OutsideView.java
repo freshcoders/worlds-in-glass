@@ -347,12 +347,22 @@ public final class OutsideView
     /** The camera's view, then the miniature's placement run backwards: outside world -> globe block -> build space. */
     private static PoseStack viewPose(RenderLevelStageEvent event, View v)
     {
+        return viewPose(event, v, 1);
+    }
+
+    /**
+     * As above, with everything also shrunk towards the camera by {@code shrink}: from the camera's point of view
+     * that looks exactly the same, only nearer.
+     */
+    private static PoseStack viewPose(RenderLevelStageEvent event, View v, float shrink)
+    {
         Vec3 camera = event.getCamera().getPosition();
         PoseStack poseStack = new PoseStack();
         // At some stages the camera's turn isn't in the render system's model-view yet (the world's solid blocks
         // get it passed in directly); add it ourselves, unless it's already there.
         if (RenderSystem.getModelViewMatrix().equals(new Matrix4f(), 1e-5f))
             poseStack.last().pose().mul(event.getModelViewMatrix());
+        poseStack.scale(shrink, shrink, shrink);
         poseStack.translate(-camera.x, -camera.y, -camera.z);
         poseStack.translate(v.interiorMin().getX() + v.scale() * v.pivot().x, v.interiorMin().getY() + v.scale() * v.pivot().y,
                 v.interiorMin().getZ() + v.scale() * v.pivot().z);
@@ -367,29 +377,34 @@ public final class OutsideView
     }
 
     /**
-     * The overworld far behind the outer globe, when in a globe inside a globe: drawn right after the sky, without
-     * fog, and then forgotten by the depth buffer, so everything else is drawn over it as if it were the sky.
+     * The overworld round the outer globe, when in a globe inside a globe, exactly where it really is: twice giant
+     * (once for each glass), so hundreds of times life size, and far beyond the view distance. So it's drawn shrunk
+     * towards the camera, which looks the same from where you stand, only near enough to draw; right after the sky,
+     * without fog, and then forgotten by the depth buffer, so the rest is drawn over it as if it were the sky.
      */
     private static void drawBackdrop(RenderLevelStageEvent event)
     {
         View v = view, b = backdrop;
-        if (v == null || b == null || parentSize <= 0)
+        if (v == null || b == null)
             return;
         Minecraft mc = Minecraft.getInstance();
         if (backdropMesh == null)
             backdropMesh = buildMesh(b, mc.getBlockRenderer());
-        PoseStack poseStack = viewPose(event, v);
-        // Now in the outer globe's world. Put the outermost globe's surroundings round the outer globe's build space,
-        // its floor level with the space's floor, and big enough to reach well past the outer glass (but not past
-        // the view distance).
-        double half = parentSize / 2.0;
-        double giant = v.scale() / (v.cell() * v.display());
-        double farthest = mc.options.getEffectiveRenderDistance() * 16 * 3.5;
-        double reach = Math.min(half * 2.6, farthest / giant);
-        float s = (float) (reach / Math.max(1, Math.min(b.sx(), b.sz()) / 2.0));
-        poseStack.translate(parentMin.getX() + half, parentMin.getY(), parentMin.getZ() + half);
-        poseStack.scale(s, s, s);
+        // How far its edge would really be, and so how much to shrink it to fit well inside the view distance.
+        double giantInner = v.scale() / (v.cell() * v.display()), giantOuter = b.scale() / (b.cell() * b.display());
+        double edge = Math.max(b.sx(), b.sz()) / 2.0 * giantOuter * giantInner;
+        double farthest = mc.options.getEffectiveRenderDistance() * 16 * 3;
+        float shrink = (float) Math.min(1, farthest / Math.max(1, edge));
+        // The inner globe's outside is the outer globe's build space; the outer globe's outside is the overworld.
+        PoseStack poseStack = viewPose(event, v, shrink);
+        poseStack.translate(b.interiorMin().getX() + b.scale() * b.pivot().x, b.interiorMin().getY() + b.scale() * b.pivot().y,
+                b.interiorMin().getZ() + b.scale() * b.pivot().z);
+        float giant = b.scale() / b.cell();
+        poseStack.scale(giant, giant, giant);
+        poseStack.translate(-b.center().x, -b.center().y, -b.center().z);
+        poseStack.translate(0.5, 0, 0.5);
         poseStack.mulPose(Axis.YP.rotationDegrees(90 * b.turns()));
+        poseStack.scale(1f / b.display(), 1f / b.display(), 1f / b.display());
         poseStack.translate(-(b.globePos().getX() + 0.5), -b.globePos().getY(), -(b.globePos().getZ() + 0.5));
         poseStack.translate(b.origin().getX(), b.origin().getY(), b.origin().getZ());
 
