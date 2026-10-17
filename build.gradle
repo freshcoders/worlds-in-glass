@@ -79,6 +79,10 @@ configurations {
 }
 
 dependencies {
+    // gradlew runClient -Pprofile adds the spark profiler, for measuring performance.
+    if (project.hasProperty('profile'))
+        localRuntime "maven.modrinth:spark:1.10.124-neoforge-1.21.1"
+
     // Create, plus Create Aeronautics (which brings the "simulated" blocks) and the Sable library it needs.
     // Only for testing schematic import; Snow Globes itself works without them.
     localRuntime "maven.modrinth:create:${create_version}"
