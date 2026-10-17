@@ -180,7 +180,10 @@ public class GlobeRenderer implements BlockEntityRenderer<GlobeBlockEntity>
         poseStack.pushPose();
         poseStack.translate(0.5f, 0, 0.5f);
         poseStack.scale(scale, scale, scale);
-        if (stir > 0)
+        // Globes, bottles and jars rock in their stand; a glass case (terrarium, aquarium) is too heavy to, and its
+        // glass is part of the block, so the contents would swing out through it.
+        boolean rocks = kind != GlobeKind.TERRARIUM && kind != GlobeKind.AQUARIUM;
+        if (stir > 0 && rocks)
         {
             float wobble = (float) Math.sin(shaken * 38) * 9 * stir;
             poseStack.mulPose(Axis.ZP.rotationDegrees(wobble));
