@@ -21,8 +21,10 @@ Eight kinds: **snow globe, terrarium, storm globe, ship in a bottle, desert glob
 - **Go inside:** sneak + right-click with an empty hand. **Leave:** right-click the glass wall from inside.
 - **Knock:** punch the glass. Anyone inside hears a giant knock.
 - **Fish:** use a fish bucket on a globe with water in it; a water bucket catches one back. Animals on a lead come in and out with you.
+- **Display:** a collector's shelf holds two globes; a turntable spins the one on it; a name tag puts a name plate on the base.
+- **Twins:** craft a globe that has a world in it with an empty one of the same kind and an ender pearl: two globes, one world.
 
-Hold Shift over a globe for a reminder. Your first globe also brings the **Globe Keeper's Handbook**, with the lore and all the recipes, and there's an advancement trail to follow.
+Every globe starts as a **glass bulb**, blown from glass with a **glassblower's pipe**. Your first globe brings the **Globe Keeper's Handbook**, with the lore and all the recipes, and there's an advancement trail to follow. Wandering traders and old chests sometimes have globes with a world already in them.
 
 ## Inside
 

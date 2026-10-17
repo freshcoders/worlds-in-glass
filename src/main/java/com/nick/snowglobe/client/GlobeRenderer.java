@@ -110,6 +110,18 @@ public class GlobeRenderer implements BlockEntityRenderer<GlobeBlockEntity>
         };
     }
 
+    /** How high a kind's base reaches, where its glass sits on it (in blocks). */
+    private static float baseTop(GlobeKind kind)
+    {
+        return switch (kind)
+        {
+            case SHIP_BOTTLE -> 1.5f / 16;
+            case NETHER_JAR -> JAR_FLOOR;
+            case TERRARIUM, AQUARIUM -> 0;
+            default -> BALL_CENTER_Y - BALL_RADIUS;
+        };
+    }
+
     /** Light for the miniature: dimmer when it's evening or night inside (the star globe always is). */
     static int insideLight(GlobeKind kind, int phase, int light)
     {
@@ -171,8 +183,13 @@ public class GlobeRenderer implements BlockEntityRenderer<GlobeBlockEntity>
             poseStack.translate(-0.5f, 0, -0.5f);
             eye = eye.yRot((float) Math.toRadians(angle));
         }
+        // The turntable is the base then: the globe leaves its own off and sits on the plate (a glass case keeps its
+        // frame, which holds the glass). No base, no name plate.
+        boolean ownBase = !spinning || globe.kind() == GlobeKind.TERRARIUM || globe.kind() == GlobeKind.AQUARIUM;
+        if (!ownBase)
+            poseStack.translate(0, -baseTop(globe.kind()), 0);
         renderPlaced(blockState, globe.kind(), globe.getSnapshot(), poseStack, buffers, light, ticks, blocks, eye, state, level, pos,
-                shaken, spinning, new Look(globe.phase(), globe.season(), globe.name()));
+                shaken, spinning && ownBase, new Look(globe.phase(), globe.season(), ownBase ? globe.name() : null));
         if (spinning)
             poseStack.popPose();
     }
@@ -193,24 +210,33 @@ public class GlobeRenderer implements BlockEntityRenderer<GlobeBlockEntity>
         poseStack.pushPose();
         poseStack.translate(0.5f, 0, 0.5f);
         poseStack.scale(scale, scale, scale);
-        // Globes, bottles and jars rock in their stand; a glass case (terrarium, aquarium) is too heavy to, and its
-        // glass is part of the block, so the contents would swing out through it.
-        boolean rocks = kind != GlobeKind.TERRARIUM && kind != GlobeKind.AQUARIUM;
-        if (stir > 0 && rocks)
-        {
-            float wobble = (float) Math.sin(shaken * 38) * 9 * stir;
-            poseStack.mulPose(Axis.ZP.rotationDegrees(wobble));
-            poseStack.mulPose(Axis.XP.rotationDegrees(wobble * 0.6f));
-        }
         poseStack.mulPose(Axis.YP.rotationDegrees(-90 * turns));
         poseStack.translate(-0.5f, 0, -0.5f);
         // A small globe's base is part of the world's block model; bigger globes draw theirs here, scaled up.
+        // Either way the base stands still when shaken.
         if (scale > 1 || base)
             blocks.renderSingleBlock(blockState.setValue(GlobeBlock.DISPLAY, DisplaySize.SMALL).setValue(GlobeBlock.FACING, Direction.EAST)
                             .setValue(GlobeBlock.SPINNING, false),
                     poseStack, buffers, light, OverlayTexture.NO_OVERLAY, ModelData.EMPTY, null);
         if (look.name() != null)
             renderNamePlate(kind, look.name(), poseStack, buffers, light);
+        // Globes, bottles and jars rock on their base, about where they sit on it; a glass case (terrarium,
+        // aquarium) is too heavy to, and its glass is part of the block, so the contents would swing out through it.
+        boolean rocks = kind != GlobeKind.TERRARIUM && kind != GlobeKind.AQUARIUM;
+        if (stir > 0 && rocks)
+        {
+            float pivot = switch (kind)
+            {
+                case SHIP_BOTTLE -> 2.5f / 16;
+                case NETHER_JAR -> JAR_FLOOR;
+                default -> BALL_CENTER_Y - BALL_RADIUS;
+            };
+            float wobble = (float) Math.sin(shaken * 38) * 9 * stir;
+            poseStack.translate(0.5f, pivot, 0.5f);
+            poseStack.mulPose(Axis.ZP.rotationDegrees(wobble));
+            poseStack.mulPose(Axis.XP.rotationDegrees(wobble * 0.6f));
+            poseStack.translate(-0.5f, -pivot, -0.5f);
+        }
         renderGlobe(kind, snapshot, poseStack, buffers, light, ticks, blocks, eye, state, pos.asLong(), level, pos, stir, look);
         poseStack.popPose();
     }

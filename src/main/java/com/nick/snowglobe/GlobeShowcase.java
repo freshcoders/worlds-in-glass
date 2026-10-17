@@ -148,6 +148,8 @@ final class GlobeShowcase
         // The centrepiece: a big snow globe on the rug.
         room.set(0, 5, 1, Blocks.AIR.defaultBlockState());
         placeGlobe(server, level, room.at(0, 5, 1), GlobeKind.SNOW_GLOBE, look.getClockWise(), 48);
+        if (level.getBlockEntity(room.at(0, 5, 1)) instanceof GlobeBlockEntity centrepiece)
+            centrepiece.setName(Component.literal("The Long Winter"));
 
         player.sendSystemMessage(Component.literal("Built a globe gallery in front of you (" + look.getName() + "). Look in through the doorway."));
         return 1;
@@ -167,6 +169,7 @@ final class GlobeShowcase
         }
         globe.updateDisplaySize();
         globe.refreshExtras();
+        globe.setName(Component.literal(sceneName(kind)));
         level.sendBlockUpdated(at, globe.getBlockState(), globe.getBlockState(), Block.UPDATE_CLIENTS);
     }
 
@@ -196,6 +199,22 @@ final class GlobeShowcase
         GlobeSpace.refreshSnapshot(server, id);
     }
 
+    /** What each kind's starter scene is called, for its name plate. */
+    private static String sceneName(GlobeKind kind)
+    {
+        return switch (kind)
+        {
+            case SNOW_GLOBE -> "Winter Cabin";
+            case TERRARIUM -> "Mossy Garden";
+            case STORM_GLOBE -> "The Lighthouse";
+            case SHIP_BOTTLE -> "The Wanderer";
+            case DESERT_GLOBE -> "Oasis";
+            case AQUARIUM -> "Coral Reef";
+            case STAR_GLOBE -> "Starlit Camp";
+            case NETHER_JAR -> "Ember Cavern";
+        };
+    }
+
     /** A globe item with a fresh starter scene, as if picked up after placing it. */
     private static ItemStack globeItem(MinecraftServer server, GlobeKind kind)
     {
@@ -213,6 +232,7 @@ final class GlobeShowcase
         tag.putInt("Phase", data.phaseOf(id));
         tag.putInt("Season", data.seasonOf(id));
         stack.set(SnowGlobeMod.GLOBE_DATA.get(), CustomData.of(tag));
+        stack.set(net.minecraft.core.component.DataComponents.CUSTOM_NAME, Component.literal(sceneName(kind)));
         return stack;
     }
 }

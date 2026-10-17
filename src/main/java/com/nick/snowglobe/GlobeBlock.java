@@ -203,6 +203,20 @@ public class GlobeBlock extends BaseEntityBlock
     protected ItemInteractionResult useItemOn(ItemStack stack, BlockState state, Level level, BlockPos pos, Player player,
                                               InteractionHand hand, BlockHitResult hit)
     {
+        // Shears take the name plate off again, and give the name tag back.
+        if (stack.is(net.minecraft.world.item.Items.SHEARS) && level.getBlockEntity(pos) instanceof GlobeBlockEntity named && named.name() != null)
+        {
+            if (!level.isClientSide)
+            {
+                ItemStack tag = new ItemStack(net.minecraft.world.item.Items.NAME_TAG);
+                tag.set(net.minecraft.core.component.DataComponents.CUSTOM_NAME, named.name());
+                popResource(level, pos.above(), tag);
+                named.setName(null);
+                stack.hurtAndBreak(1, player, net.minecraft.world.entity.LivingEntity.getSlotForHand(hand));
+                level.playSound(null, pos, SoundEvents.SHEEP_SHEAR, SoundSource.BLOCKS, 0.6f, 1.4f);
+            }
+            return ItemInteractionResult.sidedSuccess(level.isClientSide);
+        }
         // A name tag with a name on it: the globe takes the name, on a little plate on its base.
         if (stack.is(net.minecraft.world.item.Items.NAME_TAG) && stack.has(net.minecraft.core.component.DataComponents.CUSTOM_NAME))
         {

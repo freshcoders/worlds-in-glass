@@ -2,19 +2,19 @@
   "type": "minecraft:crafting_shaped",
   "category": "misc",
   "pattern": [
-    "GGG",
-    "GMG",
+    " B ",
+    " M ",
     "PPP"
   ],
   "key": {
-    "G": {
-      "item": "minecraft:glass"
+    "B": {
+      "item": "snowglobe:glass_bulb"
     },
     "M": {
       "item": "minecraft:moss_block"
     },
     "P": {
-      "tag": "minecraft:planks"
+      "tag": "minecraft:wooden_slabs"
     }
   },
   "result": {

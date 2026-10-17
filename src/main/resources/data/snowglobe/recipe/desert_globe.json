@@ -2,18 +2,18 @@
   "type": "minecraft:crafting_shaped",
   "category": "misc",
   "pattern": [
-    "GGG",
-    "GSG",
-    "CCC"
+    "B",
+    "D",
+    "S"
   ],
   "key": {
-    "G": {
-      "item": "minecraft:glass"
+    "B": {
+      "item": "snowglobe:glass_bulb"
     },
-    "S": {
+    "D": {
       "item": "minecraft:dead_bush"
     },
-    "C": {
+    "S": {
       "item": "minecraft:cut_sandstone"
     }
   },

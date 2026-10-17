@@ -76,7 +76,7 @@ public final class OutsideView
     private OutsideView() {}
 
     /** The world around one globe, as received, and how it maps onto the build space. */
-    private record View(BlockPos globePos, int kind, int phase, int season, int turns, int display, BlockPos interiorMin, float cell, int scale,
+    private record View(BlockPos globePos, int kind, int phase, int season, int spaceSize, int turns, int display, BlockPos interiorMin, float cell, int scale,
                         Vec3 center, Vec3 pivot, BlockPos origin, int sx, int sy, int sz,
                         BlockState[] states, byte[] light, List<BlockPos> visible, List<Neighbour> globes) {}
 
@@ -126,7 +126,7 @@ public final class OutsideView
         if (view == null || !view.origin().equals(origin) || !java.util.Arrays.equals(view.states(), states) || !java.util.Arrays.equals(view.light(), light))
             dropWorldMesh();
 
-        view = new View(BlockPos.of(tag.getLong("GlobePos")), tag.getInt("Kind"), tag.getInt("Phase"), tag.getInt("Season"),
+        view = new View(BlockPos.of(tag.getLong("GlobePos")), tag.getInt("Kind"), tag.getInt("Phase"), tag.getInt("Season"), tag.getInt("SpaceSize"),
                 tag.getInt("Turns"), Math.max(1, tag.getInt("Display")),
                 BlockPos.of(tag.getLong("InteriorMin")), tag.getFloat("Cell"), Math.max(1, tag.getInt("Scale")),
                 new Vec3(tag.getDouble("CenterX"), tag.getDouble("CenterY"), tag.getDouble("CenterZ")),
@@ -234,6 +234,22 @@ public final class OutsideView
     static int insideSeason()
     {
         return active() ? view.season() : 0;
+    }
+
+    /** The middle of the build space of the globe you're in, or null when not inside one. */
+    @Nullable
+    static Vec3 insideCenter()
+    {
+        if (!active() || view.spaceSize() <= 0)
+            return null;
+        double half = view.spaceSize() / 2.0;
+        return Vec3.atLowerCornerOf(view.interiorMin()).add(half, half, half);
+    }
+
+    /** The radius of the round build space you're in (0 when not inside one). */
+    static double insideRadius()
+    {
+        return active() ? view.spaceSize() / 2.0 : 0;
     }
 
     /** Where the globe you're inside stands outside (its storm's seed), or null when not inside one. */

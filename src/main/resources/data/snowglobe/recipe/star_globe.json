@@ -2,22 +2,19 @@
   "type": "minecraft:crafting_shaped",
   "category": "misc",
   "pattern": [
-    "GGG",
-    "GSG",
-    "BAB"
+    "B",
+    "S",
+    "A"
   ],
   "key": {
-    "G": {
-      "item": "minecraft:glass"
+    "B": {
+      "item": "snowglobe:glass_bulb"
     },
     "S": {
       "item": "minecraft:spyglass"
     },
-    "B": {
-      "item": "minecraft:polished_blackstone"
-    },
     "A": {
-      "item": "minecraft:amethyst_shard"
+      "item": "minecraft:amethyst_block"
     }
   },
   "result": {

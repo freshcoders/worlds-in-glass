@@ -2,19 +2,16 @@
   "type": "minecraft:crafting_shaped",
   "category": "misc",
   "pattern": [
-    "GGG",
-    "GLG",
-    "DCD"
+    "B",
+    "L",
+    "C"
   ],
   "key": {
-    "G": {
-      "item": "minecraft:glass"
+    "B": {
+      "item": "snowglobe:glass_bulb"
     },
     "L": {
       "item": "minecraft:lightning_rod"
-    },
-    "D": {
-      "item": "minecraft:polished_deepslate"
     },
     "C": {
       "item": "minecraft:copper_block"

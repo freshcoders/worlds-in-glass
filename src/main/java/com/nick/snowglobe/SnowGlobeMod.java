@@ -94,6 +94,11 @@ public class SnowGlobeMod
             .mapColor(MapColor.WOOD).strength(1.5f).sound(SoundType.WOOD)));
     public static final DeferredItem<net.minecraft.world.item.BlockItem> TURNTABLE_ITEM = ITEMS.registerSimpleBlockItem(TURNTABLE);
 
+    /** The glassblower's pipe, and the glass bulb it blows: every globe starts as one. */
+    public static final DeferredItem<GlassblowerPipeItem> PIPE = ITEMS.register("glassblower_pipe",
+            () -> new GlassblowerPipeItem(new Item.Properties().durability(64)));
+    public static final DeferredItem<Item> GLASS_BULB = ITEMS.register("glass_bulb", () -> new Item(new Item.Properties()));
+
     /** The Globe Keeper's Handbook: lore, recipes and how globes work. */
     public static final DeferredItem<HandbookItem> HANDBOOK = ITEMS.register("handbook", () -> new HandbookItem(new Item.Properties().stacksTo(1)));
 
@@ -116,6 +121,8 @@ public class SnowGlobeMod
             .displayItems((parameters, output) -> {
                 for (GlobeKind kind : GlobeKind.values())
                     output.accept(GLOBE_ITEMS.get(kind).get());
+                output.accept(PIPE.get());
+                output.accept(GLASS_BULB.get());
                 output.accept(SHELF_ITEM.get());
                 output.accept(TURNTABLE_ITEM.get());
                 output.accept(HANDBOOK.get());

@@ -2,22 +2,19 @@
   "type": "minecraft:crafting_shaped",
   "category": "misc",
   "pattern": [
-    " L ",
-    "GMG",
-    "GBG"
+    "L",
+    "B",
+    "M"
   ],
   "key": {
     "L": {
       "item": "minecraft:polished_blackstone_slab"
     },
-    "G": {
-      "item": "minecraft:glass"
+    "B": {
+      "item": "snowglobe:glass_bulb"
     },
     "M": {
       "item": "minecraft:magma_block"
-    },
-    "B": {
-      "item": "minecraft:polished_blackstone"
     }
   },
   "result": {

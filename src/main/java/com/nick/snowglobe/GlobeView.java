@@ -109,6 +109,7 @@ public final class GlobeView
         tag.putInt("Turns", GlobeBlock.quarterTurns(globeState.getValue(GlobeBlock.FACING)));
         tag.putInt("Display", globeState.getValue(GlobeBlock.DISPLAY).scale);
         tag.putLong("InteriorMin", GlobeSpace.interiorMin(player.server, id).asLong());
+        tag.putInt("SpaceSize", data.sizeOf(id));
         tag.putFloat("Cell", layout.cell());
         tag.putInt("Scale", layout.scale());
         tag.putDouble("CenterX", layout.center().x);
