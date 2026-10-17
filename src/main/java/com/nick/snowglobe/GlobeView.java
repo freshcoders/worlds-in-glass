@@ -69,6 +69,13 @@ public final class GlobeView
         return list;
     }
 
+    /** Sends everyone inside a globe their view again, after its time of day or season changed. */
+    static void refreshOccupants(MinecraftServer server, int id)
+    {
+        for (ServerPlayer player : occupants(server, id))
+            sendView(player);
+    }
+
     /** Tells everyone inside a globe that something happened to it outside. */
     static void notifyOccupants(MinecraftServer server, int id, int event, GlobeKind kind)
     {
@@ -246,6 +253,8 @@ public final class GlobeView
         if (id < 0 || now - lastKnock.getOrDefault(id, -100) < 6)
             return;
         lastKnock.put(id, now);
+        if (event.getEntity() instanceof ServerPlayer knocker && !occupants(level.getServer(), id).isEmpty())
+            GlobeAdvancements.award(knocker, "knock_knock");
         // A glassy tok out here (and a tiny thunder from a storm globe); a deep knock for anyone inside.
         level.blockEvent(event.getPos(), globe.getBlockState().getBlock(), GlobeBlock.EVENT_KNOCK, 0);
         notifyOccupants(level.getServer(), id, GlobeNetwork.GlobeEvent.KNOCKED, globe.kind());

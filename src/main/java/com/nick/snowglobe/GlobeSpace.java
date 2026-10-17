@@ -51,7 +51,12 @@ public final class GlobeSpace
     public static final int DEFAULT_SIZE = 16;
     public static final int MAX_SIZE = 256;
     private static final int BASE_Y = 64;
+    /** Where a player came from before going in (from before globes could be nested: a single place). */
     private static final String RETURN_KEY = SnowGlobeMod.MODID + ":return";
+    /** Where a player came from, one entry per globe they're in: the innermost last. */
+    private static final String RETURNS_KEY = SnowGlobeMod.MODID + ":returns";
+    /** The globes a player is in around the one they're in now (see {@link GlobeView#GLOBE_KEY}), innermost last. */
+    private static final String OUTER_KEY = SnowGlobeMod.MODID + ":outer_globes";
 
     private GlobeSpace() {}
 
@@ -320,17 +325,20 @@ public final class GlobeSpace
 
     // ---- Going in and out ----
 
+    /**
+     * Takes a player into a globe, with any animals they're leading. Globes can stand inside globes: going into one
+     * from inside another remembers both, and leaving takes you back out one at a time.
+     */
     public static void enter(ServerPlayer player, GlobeBlockEntity globe)
     {
-        if (player.level().dimension() == LEVEL)
-        {
-            player.displayClientMessage(Component.translatable("snowglobe.message.nested"), true);
-            return;
-        }
         ServerLevel level = player.server.getLevel(LEVEL);
         if (level == null || !(player.level() instanceof ServerLevel outside))
             return;
+        boolean nested = outside.dimension() == LEVEL;
         int id = globe.ensureGlobe(player.server);
+        // A globe can't be entered from inside itself (it would have to stand inside its own build space).
+        if (nested && idAt(player.server, globe.getBlockPos()) == id)
+            return;
         giveOwnSlot(player.server, id);
 
         CompoundTag back = new CompoundTag();
@@ -340,13 +348,31 @@ public final class GlobeSpace
         back.putDouble("Z", player.getZ());
         back.putFloat("Yaw", player.getYRot());
         back.putFloat("Pitch", player.getXRot());
-        player.getPersistentData().put(RETURN_KEY, back);
+        CompoundTag data = player.getPersistentData();
+        ListTag returns = data.getList(RETURNS_KEY, Tag.TAG_COMPOUND);
+        if (returns.isEmpty() && data.contains(RETURN_KEY))
+            returns.add(data.getCompound(RETURN_KEY));
+        data.remove(RETURN_KEY);
+        returns.add(back);
+        data.put(RETURNS_KEY, returns);
+        if (data.contains(GlobeView.GLOBE_KEY))
+        {
+            ListTag outer = data.getList(OUTER_KEY, Tag.TAG_COMPOUND);
+            outer.add(data.getCompound(GlobeView.GLOBE_KEY));
+            data.put(OUTER_KEY, outer);
+        }
 
+        List<net.minecraft.world.entity.Mob> friends = GlobeCreatures.leashedTo(player);
         BlockPos spawn = findSpawn(level, interiorMin(player.server, id), GlobeSavedData.get(player.server).sizeOf(id));
         player.teleportTo(level, spawn.getX() + 0.5, spawn.getY(), spawn.getZ() + 0.5, player.getYRot(), player.getXRot());
+        if (GlobeCreatures.bringAlong(friends, player))
+            GlobeAdvancements.award(player, "plus_one");
         player.displayClientMessage(Component.translatable("snowglobe.message.entered"), false);
         GlobeView.rememberGlobe(player, outside, globe.getBlockPos(), id);
         GlobeView.sendView(player);
+        GlobeAdvancements.award(player, "step_inside");
+        if (nested)
+            GlobeAdvancements.award(player, "deeper_still");
     }
 
     public static void leave(ServerPlayer player)
@@ -355,20 +381,155 @@ public final class GlobeSpace
         if (player.level().dimension() == LEVEL)
             refreshSnapshot(server, idAt(server, player.blockPosition()));
 
-        CompoundTag back = player.getPersistentData().getCompound(RETURN_KEY);
-        player.getPersistentData().remove(RETURN_KEY);
-        GlobeView.forgetGlobe(player);
+        // Out one level: to where they came in from (inside an outer globe, if this one stood in one).
+        CompoundTag data = player.getPersistentData();
+        ListTag returns = data.getList(RETURNS_KEY, Tag.TAG_COMPOUND);
+        CompoundTag back = !returns.isEmpty() ? (CompoundTag) returns.remove(returns.size() - 1) : data.getCompound(RETURN_KEY);
+        data.remove(RETURN_KEY);
+        if (returns.isEmpty())
+            data.remove(RETURNS_KEY);
+        else
+            data.put(RETURNS_KEY, returns);
+        ListTag outer = data.getList(OUTER_KEY, Tag.TAG_COMPOUND);
+        if (!outer.isEmpty())
+        {
+            data.put(GlobeView.GLOBE_KEY, outer.remove(outer.size() - 1));
+            if (outer.isEmpty())
+                data.remove(OUTER_KEY);
+            else
+                data.put(OUTER_KEY, outer);
+        }
+        else
+            GlobeView.forgetGlobe(player);
+
+        List<net.minecraft.world.entity.Mob> friends = GlobeCreatures.leashedTo(player);
         ResourceLocation dim = ResourceLocation.tryParse(back.getString("Dim"));
         ServerLevel target = dim == null ? null : server.getLevel(ResourceKey.create(Registries.DIMENSION, dim));
-        if (target == null || target.dimension() == LEVEL)
+        if (target == null || target.dimension() == LEVEL && !data.contains(GlobeView.GLOBE_KEY))
         {
             // No way back recorded (e.g. after a death inside): go to world spawn.
+            data.remove(OUTER_KEY);
+            data.remove(RETURNS_KEY);
+            GlobeView.forgetGlobe(player);
             target = server.overworld();
             BlockPos spawn = target.getSharedSpawnPos();
             player.teleportTo(target, spawn.getX() + 0.5, spawn.getY(), spawn.getZ() + 0.5, player.getYRot(), player.getXRot());
             return;
         }
         player.teleportTo(target, back.getDouble("X"), back.getDouble("Y"), back.getDouble("Z"), back.getFloat("Yaw"), back.getFloat("Pitch"));
+        GlobeCreatures.bringAlong(friends, player);
+        // Back inside the outer globe: show its outside again.
+        if (target.dimension() == LEVEL)
+            GlobeView.sendView(player);
+    }
+
+    // ---- Snow that settles in a snow globe ----
+
+    /**
+     * A snow globe shaken into winter: snow settles on the open ground and roofs inside, a thin layer (or one more
+     * on snow already lying). It melts again after a few minutes, or straight away when shaken into spring.
+     */
+    static void settleSnow(MinecraftServer server, int id)
+    {
+        ServerLevel level = server.getLevel(LEVEL);
+        if (level == null)
+            return;
+        GlobeSavedData data = GlobeSavedData.get(server);
+        GlobeKind kind = data.kindOf(id);
+        int size = data.sizeOf(id);
+        BlockPos min = interiorMin(server, id);
+        java.util.Map<Long, Long> snow = data.settledSnow(id);
+        long now = level.getGameTime();
+        net.minecraft.util.RandomSource random = level.random;
+        // A sample of columns: plenty for a small globe, and a light dusting rather than a long freeze for a huge one.
+        int columns = Math.min(size * size * 2 / 5, 900);
+        for (int i = 0; i < columns; i++)
+        {
+            int x = random.nextInt(size), z = random.nextInt(size);
+            for (int y = size - 1; y >= 0; y--)
+            {
+                if (!kind.inside(x, y, z, size))
+                    continue;
+                BlockPos pos = min.offset(x, y, z);
+                BlockState state = level.getBlockState(pos);
+                if (state.isAir())
+                    continue;
+                long meltAt = now + 2400 + random.nextInt(3600);
+                if (state.is(Blocks.SNOW))
+                {
+                    int layers = state.getValue(net.minecraft.world.level.block.SnowLayerBlock.LAYERS);
+                    if (layers < 3 && snow.containsKey(pos.asLong()))
+                    {
+                        level.setBlock(pos, state.setValue(net.minecraft.world.level.block.SnowLayerBlock.LAYERS, layers + 1), Block.UPDATE_ALL);
+                        snow.put(pos.asLong(), meltAt);
+                    }
+                }
+                else
+                {
+                    BlockPos above = pos.above();
+                    BlockState layer = Blocks.SNOW.defaultBlockState();
+                    if (kind.inside(x, y + 1, z, size) && level.getBlockState(above).isAir() && layer.canSurvive(level, above))
+                    {
+                        level.setBlock(above, layer, Block.UPDATE_ALL);
+                        snow.put(above.asLong(), meltAt);
+                    }
+                }
+                break;
+            }
+        }
+        data.setDirty();
+        refreshSnapshot(server, id);
+    }
+
+    /** Shaken into spring: the settled snow melts within the next minute. */
+    static void thaw(MinecraftServer server, int id)
+    {
+        ServerLevel level = server.getLevel(LEVEL);
+        if (level == null)
+            return;
+        GlobeSavedData data = GlobeSavedData.get(server);
+        long now = level.getGameTime();
+        data.settledSnow(id).replaceAll((pos, meltAt) -> Math.min(meltAt, now + 40 + level.random.nextInt(1000)));
+        data.setDirty();
+    }
+
+    /** Melts settled snow that's due, a layer at a time, in globes that are loaded. */
+    private static void meltSnow(MinecraftServer server, ServerLevel level)
+    {
+        GlobeSavedData data = GlobeSavedData.get(server);
+        long now = level.getGameTime();
+        for (int id : new ArrayList<>(data.globesWithSnow()))
+        {
+            java.util.Map<Long, Long> snow = data.settledSnow(id);
+            boolean changed = false;
+            for (Iterator<java.util.Map.Entry<Long, Long>> it = snow.entrySet().iterator(); it.hasNext(); )
+            {
+                java.util.Map.Entry<Long, Long> entry = it.next();
+                BlockPos pos = BlockPos.of(entry.getKey());
+                if (entry.getValue() > now || !level.isLoaded(pos))
+                    continue;
+                BlockState state = level.getBlockState(pos);
+                if (!state.is(Blocks.SNOW))
+                {
+                    it.remove();
+                    continue;
+                }
+                int layers = state.getValue(net.minecraft.world.level.block.SnowLayerBlock.LAYERS);
+                if (layers > 1)
+                {
+                    level.setBlock(pos, state.setValue(net.minecraft.world.level.block.SnowLayerBlock.LAYERS, layers - 1), Block.UPDATE_ALL);
+                    entry.setValue(now + 200 + level.random.nextInt(600));
+                }
+                else
+                {
+                    level.setBlock(pos, Blocks.AIR.defaultBlockState(), Block.UPDATE_ALL);
+                    it.remove();
+                }
+                changed = true;
+            }
+            if (changed)
+                data.setDirty();
+        }
     }
 
     /** Finds a free spot to stand, starting from the middle of the globe and working outwards. */
@@ -537,6 +698,8 @@ public final class GlobeSpace
             return;
         int now = server.getTickCount();
         GlobeSavedData data = GlobeSavedData.get(server);
+        if (now % 40 == 0)
+            meltSnow(server, level);
 
         Set<Integer> occupied = new HashSet<>();
         for (ServerPlayer player : level.players())

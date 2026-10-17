@@ -17,5 +17,6 @@ public class SnowGlobeClient
     {
         container.registerExtensionPoint(IConfigScreenFactory.class, ConfigurationScreen::new);
         GlobeItem.shiftDown = Screen::hasShiftDown;
+        com.nick.snowglobe.GlobeClientHooks.wound = MusicBoxes::wound;
     }
 }

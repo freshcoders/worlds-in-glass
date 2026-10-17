@@ -86,6 +86,10 @@ public final class GlobeSnapshot
                     // Mods' extra data (energy, fluids, ...) never changes a block's looks, and data from
                     // mods that aren't installed would only fill the log with warnings on every client.
                     data.remove("neoforge:attachments");
+                    // A globe standing in this one keeps its own miniature, but not the globes inside that: each
+                    // level would carry all the ones below it.
+                    if (data.contains("Snapshot", Tag.TAG_COMPOUND))
+                        data.getCompound("Snapshot").remove("BlockEntities");
                     blockEntities.put(i, data);
                 }
             }

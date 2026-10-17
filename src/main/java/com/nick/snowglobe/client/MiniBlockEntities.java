@@ -77,12 +77,33 @@ final class MiniBlockEntities
             blocks.renderSingleBlock(state, poseStack, buffers, light, OverlayTexture.NO_OVERLAY, ModelData.EMPTY, null);
     }
 
+    private static void renderNestedGlobe(com.nick.snowglobe.GlobeBlockEntity globe, BlockPos pos, PoseStack poseStack, MultiBufferSource buffers,
+                                          int light, float partialTick)
+    {
+        ClientLevel level = Minecraft.getInstance().level;
+        if (level == null)
+            return;
+        float ticks = level.getGameTime() % 240000 + partialTick;
+        poseStack.pushPose();
+        poseStack.translate(pos.getX(), pos.getY(), pos.getZ());
+        GlobeRenderer.renderPlaced(globe.getBlockState(), globe.kind(), globe.getSnapshot(), poseStack, buffers, light, ticks,
+                Minecraft.getInstance().getBlockRenderer(), null, null, level, pos, -1, false,
+                new GlobeRenderer.Look(globe.phase(), globe.season(), globe.hasMusicBox()));
+        poseStack.popPose();
+    }
+
     /** The parts drawn fresh every frame: block entity renderers (moving parts, text, ...). Pose in cell units. */
     void renderDynamic(PoseStack poseStack, MultiBufferSource buffers, int light, float partialTick)
     {
         for (Map.Entry<BlockPos, BlockEntity> entry : entities.entrySet())
         {
             BlockEntity be = entry.getValue();
+            if (be instanceof com.nick.snowglobe.GlobeBlockEntity globe)
+            {
+                // A globe standing in this globe: drawn with its own miniature, its glass straight away.
+                renderNestedGlobe(globe, entry.getKey(), poseStack, buffers, light, partialTick);
+                continue;
+            }
             if (be.getBlockState().getRenderShape() == RenderShape.ENTITYBLOCK_ANIMATED || BROKEN.contains(be.getType()))
                 continue;
             BlockEntityRenderer<BlockEntity> renderer = Minecraft.getInstance().getBlockEntityRenderDispatcher().getRenderer(be);

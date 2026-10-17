@@ -3,6 +3,7 @@ package com.nick.snowglobe;
 import com.mojang.serialization.MapCodec;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
+import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.sounds.SoundEvents;
@@ -51,6 +52,8 @@ public class GlobeBlock extends BaseEntityBlock
     public static final int EVENT_SHAKE = 1;
     /** Block event id for a knock on the glass, so everyone near hears it (as their settings allow). */
     public static final int EVENT_KNOCK = 2;
+    /** Block event id for winding a music box: everyone near hears the tune. */
+    public static final int EVENT_WIND = 3;
 
     private final GlobeKind kind;
     private final MapCodec<GlobeBlock> codec;
@@ -177,11 +180,31 @@ public class GlobeBlock extends BaseEntityBlock
         }
     }
 
-    /** Holding a Create schematic: import it into the globe instead of stepping inside. */
+    /**
+     * Holding something that goes into a globe: a Create schematic imports it; a bucket of fish lets them swim in;
+     * a water bucket catches one back out; a note block fits a music box into the base.
+     */
     @Override
     protected ItemInteractionResult useItemOn(ItemStack stack, BlockState state, Level level, BlockPos pos, Player player,
                                               InteractionHand hand, BlockHitResult hit)
     {
+        if (stack.getItem() instanceof net.minecraft.world.item.MobBucketItem || stack.is(net.minecraft.world.item.Items.WATER_BUCKET)
+                || stack.is(net.minecraft.world.item.Items.NOTE_BLOCK))
+        {
+            if (player instanceof ServerPlayer serverPlayer && level.getBlockEntity(pos) instanceof GlobeBlockEntity globe)
+            {
+                if (stack.is(net.minecraft.world.item.Items.NOTE_BLOCK))
+                    GlobeCreatures.fitMusicBox(serverPlayer, hand, stack, globe);
+                else if (stack.is(net.minecraft.world.item.Items.WATER_BUCKET))
+                {
+                    if (!GlobeCreatures.catchFish(serverPlayer, hand, globe))
+                        return ItemInteractionResult.PASS_TO_DEFAULT_BLOCK_INTERACTION;
+                }
+                else
+                    GlobeCreatures.releaseFish(serverPlayer, hand, stack, globe);
+            }
+            return ItemInteractionResult.sidedSuccess(level.isClientSide);
+        }
         if (!GlobeImport.isCreateSchematic(stack))
             return ItemInteractionResult.PASS_TO_DEFAULT_BLOCK_INTERACTION;
         if (player instanceof ServerPlayer serverPlayer && level.getBlockEntity(pos) instanceof GlobeBlockEntity globe)
@@ -219,6 +242,8 @@ public class GlobeBlock extends BaseEntityBlock
             {
                 level.setBlock(pos, state.setValue(FACING, state.getValue(FACING).getClockWise()), Block.UPDATE_ALL);
                 level.playSound(null, pos, SoundEvents.WOOD_HIT, SoundSource.BLOCKS, 0.6f, 1.4f);
+                if (level.getBlockEntity(pos) instanceof GlobeBlockEntity globe && player instanceof ServerPlayer serverPlayer)
+                    turned(serverPlayer, globe);
             }
             return InteractionResult.sidedSuccess(level.isClientSide);
         }
@@ -226,10 +251,65 @@ public class GlobeBlock extends BaseEntityBlock
         if (!level.isClientSide)
         {
             level.blockEvent(pos, this, EVENT_SHAKE, 0);
-            if (level.getBlockEntity(pos) instanceof GlobeBlockEntity globe && globe.globeId() >= 0)
-                GlobeView.notifyOccupants(level.getServer(), globe.globeId(), com.nick.snowglobe.net.GlobeNetwork.GlobeEvent.SHAKEN, kind);
+            if (level.getBlockEntity(pos) instanceof GlobeBlockEntity globe && globe.globeId() >= 0 && player instanceof ServerPlayer serverPlayer)
+                shaken(serverPlayer, globe);
         }
         return InteractionResult.sidedSuccess(level.isClientSide);
+    }
+
+    /**
+     * A shake: felt by everyone inside, and in a snow globe it turns the season. Shaken into winter, snow settles on
+     * everything; shaken into spring, it melts away.
+     */
+    private void shaken(ServerPlayer player, GlobeBlockEntity globe)
+    {
+        MinecraftServer server = player.server;
+        int id = globe.globeId();
+        GlobeView.notifyOccupants(server, id, com.nick.snowglobe.net.GlobeNetwork.GlobeEvent.SHAKEN, kind);
+        GlobeAdvancements.award(player, "shake");
+        if (!GlobeView.occupants(server, id).isEmpty() && kind == GlobeKind.STORM_GLOBE)
+            for (ServerPlayer inside : GlobeView.occupants(server, id))
+                GlobeAdvancements.award(inside, "eye_of_the_storm");
+        if (kind != GlobeKind.SNOW_GLOBE)
+            return;
+        GlobeSavedData data = GlobeSavedData.get(server);
+        int season = (data.seasonOf(id) + 1) % 4;
+        data.setSeason(id, season);
+        if (season == GlobeSavedData.WINTER)
+        {
+            GlobeSpace.settleSnow(server, id);
+            GlobeAdvancements.award(player, "four_seasons");
+        }
+        else if (season == GlobeSavedData.SPRING)
+            GlobeSpace.thaw(server, id);
+        globe.refreshExtras();
+        GlobeView.refreshOccupants(server, id);
+    }
+
+    /**
+     * Turning the base: the time of day inside moves on a quarter of a day (the star globe stays night, and the
+     * nether has no days), and a music box in the base is wound and plays its tune.
+     */
+    private void turned(ServerPlayer player, GlobeBlockEntity globe)
+    {
+        MinecraftServer server = player.server;
+        int id = globe.ensureGlobe(server);
+        GlobeSavedData data = GlobeSavedData.get(server);
+        if (kind != GlobeKind.STAR_GLOBE && kind != GlobeKind.NETHER_JAR)
+        {
+            int phase = (data.phaseOf(id) + 1) % 4;
+            data.setPhase(id, phase);
+            if (phase == GlobeSavedData.PHASE_NIGHT)
+                GlobeAdvancements.award(player, "after_dark");
+        }
+        if (data.hasMusicBox(id))
+        {
+            player.serverLevel().blockEvent(globe.getBlockPos(), this, EVENT_WIND, 0);
+            GlobeView.notifyOccupants(server, id, com.nick.snowglobe.net.GlobeNetwork.GlobeEvent.WOUND, kind);
+            GlobeAdvancements.award(player, "wind_it_up");
+        }
+        globe.refreshExtras();
+        GlobeView.refreshOccupants(server, id);
     }
 
     /**
@@ -247,6 +327,12 @@ public class GlobeBlock extends BaseEntityBlock
     @Override
     protected boolean triggerEvent(BlockState state, Level level, BlockPos pos, int id, int param)
     {
+        if (id == EVENT_WIND)
+        {
+            if (level.isClientSide)
+                GlobeClientHooks.wound.accept(pos, kind);
+            return true;
+        }
         if (id == EVENT_KNOCK)
         {
             if (level.isClientSide)

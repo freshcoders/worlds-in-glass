@@ -106,6 +106,7 @@ public final class GlobeEffects
                     }
                 }
             }
+            case GlobeEvent.WOUND -> MusicBoxes.woundInside(kind);
             case GlobeEvent.KNOCKED ->
             {
                 // Someone huge knocking on the glass.
@@ -177,6 +178,90 @@ public final class GlobeEffects
         }
         stir();
         storm();
+        weather();
+    }
+
+    /** How bright a lightning flash is right now (0 to 1), for the sky and the white-out. */
+    static float flash(float partial)
+    {
+        float t = phase(flashStart, 6, partial);
+        return t >= 0 ? 1 - t : 0;
+    }
+
+    private static final ParticleOptions[] AUTUMN_LEAVES = {
+            new net.minecraft.core.particles.BlockParticleOption(ParticleTypes.FALLING_DUST, net.minecraft.world.level.block.Blocks.ORANGE_TERRACOTTA.defaultBlockState()),
+            new net.minecraft.core.particles.BlockParticleOption(ParticleTypes.FALLING_DUST, net.minecraft.world.level.block.Blocks.RED_TERRACOTTA.defaultBlockState()),
+            new net.minecraft.core.particles.BlockParticleOption(ParticleTypes.FALLING_DUST, net.minecraft.world.level.block.Blocks.YELLOW_TERRACOTTA.defaultBlockState()),
+            new net.minecraft.core.particles.BlockParticleOption(ParticleTypes.FALLING_DUST, net.minecraft.world.level.block.Blocks.BROWN_TERRACOTTA.defaultBlockState())};
+    private static final ParticleOptions BLOWN_SAND = new net.minecraft.core.particles.DustParticleOptions(new org.joml.Vector3f(0.86f, 0.76f, 0.52f), 0.9f);
+
+    /** What a snow globe's season sends drifting down: snow, blossom, fireflies or leaves. */
+    private static ParticleOptions seasonParticle(RandomSource random)
+    {
+        return switch (OutsideView.insideSeason())
+        {
+            case com.nick.snowglobe.GlobeSavedData.SPRING -> ParticleTypes.CHERRY_LEAVES;
+            case com.nick.snowglobe.GlobeSavedData.SUMMER -> ParticleTypes.GLOW;
+            case com.nick.snowglobe.GlobeSavedData.AUTUMN -> AUTUMN_LEAVES[random.nextInt(AUTUMN_LEAVES.length)];
+            default -> ParticleTypes.SNOWFLAKE;
+        };
+    }
+
+    /**
+     * The weather of the globe you're in, around you all the time: the snow globe's season, blown sand in the desert,
+     * ash and embers in the nether jar, spores in the terrarium, bubbles underwater in the aquarium.
+     */
+    private static void weather()
+    {
+        Minecraft mc = Minecraft.getInstance();
+        ClientLevel level = mc.level;
+        LocalPlayer player = mc.player;
+        GlobeKind kind = OutsideView.insideKind();
+        if (level == null || player == null || kind == null || mc.isPaused())
+            return;
+        RandomSource random = level.random;
+        double amount = com.nick.snowglobe.SnowGlobeConfig.weatherInside();
+        float rate = switch (kind)
+        {
+            case SNOW_GLOBE -> OutsideView.insideSeason() == com.nick.snowglobe.GlobeSavedData.SUMMER ? 0.6f : 5;
+            case DESERT_GLOBE -> 4;
+            case NETHER_JAR -> 3;
+            case TERRARIUM -> 1;
+            case AQUARIUM -> player.isUnderWater() ? 2 : 0;
+            default -> 0;
+        };
+        rate *= (float) amount;
+        int count = (int) rate + (random.nextFloat() < rate - (int) rate ? 1 : 0);
+        for (int i = 0; i < count; i++)
+        {
+            double x = player.getX() + (random.nextDouble() - 0.5) * 24, z = player.getZ() + (random.nextDouble() - 0.5) * 24;
+            double y = player.getY() + random.nextDouble() * 10;
+            switch (kind)
+            {
+                case SNOW_GLOBE ->
+                {
+                    ParticleOptions particle = seasonParticle(random);
+                    double fall = particle == ParticleTypes.GLOW ? 0.01 : -0.04;
+                    level.addParticle(particle, x, particle == ParticleTypes.GLOW ? player.getY() + random.nextDouble() * 3 : y + 3,
+                            z, (random.nextDouble() - 0.5) * 0.04, fall, (random.nextDouble() - 0.5) * 0.04);
+                }
+                // A steady wind from the east, low over the dunes.
+                case DESERT_GLOBE -> level.addParticle(BLOWN_SAND, x, player.getY() + random.nextDouble() * 3, z, -1.5, 0.02, 0.2);
+                case NETHER_JAR ->
+                {
+                    level.addParticle(random.nextInt(4) == 0 ? ParticleTypes.WHITE_ASH : ParticleTypes.ASH, x, y, z, 0, 0, 0);
+                    if (random.nextInt(25) == 0)
+                        level.addParticle(ParticleTypes.LAVA, x, player.getY(), z, 0, 0, 0);
+                }
+                case TERRARIUM -> level.addParticle(ParticleTypes.SPORE_BLOSSOM_AIR, x, y, z, 0, 0, 0);
+                case AQUARIUM -> level.addParticle(ParticleTypes.BUBBLE, x, player.getY() - 2 + random.nextDouble() * 3, z, 0, 0.05, 0);
+                default -> {}
+            }
+        }
+        if (kind == GlobeKind.NETHER_JAR && random.nextInt(240) == 0)
+            play(SoundEvents.AMBIENT_BASALT_DELTAS_ADDITIONS.value(), 0.8f, 0.8f);
+        if (kind == GlobeKind.DESERT_GLOBE && random.nextInt(300) == 0)
+            play(SoundEvents.SAND_STEP, 0.5f, 0.6f);
     }
 
     /**
@@ -193,7 +278,7 @@ public final class GlobeEffects
         BlockPos globePos = OutsideView.insideGlobePos();
         long tick = level.getGameTime() % 240000;
         long start = GlobeRenderer.strikeStart(tick, globePos.asLong());
-        if (start == tick && lastStrike != start)
+        if (start != Long.MIN_VALUE && start == tick && lastStrike != start)
         {
             lastStrike = start;
             flashStart = ticks;
@@ -201,7 +286,8 @@ public final class GlobeEffects
             play(SoundEvents.LIGHTNING_BOLT_IMPACT, 0.6f, 0.8f);
         }
         RandomSource random = level.random;
-        for (int i = 0; i < 12; i++)
+        int drops = (int) Math.round(12 * com.nick.snowglobe.SnowGlobeConfig.weatherInside());
+        for (int i = 0; i < drops; i++)
         {
             double x = player.getX() + (random.nextDouble() - 0.5) * 24, z = player.getZ() + (random.nextDouble() - 0.5) * 24;
             double y = player.getY() + 4 + random.nextDouble() * 8;
@@ -239,7 +325,7 @@ public final class GlobeEffects
                 case AQUARIUM -> player.isUnderWater() ? ParticleTypes.BUBBLE : ParticleTypes.BUBBLE_POP;
                 case STAR_GLOBE -> ParticleTypes.END_ROD;
                 case NETHER_JAR -> random.nextInt(4) == 0 ? ParticleTypes.LAVA : ParticleTypes.ASH;
-                default -> ParticleTypes.SNOWFLAKE;
+                default -> seasonParticle(random);
             };
             level.addParticle(particle, x, y, z, vx, -0.05 - random.nextDouble() * 0.05, vz);
         }
@@ -293,9 +379,7 @@ public final class GlobeEffects
         float arrive = phase(arriveStart, ARRIVE_TICKS, partial);
         if (arrive >= 0)
             alpha = Math.max(alpha, 1 - smooth(arrive));
-        float flash = phase(flashStart, 6, partial);
-        if (flash >= 0)
-            alpha = Math.max(alpha, 0.75f * (1 - flash));
+        alpha = Math.max(alpha, 0.75f * flash(partial));
         return alpha;
     }
 

@@ -14,7 +14,7 @@
   "min_y": 0,
   "height": 384,
   "infiniburn": "#minecraft:infiniburn_overworld",
-  "effects": "minecraft:overworld",
+  "effects": "snowglobe:globe",
   "monster_spawn_light_level": 0,
   "monster_spawn_block_light_limit": 0
 }
