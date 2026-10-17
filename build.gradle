@@ -77,6 +77,8 @@ dependencies {
     localRuntime "maven.modrinth:create:${create_version}"
     localRuntime "maven.modrinth:sable:${sable_version}"
     localRuntime "maven.modrinth:create-aeronautics:${aeronautics_version}"
+    // Test game only: lets "Open to LAN" share the world over the internet, to play with friends.
+    localRuntime "maven.modrinth:e4mc:6.2.2-neoforge"
 }
 
 var generateModMetadata = tasks.register("generateModMetadata", ProcessResources) {

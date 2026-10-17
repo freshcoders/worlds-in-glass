@@ -4,7 +4,7 @@ A Minecraft mod for building tiny worlds. Place a snow globe, a terrarium, an aq
 
 **Minecraft 1.21.1 · NeoForge 21.1** · works alongside [Create](https://modrinth.com/mod/create) (optional)
 
-![A shelf of globes: a terrarium with a mossy garden, a big snow globe holding a castle, an igloo globe, a storm globe and a ship in a bottle](docs/screenshots/shelf.jpg)
+![A collector's gallery: a big snow globe with a snowy cabin on a red rug, shelves of globes along the bookshelves behind it](docs/screenshots/gallery.jpg)
 
 ## Globes
 
@@ -27,6 +27,12 @@ They're all in their own **Snow Globes** creative tab, with the collector's shel
 | **Snow Globe** | **Storm Globe** |
 | ![Ship in a bottle: a sailing ship on water inside a green glass bottle](docs/screenshots/ship-in-a-bottle.jpg) | ![A Create helicopter schematic imported into a snow globe](docs/screenshots/create-helicopter.jpg) |
 | **Ship in a Bottle** | **A Create helicopter in a globe** |
+| ![Nether jar: a lava pool, basalt pillars topped with glowstone and a ruined arch, under a blackstone lid](docs/screenshots/nether-jar.jpg) | ![Desert globe: dunes, a stepped pyramid and an oasis with a palm](docs/screenshots/desert-globe.jpg) |
+| **Nether Jar** | **Desert Globe** |
+| ![A star globe and a nether jar side by side on a collector's shelf](docs/screenshots/star-globe-and-nether-jar.jpg) | ![A desert globe and an aquarium full of coral on a collector's shelf](docs/screenshots/desert-and-aquarium.jpg) |
+| **Star Globe and Nether Jar** | **Desert Globe and Aquarium** |
+
+![A row of collector's shelves in front of bookshelves, two globes on each](docs/screenshots/gallery-shelves.jpg)
 
 ## Controls
 
@@ -64,6 +70,8 @@ Your first globe comes with the **Globe Keeper's Handbook**: some lore, the reci
 |---|---|
 | ![From inside the terrarium: the castle globe next door, full-size under its giant glass ball](docs/screenshots/inside-giant-castle.jpg) | ![Pandas outside, seen as giants through the glass](docs/screenshots/inside-giant-pandas.jpg) |
 | The castle globe next door | Pandas outside, as giants |
+
+![Inside the desert globe: a camel resting on the sand, and the gallery outside giant all around, its lanterns and windows towering overhead](docs/screenshots/inside-desert-globe.jpg)
 
 ## Sizes
 
