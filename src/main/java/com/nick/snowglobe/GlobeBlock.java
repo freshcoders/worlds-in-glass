@@ -286,22 +286,12 @@ public class GlobeBlock extends BaseEntityBlock
         GlobeView.refreshOccupants(server, id);
     }
 
-    /**
-     * Turning the base: the time of day inside moves on a quarter of a day (the star globe stays night, and the
-     * nether has no days), and a music box in the base is wound and plays its tune.
-     */
+    /** Turning the base winds a music box in it, which plays its tune. */
     private void turned(ServerPlayer player, GlobeBlockEntity globe)
     {
         MinecraftServer server = player.server;
         int id = globe.ensureGlobe(server);
         GlobeSavedData data = GlobeSavedData.get(server);
-        if (kind != GlobeKind.STAR_GLOBE && kind != GlobeKind.NETHER_JAR)
-        {
-            int phase = (data.phaseOf(id) + 1) % 4;
-            data.setPhase(id, phase);
-            if (phase == GlobeSavedData.PHASE_NIGHT)
-                GlobeAdvancements.award(player, "after_dark");
-        }
         if (data.hasMusicBox(id))
         {
             player.serverLevel().blockEvent(globe.getBlockPos(), this, EVENT_WIND, 0);

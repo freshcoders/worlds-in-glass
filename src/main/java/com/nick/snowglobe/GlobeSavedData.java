@@ -29,8 +29,7 @@ public class GlobeSavedData extends SavedData
     private final Map<Integer, Entry> globes = new HashMap<>();
     private final Map<Integer, GlobeKind> kinds = new HashMap<>();
     private final Map<Integer, Integer> sizes = new HashMap<>();
-    /** Time of day inside each globe (see {@link #phaseOf}), and the snow globes' seasons. */
-    private final Map<Integer, Integer> phases = new HashMap<>();
+    /** The snow globes' seasons. */
     private final Map<Integer, Integer> seasons = new HashMap<>();
     /** Globes fitted with a music box. */
     private final java.util.Set<Integer> musicBoxes = new java.util.HashSet<>();
@@ -52,11 +51,6 @@ public class GlobeSavedData extends SavedData
     {
         int id = nextId++;
         kinds.put(id, kind);
-        // Some globes start at another time of day: the desert at sunset, the stars at night.
-        if (kind == GlobeKind.DESERT_GLOBE)
-            phases.put(id, PHASE_SUNSET);
-        else if (kind == GlobeKind.STAR_GLOBE)
-            phases.put(id, PHASE_NIGHT);
         giveSlot(id);
         return id;
     }
@@ -64,16 +58,15 @@ public class GlobeSavedData extends SavedData
     public static final int PHASE_DAY = 0, PHASE_SUNSET = 1, PHASE_NIGHT = 2, PHASE_SUNRISE = 3;
     public static final int WINTER = 0, SPRING = 1, SUMMER = 2, AUTUMN = 3;
 
-    /** Time of day inside: day, sunset, night or sunrise (0 to 3). Turning the base moves it on. */
+    /** Time of day inside, which belongs to the kind: sunset over the desert, night in the star globe, day elsewhere. */
     public int phaseOf(int id)
     {
-        return phases.getOrDefault(id, PHASE_DAY);
-    }
-
-    public void setPhase(int id, int phase)
-    {
-        phases.put(id, Math.floorMod(phase, 4));
-        setDirty();
+        return switch (kindOf(id))
+        {
+            case DESERT_GLOBE -> PHASE_SUNSET;
+            case STAR_GLOBE -> PHASE_NIGHT;
+            default -> PHASE_DAY;
+        };
     }
 
     /** A snow globe's season: winter, spring, summer or autumn (0 to 3). Shaking it moves it on. */
@@ -204,9 +197,6 @@ public class GlobeSavedData extends SavedData
         slots.forEach((id, start) -> slotsTag.putInt(Integer.toString(id), start));
         tag.put("Slots", slotsTag);
         tag.putInt("NextSlotX", nextSlotX);
-        CompoundTag phasesTag = new CompoundTag();
-        phases.forEach((id, phase) -> phasesTag.putInt(Integer.toString(id), phase));
-        tag.put("Phases", phasesTag);
         CompoundTag seasonsTag = new CompoundTag();
         seasons.forEach((id, season) -> seasonsTag.putInt(Integer.toString(id), season));
         tag.put("Seasons", seasonsTag);
@@ -253,9 +243,6 @@ public class GlobeSavedData extends SavedData
                 data.slotOwners.put(slotsTag.getInt(key), id);
             });
         data.nextSlotX = tag.contains("NextSlotX") ? tag.getInt("NextSlotX") : -1;
-        CompoundTag phasesTag = tag.getCompound("Phases");
-        for (String key : phasesTag.getAllKeys())
-            parseId(key, id -> data.phases.put(id, phasesTag.getInt(key)));
         CompoundTag seasonsTag = tag.getCompound("Seasons");
         for (String key : seasonsTag.getAllKeys())
             parseId(key, id -> data.seasons.put(id, seasonsTag.getInt(key)));

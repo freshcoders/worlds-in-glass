@@ -33,9 +33,9 @@ import org.joml.Vector3f;
 import java.util.Random;
 
 /**
- * The sky inside globes: each globe has its own, by kind and by the time of day its base is turned to. Sunlit blue,
- * a sunset, a starry night or a sunrise; always night with the northern lights in the star globe; storm grey,
- * underwater teal, or the nether's red. The light inside follows it, so a night globe really is dark.
+ * The sky inside globes: each kind of globe has its own. Sunlit blue over the snow, a sunset over the desert,
+ * night with the northern lights in the star globe, storm grey, underwater teal, or the nether's red. The light
+ * inside follows it, so the star globe really is dark.
  */
 public final class GlobeSky extends DimensionSpecialEffects
 {

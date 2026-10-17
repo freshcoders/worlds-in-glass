@@ -33,7 +33,7 @@ They're all in their own **Snow Globes** creative tab, with the collector's shel
 | Action | How |
 |---|---|
 | **Shake** | Right-click the glass. The globe wobbles and chimes, and the snow whirls up. Anyone inside feels it. A snow globe also turns to the next season. |
-| **Turn** | Right-click the base or stand: a quarter turn, and the time of day inside moves on. Winds the music box, if it has one. |
+| **Turn** | Right-click the base or stand: a quarter turn. Winds the music box, if it has one. |
 | **Go inside** | Sneak + right-click, with an empty hand. |
 | **Leave** | Right-click the glass wall from inside, with an empty hand. |
 | **Knock** | Punch the glass, in survival. Anyone inside hears a giant knock. |
@@ -43,7 +43,7 @@ They're all in their own **Snow Globes** creative tab, with the collector's shel
 - You build in a space of its own, **16 to 256 blocks** across: a dome for round globes, a box for the terrarium, a long cylinder for the bottle.
 - Through the walls you see the **real world around the globe, giant**: the shelf it stands on, the other globes with their miniatures, and the players and animals nearby, fading into haze in the distance.
 - Going in and out is a short zoom and white-out instead of a cut.
-- Each globe has **its own sky and light**: day, sunset, night or sunrise, set by turning the base. The star globe is always night, with the northern lights. The storm globe storms, with lightning in step with the miniature. The nether jar glows red, and the aquarium is underwater blue.
+- Each globe has **its own sky and light**: day over the snow globe, a sunset over the desert, night with the northern lights in the star globe. The storm globe storms, with lightning in step with the miniature. The nether jar glows red, and the aquarium is underwater blue.
 - **Weather falls around you**: the snow globe's season, blown sand, ash and embers, spores, rain.
 - Globes can stand **inside other globes**, and you can go in further. Leaving takes you out one glass at a time.
 

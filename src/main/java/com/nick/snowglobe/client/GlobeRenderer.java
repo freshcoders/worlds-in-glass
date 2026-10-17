@@ -592,13 +592,15 @@ public class GlobeRenderer implements BlockEntityRenderer<GlobeBlockEntity>
         PoseStack.Pose pose = poseStack.last();
         float seconds = ticks / 20f;
 
-        // Dark clouds hanging under the top of the ball, slowly turning.
+        // Dark clouds hanging under the top of the ball, slowly turning; each kept clear of the glass, corners and all.
         double turn = seconds * 0.05;
         for (float[] c : CLOUDS)
         {
-            double angle = Math.atan2(c[1], c[0]) + turn, dist = Math.hypot(c[0], c[1]) * 0.5;
-            float h = 0.6f + c[2] * 0.18f;
+            float h = 0.5f + c[2] * 0.14f;
             float size = (0.5f + c[3] * 0.4f) / 16f;
+            float s = size / BALL_RADIUS;
+            double top = h + s * 0.6f, room = Math.sqrt(Math.max(0, 1 - top * top)) - s * 1.42 - 0.03;
+            double angle = Math.atan2(c[1], c[0]) + turn, dist = Math.min(Math.hypot(c[0], c[1]) * 0.5, Math.max(0, room));
             box(out, pose, 0.5f + (float) (Math.cos(angle) * dist) * BALL_RADIUS, BALL_CENTER_Y + h * BALL_RADIUS,
                     0.5f + (float) (Math.sin(angle) * dist) * BALL_RADIUS, size, size * 0.6f, size, light, 80, 85, 95, 235);
         }
