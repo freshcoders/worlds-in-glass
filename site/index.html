@@ -41,7 +41,8 @@
   .hero::after { content: ""; position: absolute; inset: 0;
     background: linear-gradient(180deg, rgba(13,20,32,.15) 0%, rgba(13,20,32,.55) 55%, var(--bg) 100%); }
   .hero .wrap { position: relative; z-index: 1; padding-bottom: 36px; width: 100%; }
-  .snow { position: absolute; inset: 0; z-index: 1; pointer-events: none; }
+  /* A canvas keeps its own 300x150 size unless told otherwise, so it needs the explicit width and height. */
+  .snow { position: absolute; inset: 0; width: 100%; height: 100%; z-index: 1; pointer-events: none; }
   h1 { font-family: Fraunces, Georgia, serif; font-size: clamp(40px, 8vw, 72px); line-height: 1; margin: 0 0 10px; color: #fff;
     text-shadow: 0 2px 18px rgba(0,0,0,.45); }
   .tagline { font-size: 18px; color: #dfe8f5; max-width: 560px; margin: 0 0 22px; text-shadow: 0 1px 10px rgba(0,0,0,.5); }
