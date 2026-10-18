@@ -120,9 +120,12 @@ def version():
         "primary_file": "jar",
     }
     with open(jar, "rb") as file:
-        check(requests.post(f"{API}/version", headers=headers(),
-                            files={"data": (None, json.dumps(data), "application/json"),
-                                   "jar": (os.path.basename(jar), file, "application/java-archive")}), f"Upload {number}")
+        uploaded = check(requests.post(f"{API}/version", headers=headers(),
+                                       files={"data": (None, json.dumps(data), "application/json"),
+                                              "jar": (os.path.basename(jar), file, "application/java-archive")}), f"Upload {number}")
+    # Where it runs is set per version now, and only through API v3: on the server and every player's game.
+    check(requests.patch(f"{API.replace('/v2', '/v3')}/version/{uploaded['id']}", headers=headers(),
+                         json={"environment": "client_and_server"}), "Environment: client and server")
 
 
 def replace():
