@@ -56,7 +56,7 @@ def token():
 
 
 def headers():
-    return {"Authorization": token(), "User-Agent": "ikdekker/worlds-in-glass publish script"}
+    return {"Authorization": token(), "User-Agent": "freshcoders/worlds-in-glass publish script"}
 
 
 def mod_version():
