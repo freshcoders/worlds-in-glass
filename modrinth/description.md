@@ -4,7 +4,7 @@
 
 ## Eight kinds of globe
 
-Snow globe, terrarium, storm globe, ship in a bottle, desert globe, aquarium, star globe and nether jar. Each has its own weather and sky, inside and out: snow that turns with the seasons, lightning and thunder in the storm globe, blown sand at sunset in the desert, the northern lights over the star globe, embers rising in the nether jar.
+Snow globe, terrarium, storm globe, ship in a bottle, desert globe, aquarium, star globe and nether jar. Each has its own weather, inside and out: snow that turns with the seasons, lightning and thunder in the storm globe, blown sand at sunset in the desert, the northern lights over the star globe, embers rising in the nether jar.
 
 ## From inside, the world outside is giant
 
@@ -19,13 +19,19 @@ Look out through the glass and the room the globe stands in is there, a hundred 
 - **Display them** on a collector's shelf or a spinning turntable, and name them with a name tag for a brass plate on the base.
 - **Create schematics** can be built inside a globe (Create is optional). Globes grow to fit, up to 256 blocks across.
 
-## Getting globes
+## Crafting
 
-Every globe starts as a glass bulb, blown from glass with a glassblower's pipe. Your first globe comes with the *Globe Keeper's Handbook*, with all the recipes. Wandering traders and old chests sometimes have a globe with a little world already in it, and there's an advancement trail to follow.
+Every globe starts as a breath of glass. Make a glassblower's pipe, blow a glass bulb, then put a world under it: a bulb, over what goes inside, over a base. Your first globe comes with the *Globe Keeper's Handbook*, with every recipe.
 
-## Survival-friendly
+| 1. Glassblower's pipe | 2. Glass bulb | 3. A globe (all eight take turns) |
+|---|---|---|
+| ![A copper ingot over two iron ingots makes a glassblower's pipe](https://freshcoders.nl/worldsinglass/img/recipes/glassblower_pipe.gif) | ![The pipe and three glass make a glass bulb; the pipe comes back](https://freshcoders.nl/worldsinglass/img/recipes/glass_bulb.gif) | ![A glass bulb over what goes inside, over a base, for each of the eight globes](https://freshcoders.nl/worldsinglass/img/recipes/globes.gif) |
 
-Nothing comes from nowhere: a globe made in survival starts empty, a schematic is paid for block by block, and a globe never shrinks if that would cut blocks off.
+| Twin globes | Collector's shelf | Turntable |
+|---|---|---|
+| ![A globe, an empty globe of the same kind and an ender pearl make two globes with one world](https://freshcoders.nl/worldsinglass/img/recipes/twin_globe.gif) | ![Two sticks over three wooden slabs make two collector's shelves](https://freshcoders.nl/worldsinglass/img/recipes/globe_shelf.gif) | ![A blackstone slab, gold and redstone over dark oak planks make a turntable](https://freshcoders.nl/worldsinglass/img/recipes/globe_turntable.gif) |
+
+Wandering traders and old chests sometimes have a globe with a little world already in it, and there's an advancement trail to follow.
 
 ## Notes
 

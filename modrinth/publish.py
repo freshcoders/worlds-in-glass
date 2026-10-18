@@ -4,6 +4,7 @@
     python modrinth/publish.py version   # upload build/libs/worldsinglass-<version>.jar as a new version of the project
     python modrinth/publish.py replace   # delete the version with this number and upload the current jar in its place
     python modrinth/publish.py rename    # bring the project's name, link (slug), summary and description up to date
+    python modrinth/publish.py gallery   # replace the project's pictures with the ones listed in GALLERY
     python modrinth/publish.py submit    # send the draft to Modrinth's moderators for review (then it goes public)
 
 The token never appears in output. Token scopes needed: Create projects, Write projects, Create versions.
@@ -18,15 +19,27 @@ SLUG = "worlds-in-glass"
 TITLE = "Worlds in Glass"
 SUMMARY = "Build tiny worlds inside snow globes, terrariums, jars and bottles. Step inside to build, step out to see it in miniature."
 CREATE = "LNytGWDc"  # Create's project id, an optional dependency
+# Pictures from the website's folder (site/img): the sharper screenshots and the recipe GIFs.
+IMAGES = os.path.join(ROOT, "site", "img")
 GALLERY = [
     ("gallery.jpg", "A collector's gallery", True),
+    ("storm-globe.jpg", "Storm globe", False),
     ("nether-jar.jpg", "Nether jar", False),
     ("desert-globe.jpg", "Desert globe", False),
-    ("storm-globe.jpg", "Storm globe", False),
+    ("aquarium.jpg", "Aquarium", False),
+    ("ship-in-a-bottle.jpg", "Ship in a bottle", False),
+    ("name-plate.jpg", "A name plate on the base", False),
     ("star-globe-and-nether-jar.jpg", "Star globe and nether jar on a collector's shelf", False),
-    ("inside-desert-globe.jpg", "From inside: the room outside, giant", False),
-    ("create-helicopter.jpg", "A Create schematic built inside a globe", False),
     ("gallery-shelves.jpg", "Collector's shelves", False),
+    ("inside-desert-globe.jpg", "From inside: the room outside, giant", False),
+    ("inside-giant-terrarium.jpg", "Inside a terrarium, looking out", False),
+    ("create-helicopter.jpg", "A Create schematic built inside a globe", False),
+    ("recipes/glassblower_pipe.gif", "Recipe: glassblower's pipe", False),
+    ("recipes/glass_bulb.gif", "Recipe: glass bulb", False),
+    ("recipes/globes.gif", "Recipes: the eight globes", False),
+    ("recipes/twin_globe.gif", "Recipe: twin globes", False),
+    ("recipes/globe_shelf.gif", "Recipe: collector's shelf", False),
+    ("recipes/globe_turntable.gif", "Recipe: turntable", False),
 ]
 
 
@@ -92,12 +105,25 @@ def create():
                                       files={"data": (None, json.dumps(data), "application/json"),
                                              "icon": ("icon.png", icon, "image/png")}), "Create project")
     print(f"Project id {project['id']}: https://modrinth.com/mod/{SLUG}")
-    for i, (name, title, featured) in enumerate(GALLERY):
-        with open(os.path.join(HERE, name), "rb") as image:
-            check(requests.post(f"{API}/project/{SLUG}/gallery", headers=headers(),
-                                params={"ext": "jpg", "featured": str(featured).lower(), "title": title, "ordering": i},
-                                data=image.read()), f"Gallery: {title}")
+    upload_gallery()
     version()
+
+
+def upload_gallery():
+    for i, (name, title, featured) in enumerate(GALLERY):
+        with open(os.path.join(IMAGES, name), "rb") as image:
+            check(requests.post(f"{API}/project/{SLUG}/gallery", headers=headers(),
+                                params={"ext": name.rsplit(".", 1)[1], "featured": str(featured).lower(), "title": title, "ordering": i},
+                                data=image.read()), f"Gallery: {title}")
+
+
+def gallery():
+    """Takes the project's pictures down and puts up the ones in GALLERY."""
+    project = check(requests.get(f"{API}/project/{SLUG}", headers=headers()), "Find project")
+    for image in project["gallery"]:
+        check(requests.delete(f"{API}/project/{SLUG}/gallery", headers=headers(), params={"url": image["url"]}),
+              f"Remove {image.get('title') or 'picture'}")
+    upload_gallery()
 
 
 def version():
@@ -159,4 +185,4 @@ def submit():
 
 if __name__ == "__main__":
     action = sys.argv[1] if len(sys.argv) > 1 else ""
-    {"create": create, "version": version, "replace": replace, "rename": rename, "submit": submit}.get(action, lambda: sys.exit(__doc__))()
+    {"create": create, "version": version, "replace": replace, "rename": rename, "gallery": gallery, "submit": submit}.get(action, lambda: sys.exit(__doc__))()
