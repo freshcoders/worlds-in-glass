@@ -18,6 +18,7 @@ public class WorldsInGlassClient
         container.registerExtensionPoint(IConfigScreenFactory.class, ConfigurationScreen::new);
         GlobeItem.shiftDown = Screen::hasShiftDown;
         com.nick.worldsinglass.GlobeClientHooks.openHandbook = WorldsInGlassClient::openHandbook;
+        IconExport.registerIfAsked();
     }
 
     /** Opens the handbook like a written book, its pages from the language file (so it can be translated). */

@@ -45,6 +45,9 @@ neoForge {
             // gradlew runClient -PquickPlay="New World (1)" opens that world straight away.
             if (project.hasProperty('quickPlay'))
                 programArguments.addAll('--quickPlaySingleplayer', project.property('quickPlay').toString())
+            // gradlew runClient -PexportIcons=<folder> saves the item icons the website's recipe pictures use, then quits.
+            if (project.hasProperty('exportIcons'))
+                systemProperty 'worldsinglass.exportIcons', project.property('exportIcons').toString()
         }
 
         server {

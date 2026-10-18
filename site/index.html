@@ -69,6 +69,20 @@
 
   .features { display: grid; grid-template-columns: repeat(3, 1fr); gap: 18px; }
   .features p { margin: 0; color: var(--muted); }
+  .lead { color: var(--muted); margin: -6px 0 18px; }
+  .recipes { display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; margin-bottom: 14px; }
+  .recipes.main { grid-template-columns: repeat(3, 1fr); }
+  .recipes figure { margin: 0; padding: 12px; }
+  .recipes img { width: 100%; height: auto; display: block; image-rendering: pixelated; border-radius: 4px; }
+  .recipes figcaption { font-size: 14px; color: var(--muted); margin-top: 10px; }
+  .recipes figcaption b { display: block; color: var(--text); font-weight: 600; }
+  .shots a { display: block; border-radius: 10px; overflow: hidden; }
+  .shots a img { transition: transform .25s ease; }
+  .shots a:hover img { transform: scale(1.04); }
+  dialog.viewer { padding: 0; border: 0; background: transparent; max-width: 96vw; max-height: 94vh; }
+  dialog.viewer::backdrop { background: rgba(5, 8, 14, .88); }
+  dialog.viewer img { display: block; max-width: 96vw; max-height: 86vh; border-radius: 10px; }
+  dialog.viewer p { color: #dfe8f5; text-align: center; margin: 10px 0 0; font-size: 15px; }
   .shots { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
   .shots figure { margin: 0; }
   .shots img { width: 100%; aspect-ratio: 16/10; object-fit: cover; border-radius: 10px; display: block; border: 1px solid var(--line); }
@@ -89,6 +103,7 @@
   footer { color: var(--muted); font-size: 14px; padding: 40px 0 50px; }
   @media (max-width: 720px) {
     .grid-2, .features { grid-template-columns: 1fr; }
+    .recipes, .recipes.main { grid-template-columns: 1fr 1fr; }
     .shots { grid-template-columns: 1fr 1fr; }
     .hero { min-height: 400px; }
   }
@@ -142,7 +157,7 @@
       </div>
       <div class="card">
         <h3>Bring a schematic</h3>
-        <p>Right-click a globe with a Create schematic to build it inside; the globe grows to fit, up to 256 blocks across. In survival every block is paid for.</p>
+        <p>Right-click a globe with a Create schematic to build it inside; the globe grows to fit, up to 256 blocks across.</p>
       </div>
     </div>
   </section>
@@ -150,16 +165,34 @@
   <section id="look">
     <h2>A look inside</h2>
     <div class="shots">
-      <figure><img src="img/snow-globe.jpg" alt="Snow globe with a snowy cabin and spruce trees" loading="lazy"><figcaption>Snow globe</figcaption></figure>
-      <figure><img src="img/storm-globe.jpg" alt="Storm globe with a lighthouse under rain clouds" loading="lazy"><figcaption>Storm globe</figcaption></figure>
-      <figure><img src="img/nether-jar.jpg" alt="Nether jar with a lava pool and basalt pillars" loading="lazy"><figcaption>Nether jar</figcaption></figure>
-      <figure><img src="img/desert-globe.jpg" alt="Desert globe with dunes, a pyramid and an oasis" loading="lazy"><figcaption>Desert globe</figcaption></figure>
-      <figure><img src="img/ship-in-a-bottle.jpg" alt="A ship in a bottle" loading="lazy"><figcaption>Ship in a bottle</figcaption></figure>
-      <figure><img src="img/star-globe-and-nether-jar.jpg" alt="A star globe and a nether jar on a collector's shelf" loading="lazy"><figcaption>On a collector's shelf</figcaption></figure>
-      <figure><img src="img/gallery-shelves.jpg" alt="Shelves full of globes" loading="lazy"><figcaption>Collector's shelves</figcaption></figure>
-      <figure><img src="img/inside-desert-globe.jpg" alt="Inside the desert globe, with the room outside giant all around" loading="lazy"><figcaption>From inside: the room, giant</figcaption></figure>
-      <figure><img src="img/inside-giant-terrarium.jpg" alt="Inside a big terrarium" loading="lazy"><figcaption>Inside a terrarium</figcaption></figure>
-      <figure><img src="img/create-helicopter.jpg" alt="A Create helicopter built inside a snow globe" loading="lazy"><figcaption>A Create schematic in a globe</figcaption></figure>
+      <figure><a href="img/storm-globe.jpg"><img src="img/storm-globe.jpg" alt="Storm globe with a lighthouse in the rain, on a shelf" loading="lazy"></a><figcaption>Storm globe</figcaption></figure>
+      <figure><a href="img/nether-jar.jpg"><img src="img/nether-jar.jpg" alt="Nether jar with a lava pool and basalt pillars" loading="lazy"></a><figcaption>Nether jar</figcaption></figure>
+      <figure><a href="img/desert-globe.jpg"><img src="img/desert-globe.jpg" alt="Desert globe with dunes, a pyramid and an oasis" loading="lazy"></a><figcaption>Desert globe</figcaption></figure>
+      <figure><a href="img/aquarium.jpg"><img src="img/aquarium.jpg" alt="An aquarium with coral and fish" loading="lazy"></a><figcaption>Aquarium</figcaption></figure>
+      <figure><a href="img/ship-in-a-bottle.jpg"><img src="img/ship-in-a-bottle.jpg" alt="A ship in a bottle on a table outdoors" loading="lazy"></a><figcaption>Ship in a bottle</figcaption></figure>
+      <figure><a href="img/name-plate.jpg"><img src="img/name-plate.jpg" alt="An aquarium on a pedestal with a brass name plate reading Coral Reef" loading="lazy"></a><figcaption>Name plates</figcaption></figure>
+      <figure><a href="img/star-globe-and-nether-jar.jpg"><img src="img/star-globe-and-nether-jar.jpg" alt="A star globe and a nether jar on a collector's shelf" loading="lazy"></a><figcaption>On a collector's shelf</figcaption></figure>
+      <figure><a href="img/desert-and-aquarium.jpg"><img src="img/desert-and-aquarium.jpg" alt="A desert globe and an aquarium side by side on a shelf" loading="lazy"></a><figcaption>Desert globe and aquarium</figcaption></figure>
+      <figure><a href="img/gallery-shelves.jpg"><img src="img/gallery-shelves.jpg" alt="Shelves full of globes under bookshelves" loading="lazy"></a><figcaption>Collector's shelves</figcaption></figure>
+      <figure><a href="img/inside-desert-globe.jpg"><img src="img/inside-desert-globe.jpg" alt="Inside the desert globe, with the room outside giant all around" loading="lazy"></a><figcaption>From inside: the room, giant</figcaption></figure>
+      <figure><a href="img/inside-giant-terrarium.jpg"><img src="img/inside-giant-terrarium.jpg" alt="Inside a terrarium, looking out through the glass" loading="lazy"></a><figcaption>Inside a terrarium</figcaption></figure>
+      <figure><a href="img/create-helicopter.jpg"><img src="img/create-helicopter.jpg" alt="A Create helicopter built inside a globe" loading="lazy"></a><figcaption>A Create schematic in a globe</figcaption></figure>
+    </div>
+  </section>
+
+  <section id="crafting">
+    <h2>Crafting</h2>
+    <p class="lead">Every globe starts as a breath of glass. Make the pipe, blow a bulb, then put a world under it.</p>
+    <div class="recipes main">
+      <figure class="card"><img src="img/recipes/glassblower_pipe.gif" alt="Crafting recipe: a copper ingot over two iron ingots makes a glassblower's pipe" loading="lazy"><figcaption><b>1. Glassblower's pipe</b> A copper ingot over two iron ingots.</figcaption></figure>
+      <figure class="card"><img src="img/recipes/glass_bulb.gif" alt="Crafting recipe: the pipe and three glass make a glass bulb" loading="lazy"><figcaption><b>2. Glass bulb</b> The pipe and three glass. The pipe comes back.</figcaption></figure>
+      <figure class="card"><img src="img/recipes/globes.gif" alt="Crafting recipes for all eight globes, one after another: a glass bulb over what goes inside, over a base" loading="lazy"><figcaption><b>3. A globe</b> A bulb, over what goes inside, over a base. All eight take turns here.</figcaption></figure>
+    </div>
+    <div class="recipes">
+      <figure class="card"><img src="img/recipes/twin_globe.gif" alt="Crafting recipe: a globe, an empty globe of the same kind and an ender pearl make two globes" loading="lazy"><figcaption><b>Twin globes</b> A globe with a world, an empty one of the same kind and an ender pearl: two globes, one world.</figcaption></figure>
+      <figure class="card"><img src="img/recipes/globe_shelf.gif" alt="Crafting recipe: two sticks over three wooden slabs make two collector's shelves" loading="lazy"><figcaption><b>Collector's shelf</b> Two sticks over three wooden slabs.</figcaption></figure>
+      <figure class="card"><img src="img/recipes/globe_turntable.gif" alt="Crafting recipe: a blackstone slab, gold and redstone over dark oak planks make a turntable" loading="lazy"><figcaption><b>Turntable</b> A slab, gold and redstone, on dark oak.</figcaption></figure>
+      <figure class="card"><img src="img/recipes/handbook.gif" alt="Crafting recipe: a book and glass make the Globe Keeper's Handbook" loading="lazy"><figcaption><b>Globe Keeper's Handbook</b> A book and glass. Your first globe comes with one.</figcaption></figure>
     </div>
   </section>
 
@@ -226,7 +259,24 @@
 
 <footer class="wrap">Worlds in Glass is made by Nick Dekker · MIT licensed · Minecraft 1.21.1, NeoForge</footer>
 
+<dialog class="viewer" aria-label="Screenshot"><img alt=""><p></p></dialog>
+
 <script>
+  // Screenshots open big in a viewer; a click or Escape closes it.
+  (function () {
+    const viewer = document.querySelector('dialog.viewer');
+    if (!viewer || !viewer.showModal) return;
+    const img = viewer.querySelector('img'), caption = viewer.querySelector('p');
+    document.querySelectorAll('.shots a').forEach(a => a.addEventListener('click', e => {
+      e.preventDefault();
+      const small = a.querySelector('img');
+      img.src = a.href; img.alt = small.alt;
+      caption.textContent = a.parentElement.querySelector('figcaption').textContent;
+      viewer.showModal();
+    }));
+    viewer.addEventListener('click', () => viewer.close());
+  })();
+
   // A light snowfall over the header picture.
   (function () {
     const canvas = document.querySelector('.snow');

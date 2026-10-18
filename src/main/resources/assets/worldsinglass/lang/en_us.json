@@ -76,7 +76,7 @@
   "worldsinglass.handbook.page.9": "§lSeasons§r\n\nShake a snow globe and the year turns: winter, spring, summer, autumn.\n\nShaken into winter, real snow settles on everything inside. Shaken into spring, it melts away.",
   "worldsinglass.handbook.page.10": "§lCompany§r\n\nAnimals on a lead come in with you.\n\nFish go in from their bucket, into the globe's water (there must be some). A water bucket catches one back out.",
   "worldsinglass.handbook.page.11": "§lOn display§r\n\nA §8collector's shelf§r holds two globes and keeps up with what's built in them: two sticks over three slabs.\n\nA §8turntable§r spins whatever globe stands on it: a slab, gold and redstone, on dark oak.",
-  "worldsinglass.handbook.page.12": "§lBigger worlds§r\n\nA Create schematic, right-clicked onto an empty globe, is built inside it, and the globe grows to fit. In survival, you pay for every block.",
+  "worldsinglass.handbook.page.12": "§lBigger worlds§r\n\nA Create schematic, right-clicked onto an empty globe, is built inside it, and the globe grows to fit.",
   "worldsinglass.handbook.page.13": "§lGlobes in globes§r\n\nA globe can stand inside another, and you can go in deeper still. Leaving takes you out one glass at a time.",
   "item.worldsinglass.handbook": "Globe Keeper's Handbook",
   "block.worldsinglass.globe_shelf": "Collector's Shelf",
